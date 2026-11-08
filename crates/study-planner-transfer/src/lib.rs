@@ -1117,11 +1117,16 @@ mod tests {
     }
 
     fn temp_dir(tag: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
         let millis = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_millis());
+        let sequence = COUNTER.fetch_add(1, Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "study-planner-transfer-{tag}-{}-{millis}",
+            "study-planner-transfer-{tag}-{}-{millis}-{sequence}",
             std::process::id()
         ));
         fs::create_dir_all(&path).expect("crear directorio temporal");
@@ -1261,6 +1266,101 @@ mod tests {
 
         let written = target_attachments.join(sha256_hex(&blob));
         assert_eq!(fs::read(&written).expect("leer adjunto importado"), blob);
+
+        let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
+        assert_eq!(text, round_trip);
+
+        fs::remove_dir_all(source_attachments).unwrap();
+        fs::remove_dir_all(target_attachments).unwrap();
+    }
+
+    #[test]
+    fn phase_two_entities_round_trip_with_semantics() {
+        let (source, source_attachments, _) = fixture_with_all_tables();
+        let text = export_to_text(&source, &source_attachments).expect("exportar fixture");
+
+        for table in [
+            "academic_year",
+            "term",
+            "holiday",
+            "rotation_config",
+            "subject",
+            "class_slot",
+            "class_exception",
+            "attendance_record",
+        ] {
+            assert!(
+                text.contains(&format!("\"table\":\"{table}\"")),
+                "falta la tabla {table} en la exportación"
+            );
+        }
+
+        let target = migrated_store();
+        let target_attachments = temp_dir("phase-two-attachments");
+        import_from_text(&target, &target_attachments, &text, ImportMode::EmptyOnly)
+            .expect("importar fixture");
+
+        let conn = target.connection();
+        for (table, expected) in [
+            ("academic_year", 1),
+            ("term", 1),
+            ("holiday", 1),
+            ("rotation_config", 1),
+            ("subject", 1),
+            ("class_slot", 1),
+            ("class_exception", 1),
+            ("attendance_record", 1),
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("contar filas");
+            assert_eq!(count, expected, "filas de {table}");
+        }
+
+        let slot: (i64, String, String) = conn
+            .query_row(
+                "SELECT weekday, start_time, end_time FROM class_slot WHERE id = 'slot-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("leer franja");
+        assert_eq!(slot, (1, "08:00".to_string(), "09:30".to_string()));
+
+        let exception_kind: String = conn
+            .query_row(
+                "SELECT kind FROM class_exception WHERE id = 'exception-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("leer excepción");
+        assert_eq!(exception_kind, "moved");
+
+        let attendance_status: String = conn
+            .query_row(
+                "SELECT status FROM attendance_record WHERE id = 'attendance-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("leer asistencia");
+        assert_eq!(attendance_status, "present");
+
+        let rotation: (String, String, String) = conn
+            .query_row(
+                "SELECT mode, anchor_date, labels_json FROM rotation_config WHERE id = 'rotation-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("leer rotación");
+        assert_eq!(
+            rotation,
+            (
+                "weekly_ab".to_string(),
+                "2026-03-02".to_string(),
+                "[\"A\",\"B\"]".to_string()
+            )
+        );
 
         let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
         assert_eq!(text, round_trip);

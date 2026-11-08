@@ -413,7 +413,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 6 — UI académica:** sección «Materias» con año, término y materias, edición y borrado lógico con mensajes de conflicto. 18 tests de UI.
 - [x] **Paso 7 — UI de horario:** sección «Horario» con grilla semanal navegable, alta/edición/baja lógica de franjas, configuración de rotación, feriados, excepciones y registro de asistencia por clase, más solapamientos y umbral por materia. 20 tests de UI; `./scripts/check.sh` verde.
 - [x] **Paso 8 — Vista Hoy:** próxima clase y clases del día con datos reales, registro de asistencia y aviso de umbral. 21 tests de UI; `./scripts/check.sh` verde.
-- [ ] **Paso 9 — Transferencia:** verificar que las entidades nuevas ya viajan en el `.txt` v1 y ampliar fixtures/tests si hace falta.
+- [x] **Paso 9 — Transferencia:** fixture con las ocho tablas de Fase 2 y test que verifica exportación, importación, semántica (franja, excepción, asistencia, rotación) y round-trip byte a byte; se corrigió la unicidad de directorios temporales en tests concurrentes. 42 tests de Rust; `./scripts/check.sh` verde.
 - [ ] **Paso 10 — Cierre:** tests completos, documentación, changelog y verificación manual.
 
 ---
