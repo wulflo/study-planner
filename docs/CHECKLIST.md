@@ -1,7 +1,7 @@
-# Omega — Checklist persistente
+# Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 0 — Base técnica (en cierre)
+> **Fase actual:** 2 — Año académico, materias, horario y asistencia (en curso)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,15 +24,15 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 0 — Base técnica |
+| Fase | 2 — Año académico, materias, horario y asistencia (en curso) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
-| Formato de exportación | v1 (contrato, implementación en Fase 1) |
+| Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
 | Frontend | React 19 + TypeScript + Vite 8 |
-| Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled) |
+| Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
 | Updater | Desactivado (`UPDATER_IMPLEMENTED = false`) |
-| Bóveda real | Aún no creada; `/omega` y `/loglife` no fueron tocados |
+| Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions verde en `main`; check requerido «Tests y verificación» |
@@ -40,13 +40,13 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 ### Verificación vigente
 
 ```text
-npm run typecheck   ✅
-npm run lint        ✅
-npm test            ✅  2 tests
-npm run build       ✅
-cargo test -p omega-core -p omega-store -p omega-transfer   ✅  8 tests
+npm run check       ✅  17 tests de UI
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  30 tests
+cargo test -p study-planner                                 ✅  11 tests de bóveda
 cargo clippy (core/store/transfer) -- -D warnings           ✅
-cargo check -p omega                                        ✅
+cargo clippy -p study-planner --all-targets -- -D warnings   ✅
+cargo check -p study-planner                                 ✅
+./scripts/audit-network.sh                                   ✅
 ```
 
 > Los conteos pueden subir; lo importante es que no haya fallos.
@@ -73,14 +73,14 @@ cargo check -p omega                                        ✅
 
 ## Reglas para no romper el proyecto (no negociables)
 
-1. **Sin red en la app.** La webview no usa `http`, `fetch`, CDNs, fuentes remotas ni íconos remotos. La única excepción futura es el crate `omega-updater`, aislado y sin bindings JS.
+1. **Sin red en la app.** La webview no usa `http`, `fetch`, CDNs, fuentes remotas ni íconos remotos. La única excepción futura es el crate `study-planner-updater`, aislado y sin bindings JS.
 2. **Sin permisos nuevos sin justificación.** `src-tauri/capabilities/default.json` contiene `core:default` más los permisos explícitos de ventana necesarios para la barra de título propia (`minimize`, `toggle-maximize`, `close`, `start-dragging`, `start-resize-dragging`). Prohibido agregar `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` o `updater` al frontend.
 3. **Los archivos y la base los escribe Rust.** El frontend nunca recibe rutas ni handles de archivos.
-4. **Nada de `flutter_secure_storage`, cuentas, telemetría ni nube.** Omega es estrictamente local.
+4. **Nada de `flutter_secure_storage`, cuentas, telemetría ni nube.** Study Planner es estrictamente local.
 5. **La bóveda no se cifra.** Decisión explícita del usuario. No reintroducir contraseña de bóveda, Argon2id, AES-GCM ni recovery key.
 6. **No cambiar el esquema sin migración nueva.** `0001_initial.sql` es inmutable una vez publicado. Todo cambio va en `0002_*.sql` con checksum.
 7. **No cambiar el formato de exportación sin subir `export_format_version`.** El round-trip `exportar → importar → exportar` debe ser byte a byte idéntico dentro de la misma versión.
-8. **Nunca tocar `/omega` ni `/loglife` sin backup verificado y confirmación.** Las rutas se configuran una vez; no se cambian en silencio.
+8. **Nunca tocar `<bóveda>/omega` ni `<bóveda>/longlife` sin backup verificado y confirmación.** La raíz de la bóveda se elige una vez; no se cambia en silencio.
 9. **Nada de `sudo` para escribir la bóveda.** Si una ruta requiere permisos de root, es una ruta inválida.
 10. **Sin secretos en el repo.** Claves, passphrases, `.env`, bases y backups están en `.gitignore`. La passphrase de firma jamás pasa por el chat ni por un archivo junto a la clave.
 11. **Enteros de punto fijo.** Notas y pesos se guardan como enteros (centipuntos / basis points). No `REAL` para calificaciones.
@@ -97,15 +97,19 @@ cargo check -p omega                                        ✅
 ### Hecho
 
 - [x] Scaffold Tauri 2 + React 19 + TypeScript + Vite 8.
-- [x] Renombrar app a `Omega`, identificador `app.omega.studyplan`.
-- [x] Workspace Rust: `omega-core`, `omega-store`, `omega-transfer`, `omega-updater`, `src-tauri`.
-- [x] Esquema SQLite v1 completo (`crates/omega-store/migrations/0001_initial.sql`).
+- [x] Renombrar app a `Study Planner`, identificador `app.studyplanner.desktop`; crates `study-planner-*`.
+- [x] Workspace Rust: `study-planner-core`, `study-planner-store`, `study-planner-transfer`, `study-planner-updater`, `src-tauri`.
+- [x] Esquema SQLite v1 completo (`crates/study-planner-store/migrations/0001_initial.sql`).
 - [x] `Store` con WAL, claves foráneas, `synchronous=FULL`, timeout, migración con checksum SHA-256.
 - [x] `vault_id`, `schema_version`, `integrity_check`, `foreign_key_check`.
 - [x] Comandos Tauri `get_app_info` y `schema_self_check` (base en memoria).
 - [x] CSP de producción y desarrollo; `freezePrototype`; `withGlobalTauri: false`.
 - [x] Capacidad mínima: `core:default` + permisos de ventana para la barra de título; sin plugin `opener`.
-- [x] UI shell con navegación, estado técnico, marca e ícono SVG local.
+- [x] UI shell con navegación, estado técnico, marca e ícono local.
+- [x] Vistas provisionales para las secciones pendientes y modal de checklist del proyecto.
+- [x] Bóveda local elegible con selector nativo desde Rust; configuración en la app y diagnóstico sin exponer la ruta.
+- [x] Tareas persistentes con crear, completar, reabrir y eliminar mediante borrado lógico.
+- [x] Vista «Hoy» con pendientes reales y vista «Tareas» funcional.
 - [x] Ventana sin decoración nativa con barra de título propia: minimizar, maximizar/restaurar, cerrar, arrastre y bordes de redimensionado.
 - [x] Tests de UI y de Rust; `typecheck`, `lint`, `test`, `build` verdes.
 - [x] `docs/CHECKLIST.md` (este archivo).
@@ -117,11 +121,13 @@ cargo check -p omega                                        ✅
 - [x] Repositorio git inicializado, commit inicial local y remoto GitHub configurado (`main`).
 - [x] CI verde en GitHub y rama `main` protegida con el check «Tests y verificación».
 
-### Pendiente para cerrar Fase 0
+### Cierre de Fase 0
 
-- [ ] Revisar con el usuario la licencia **MPL-2.0** transitiva de Tauri (`option-ext` en runtime; `cssparser`, `selectors`, `dtoa-short` solo en build). Ver `THIRD_PARTY_LICENSES.md`.
-- [ ] Demo de Fase 0: abrir `npm run tauri dev`, verificar autodiagnóstico y navegación.
-- [ ] Confirmación explícita del usuario para pasar a Fase 1.
+- [x] Revisar con el usuario la licencia **MPL-2.0** transitiva de Tauri: aceptada como excepción acotada en **ADR-017**; no se modificaron los paquetes y se conservan avisos. Ver `THIRD_PARTY_LICENSES.md`.
+- [x] Demo de Fase 0: abrir `npm run tauri dev`, verificar autodiagnóstico y navegación.
+- [x] Confirmación explícita del usuario para pasar a Fase 1: «cierra la F0 y continua a F1».
+
+**Estado:** Fase 0 **cerrada** el 2026-11-08. La app abre, muestra esquema v1 e integridad `ok`, los tests están verdes y no hay secretos versionados.
 
 ### Criterio de aceptación de Fase 0
 
@@ -137,21 +143,23 @@ cargo check -p omega                                        ✅
 
 Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con un `.txt` canónico.
 
-- [ ] Módulo de rutas: valores por defecto `/omega` (bóveda) y `/loglife` (backups), configurables en primer arranque.
-- [ ] Validación de rutas: existen, son escribibles, no requieren `sudo`, no están dentro del repo.
-- [ ] Asistente de primer arranque; nunca cambiar rutas en silencio.
-- [ ] Apertura de bóveda con lock file y detección de otra instancia.
-- [ ] Migración con backup previo obligatorio y restauración automática si falla.
-- [ ] Backups con API de backup online de SQLite, checksum y verificación por `integrity_check`.
-- [ ] Retención diaria/semanal/mensual según settings.
-- [ ] Restauración desde backup con confirmación y backup del estado actual.
-- [ ] Implementar exportador canónico v1 y importador.
-- [ ] Adjuntos embebidos por defecto, con SHA-256 verificado.
-- [ ] Importación en bóveda vacía; reemplazo total solo con backup + confirmación.
-- [ ] Fixtures de exportación y test de round-trip byte a byte.
-- [ ] Tests de checksum corrupto, versión futura, adjunto faltante y backup interrumpido.
-- [ ] Pantalla «Bóveda»: estado, rutas, backup manual, exportar, importar, restaurar.
-- [ ] Registrar eventos de backup/export/import en el log local (sin datos sensibles innecesarios).
+- [x] Selección de la raíz de la bóveda en el primer arranque; la app crea `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`.
+- [x] Snapshots diarios en `<bóveda>/longlife/<dispositivo>/<AAAA-MM-DD>`, retención de 7 por dispositivo.
+- [x] Validación de rutas: existen, son escribibles, no requieren `sudo`, no están dentro del repo.
+- [x] Asistente de primer arranque; nunca cambiar rutas en silencio. La UI obliga a elegir carpeta y «Cambiar carpeta» siempre pide confirmación explícita.
+- [x] Apertura de bóveda con lock file y detección de otra instancia.
+- [x] Migración con backup previo obligatorio y restauración automática si falla.
+- [x] Backups con API de backup online de SQLite, checksum y verificación por `integrity_check`.
+- [x] Restauración desde backup con confirmación y backup del estado actual (`pre-restore-*.db`).
+- [x] Implementar exportador canónico v1 y importador.
+- [x] Adjuntos embebidos por defecto, con SHA-256 verificado.
+- [x] Importación en bóveda vacía; el modo reemplazo existe en el núcleo pero la UI no lo habilita.
+- [x] Fixtures de exportación y test de round-trip byte a byte.
+- [x] Tests de checksum corrupto, versión futura, adjunto faltante, columna inválida, FK inválida y rollback.
+- [x] Pantalla «Bóveda» con estado, diagnóstico y cambio de carpeta.
+- [x] Backup manual desde la pantalla «Bóveda» (botón «Crear backup ahora»).
+- [x] Exportar, importar y restaurar desde la pantalla «Bóveda».
+- [x] Registrar eventos de backup/export/import/restore en `<omega>/study-planner.log` (sin rutas absolutas ni datos sensibles).
 
 **Aceptación:** crear bóveda, escribir un registro de prueba, exportar, importar en bóveda vacía, exportar de nuevo y obtener bytes idénticos; restaurar un backup verificado.
 
@@ -177,7 +185,8 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 - [ ] CRUD de exámenes, temas y pesos.
 - [ ] Escalas de nota, categorías y entradas; promedio ponderado y descarte del menor.
-- [ ] CRUD de tareas, subtareas, etiquetas, prioridad, recurrencia y estados.
+- [x] CRUD básico de tareas con estados `pending` / `in_progress` / `done` y borrado lógico.
+- [ ] Subtareas, etiquetas, prioridad, recurrencia, vencimientos y filtros de tareas.
 - [ ] Filtros guardados y búsqueda FTS local.
 - [ ] Journal de undo con expiración.
 - [ ] Vistas de calendario, exámenes, notas y tareas.
@@ -208,7 +217,7 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 - [ ] Generar clave minisign y passphrase localmente (protocolo en `docs/KEYS.md`).
 - [ ] Custodia en VeraCrypt + copia offline + Drive cifrado; passphrase en Bitwarden + papel.
 - [ ] Configurar secrets de GitHub con `gh secret set` desde archivos, nunca en YAML.
-- [ ] Implementar `omega-updater` con URL HTTPS fija en compilación.
+- [ ] Implementar `study-planner-updater` con URL HTTPS fija en compilación.
 - [ ] Verificación de firma obligatoria; rechazar manifiestos sin firma válida.
 - [ ] Descarga, verificación, instalación y rollback en Linux AppImage.
 - [ ] Sin bindings JS; sin datos de usuario en la petición.
@@ -227,6 +236,7 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 |---|---|
 | Plataforma | Desktop Linux primero; Tauri 2. Windows/macOS no prioritarios |
 | Móvil | Fuera de alcance inicial; Tauri updater no soporta Android/iOS |
+| Estructura de bóveda | `<raíz>/omega` (datos vivos + backup principal) y `<raíz>/longlife/<dispositivo>/<AAAA-MM-DD>` (snapshots, 7 por dispositivo) |
 | Frontend | React + TypeScript + Vite + Zustand + date-fns + Material Color Utilities |
 | Persistencia | SQLite vía `rusqlite` en Rust; sin `tauri-plugin-sql` |
 | Cifrado de bóveda | **No** (decisión explícita del usuario) |
@@ -242,13 +252,13 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 ## Pendientes de decisión del usuario
 
-- [ ] ¿Se acepta la dependencia transitiva **MPL-2.0** de Tauri o se busca una alternativa? (ver licencias).
+- [x] ¿Se acepta la dependencia transitiva **MPL-2.0** de Tauri o se busca una alternativa? Aceptada en **ADR-017** (2026-11-08), sin modificar los paquetes.
 - [ ] Confirmar URL HTTPS fija del updater. Tentativa: `https://github.com/wulflo/study-planner/releases/latest/download/latest.json`.
 - [ ] ¿Firma de releases en CI o firma offline? Recomendado: offline.
 - [ ] Custodia final de la clave y su passphrase (VeraCrypt, copia offline, Drive cifrado).
 - [x] Repositorio publicado en GitHub: [`wulflo/study-planner`](https://github.com/wulflo/study-planner), público, sin datos ni secretos.
-- [ ] Confirmar rutas definitivas `/omega` y `/loglife` o elegir otras.
-- [ ] Evaluar la alerta de Dependabot de `glib` 0.18.5 (unsoundness en iteradores de `VariantStrIter`, severidad media): viene de `gtk 0.18` en la pila de Tauri y la corrección exige `glib 0.20`, es decir, una actualización mayor de Tauri/gtk-rs. No se usa directamente en el código de Omega.
+- [x] Estructura de bóveda `<raíz>/omega` + `<raíz>/longlife` confirmada en **ADR-016**.
+- [ ] Evaluar la alerta de Dependabot de `glib` 0.18.5 (unsoundness en iteradores de `VariantStrIter`, severidad media): viene de `gtk 0.18` en la pila de Tauri y la corrección exige `glib 0.20`, es decir, una actualización mayor de Tauri/gtk-rs. No se usa directamente en el código de Study Planner.
 
 ---
 
@@ -273,9 +283,11 @@ npm run check:all
 
 # Rust
 cargo fmt --all -- --check
-cargo clippy -p omega-core -p omega-store -p omega-transfer --all-targets -- -D warnings
-cargo test -p omega-core -p omega-store -p omega-transfer
-cargo check -p omega
+cargo clippy -p study-planner-core -p study-planner-store -p study-planner-transfer --all-targets -- -D warnings
+cargo clippy -p study-planner --all-targets -- -D warnings
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer
+cargo test -p study-planner
+cargo check -p study-planner
 
 # Empaquetado (Fase 5)
 npm run tauri build
@@ -309,10 +321,10 @@ Resumen; detalle en `docs/OFFLINE.md`.
 │   ├── tauri.conf.json          CSP, ventana, bundle
 │   └── capabilities/default.json permisos mínimos
 ├── crates/
-│   ├── omega-core/              dominio puro, constantes, IDs
-│   ├── omega-store/             SQLite, migraciones, backups
-│   ├── omega-transfer/          exportación/importación canónica
-│   └── omega-updater/           red aislada (Fase 5)
+│   ├── study-planner-core/              dominio puro, constantes, IDs
+│   ├── study-planner-store/             SQLite, migraciones, backups
+│   ├── study-planner-transfer/          exportación/importación canónica
+│   └── study-planner-updater/           red aislada (Fase 5)
 ├── docs/                        documentación persistente
 ├── scripts/                     check y auditoría de red
 ├── fixtures/export/             fixtures de round-trip
@@ -333,14 +345,83 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - Se publicó el repositorio público [`wulflo/study-planner`](https://github.com/wulflo/study-planner) y se subió `main`.
 - Se configuraron descripción, temas, issues, auto-merge, borrado de rama al mergear, alertas de vulnerabilidades y protección de `main` con CI requerido.
 - Se integró una barra de título propia con minimizar, maximizar/restaurar y cerrar, más arrastre y bordes de redimensionado.
-- Pendiente: revisión MPL, demo y confirmación para Fase 1.
+- Se renombró el proyecto de `Omega` a `Study Planner`: crates `study-planner-*`, identifier `app.studyplanner.desktop`, magic `STUDY-PLANNER-EXPORT`.
+- Se fijó la estructura de bóveda `<raíz>/omega` + `<raíz>/longlife/<dispositivo>/<AAAA-MM-DD>` siguiendo el patrón de Better Tracker.
+- Pendiente: revisión MPL y confirmación para Fase 1.
+
+### 2026-11-08 — Revisión en vivo y logo
+
+- Se verificó la app en Tauri: esquema v1, integridad `ok`, 0 violaciones de claves foráneas y formato de exportación v1.
+- Se detectó que la navegación solo cambiaba la etiqueta del hero; se agregaron vistas provisionales por sección con su fase y alcance.
+- «Ver checklist» abre un modal con el resumen de Fase 0; «Abrir bóveda» queda deshabilitado y señalizado como Fase 1 (luego reemplazado por el corte funcional).
+- Se integró el logo propio en la barra de título, el favicon y los íconos de compilación generados con `tauri icon`.
+- Demo de Fase 0 verificada; queda la confirmación del usuario y la revisión MPL.
+
+### 2026-11-08 — Corte funcional: bóveda y tareas
+
+- Se agregó la selección de bóveda con selector nativo desde Rust (`DialogExt`); la webview no recibe la ruta ni tiene permiso `dialog`.
+- La raíz se guarda en `vault.json` dentro de la configuración de la app; la base se abre en `<bóveda>/omega/study-planner.db` con migración e informe de integridad.
+- Se agregaron `Task`, `TaskStatus` y validación de títulos en `study-planner-core`, más el repositorio con borrado lógico en `study-planner-store`.
+- Se agregaron los comandos `get_vault_status`, `choose_vault`, `list_tasks`, `create_task`, `set_task_done` y `delete_task`.
+- «Bóveda» y «Tareas» dejaron de ser placeholders; «Hoy» muestra los pendientes reales.
+- Verificación en vivo: bóveda abierta con esquema v1, integridad `ok` y 0 violaciones de claves foráneas; tareas visibles después de reiniciar; completar, reabrir y eliminar actualizaron la base. La creación quedó cubierta por tests de UI y del store.
+- `npm run check` con 12 tests de UI; 15 tests de Rust; clippy de `src-tauri`; `.deb` y AppImage regenerados con el corte funcional.
+- Se limpiaron los datos y la configuración de la bóveda usados en la verificación manual: el próximo arranque vuelve a pedir una carpeta.
+
+### 2026-11-08 — Cierre F0 y corte F1: backups verificados y snapshots
+
+- Se revisó y aceptó la **MPL-2.0** transitiva de Tauri como excepción acotada (**ADR-017**); no se modificaron los paquetes y se documentaron las obligaciones de avisos.
+- **Fase 0 cerrada** con confirmación explícita del usuario. Queda registrado que la exportación `.txt` y el updater siguen en fases posteriores.
+- Se habilitó `rusqlite` con la feature `backup` y se agregó `Store::backup_to` / `Store::verify_backup`: backup online, escritura `.partial`, verificación previa al renombre atómico, SHA-256, `integrity_check` y `foreign_key_check`.
+- Se agregó validación de la raíz: existe, es carpeta, es escribible, no es la raíz del sistema y no está dentro del repositorio.
+- Se agregó un lock de archivo en `<omega>/.study-planner.lock`; una segunda instancia recibe un error explícito y no abre la bóveda.
+- La apertura migra con backup previo verificado (`pre-migration-vN-*.db`) y restaura automáticamente si la migración falla.
+- Se mantiene un backup principal verificado en `<omega>/backup/study-planner.db`.
+- Se crean snapshots diarias en `<longlife>/<dispositivo>/<AAAA-MM-DD>` con `snapshot.json`; las incompletas o de esquema viejo se descartan y se conservan las últimas 7.
+- La vista «Bóveda» muestra tamaño, integridad, fecha, SHA-256 del backup y snapshots, con el botón «Crear backup ahora».
+- Verificación en vivo con una bóveda temporal fuera del repo: estructura correcta, permisos `0700`/`0600`, backup y snapshot con el **mismo SHA-256**, integridad `ok`, 0 violaciones de FK; el botón actualizó el backup y mostró el aviso de éxito.
+- Tests: 13 de UI, 6 de core, 11 de store y 8 de bóveda (26 de Rust en total). `npm run check`, `cargo fmt`, clippy y tests verdes.
+- Se actualizaron `scripts/check.sh` y `package.json` para incluir clippy y tests del host Tauri, y `scripts/audit-network.sh` para aceptar `tauri-plugin-dialog` solo desde Rust (sin permiso `dialog:` ni import del frontend). La auditoría pasa completa.
+- Se regeneraron los artefactos con `npm run tauri build`: `.deb` (3.16 MiB), `.rpm` (3.17 MiB) y AppImage (109.05 MiB).
+- Se limpió la bóveda temporal y `vault.json`; el próximo arranque vuelve a pedir carpeta.
+
+### 2026-11-08 — F1 cerrada: transferencia canónica, restauración y log local
+
+- Se completó `study-planner-transfer`: exportación canónica de todas las tablas, adjuntos embebidos en base64 con SHA-256, parseo estricto de cabecera/cuerpo/orden, importación transaccional y reconstrucción de FTS.
+- La importación normal es `EmptyOnly`: se rechaza una bóveda con datos de dominio. El modo `Replace` existe en el núcleo, pero la UI no lo habilita hasta definir backup y confirmación específicos.
+- Se agregó `hasData` a `VaultStatus` para que la UI bloquee la importación cuando ya hay datos.
+- Comandos nuevos: `export_vault`, `import_vault` y `restore_main_backup`. Los selectores de archivo se abren solo desde Rust; la webview nunca recibe rutas.
+- La restauración verifica el backup principal, crea un backup `pre-restore-*.db`, reemplaza la base, reabre la bóveda y conserva el lock.
+- Cada backup, exportación, importación, error y restauración se registra en `<omega>/study-planner.log` con timestamp UTC, sin rutas absolutas.
+- La vista «Bóveda» incorpora exportación, importación solo en bóveda vacía y restauración con confirmación explícita.
+- Tests: 17 de UI, 6 de core, 11 de store, 13 de transfer y 11 de bóveda (41 de Rust). `./scripts/check.sh` y `./scripts/audit-network.sh` pasan completos.
+- Aceptación verificada: exportar → importar en bóveda vacía → exportar produce bytes idénticos; también con todas las tablas, borrados lógicos y un adjunto. La restauración de un backup verificado está cubierta por test y por el comando de UI.
+- Artefactos de F1 regenerados con `npm run tauri build`: `.deb` (3.25 MiB), `.rpm` (3.25 MiB) y AppImage (109.12 MiB).
+
+### 2026-11-08 — Fase 2 en curso (bitácora por pasos)
+
+> Esta bitácora se actualiza **después de cada paso**, antes de seguir, para poder
+> retomar el trabajo si se corta la conexión o la sesión. Cada paso termina con
+> `./scripts/check.sh` en verde y un commit local pequeño.
+
+- [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (17 tests de UI y 41 de Rust) antes de tocar nada.
+- [ ] **Paso 1 — Modelos puros:** año académico, término, materia, franja horaria, feriado, excepción, asistencia y rotación con validaciones y matemática de fechas propia (sin dependencias nuevas).
+- [ ] **Paso 2 — Persistencia académica:** repositorios CRUD con borrado lógico para año, término y materia; tests de validación y FK.
+- [ ] **Paso 3 — Persistencia de horario:** franjas, rotaciones, feriados, excepciones y asistencia; tests.
+- [ ] **Paso 4 — Cálculo semanal:** ocurrencias efectivas, rotaciones, feriados, excepciones, próxima clase, solapamientos y porcentaje de asistencia; tests puros.
+- [ ] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado en `src/lib/ipc.ts`.
+- [ ] **Paso 6 — UI académica:** sección «Materias» con año, término y materias.
+- [ ] **Paso 7 — UI de horario:** vista semanal, alta de franjas, feriados, excepciones, asistencia y umbral.
+- [ ] **Paso 8 — Vista Hoy:** próxima clase y asistencia del día con datos reales.
+- [ ] **Paso 9 — Transferencia:** verificar que las entidades nuevas ya viajan en el `.txt` v1 y ampliar fixtures/tests si hace falta.
+- [ ] **Paso 10 — Cierre:** tests completos, documentación, changelog y verificación manual.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Verificar el CI en GitHub (`main`) y la configuración del repositorio.
-2. Hacer la demo de Fase 0 con `npm run tauri dev`.
-3. Resolver la decisión sobre MPL-2.0 y las rutas `/omega` y `/loglife`.
-4. Confirmar el cierre de Fase 0.
-5. Iniciar Fase 1 por el módulo de rutas y el backup verificado, antes de la UI.
+1. Regenerar los artefactos de F1 y hacer una verificación manual final de exportar/importar/restaurar en una bóveda temporal.
+2. Abrir Fase 2: año académico, términos, materias y horarios.
+3. Rotaciones A/B, feriados, excepciones y asistencia.
+4. Vista semanal y vista «Hoy» con datos reales de horario.
+5. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.
