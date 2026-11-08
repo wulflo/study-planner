@@ -1474,6 +1474,155 @@ code,
   font-weight: 600;
 }
 
+/* Tareas, notas, exámenes y calendario (Fase 3). */
+.priority-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.priority-chip.priority-high {
+  background: color-mix(in srgb, var(--md-sys-color-tertiary) 20%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+
+.priority-chip.priority-urgent {
+  background: color-mix(in srgb, var(--md-sys-color-error) 18%, transparent);
+  color: var(--md-sys-color-error);
+}
+
+.tag-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.74rem;
+}
+
+.tag-chip input[type="checkbox"] {
+  margin: 0;
+}
+
+.grade-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 150px;
+  padding: 8px 14px;
+  border-radius: var(--md-radius-sm);
+  background: var(--md-sys-color-surface-container);
+}
+
+.grade-summary strong {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.grade-summary .quiet {
+  font-size: 0.74rem;
+}
+
+.exam-item {
+  gap: 8px;
+}
+
+.exam-item > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-radius-lg);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.calendar-weekday {
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 96px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-radius-sm);
+  background: var(--md-sys-color-surface-container-lowest);
+  overflow: hidden;
+}
+
+.calendar-day.is-outside {
+  opacity: 0.45;
+}
+
+.calendar-day.is-today {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: inset 0 0 0 1px var(--md-sys-color-primary);
+}
+
+.calendar-day-number {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.calendar-event {
+  display: block;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event.is-exam {
+  background: color-mix(in srgb, var(--md-sys-color-tertiary) 22%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+
+.calendar-event.is-task {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+
 @media (max-width: 900px) {
   .academic-grid {
     grid-template-columns: 1fr;
@@ -1481,5 +1630,14 @@ code,
 
   .schedule-grid {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-day {
+    min-height: 72px;
+    padding: 4px;
+  }
+
+  .calendar-event {
+    font-size: 0.62rem;
   }
 }

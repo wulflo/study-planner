@@ -16,6 +16,46 @@ const api = vi.hoisted(() => ({
   createTask: vi.fn(),
   setTaskDone: vi.fn(),
   deleteTask: vi.fn(),
+  createTaskFull: vi.fn(),
+  updateTask: vi.fn(),
+  setTaskStatus: vi.fn(),
+  searchTasks: vi.fn(),
+  listTags: vi.fn(),
+  createTag: vi.fn(),
+  updateTag: vi.fn(),
+  deleteTag: vi.fn(),
+  setTaskTags: vi.fn(),
+  listSavedFilters: vi.fn(),
+  createSavedFilter: vi.fn(),
+  updateSavedFilter: vi.fn(),
+  deleteSavedFilter: vi.fn(),
+  listUndoEntries: vi.fn(),
+  undoEntry: vi.fn(),
+  purgeExpiredUndo: vi.fn(),
+  listExams: vi.fn(),
+  createExam: vi.fn(),
+  updateExam: vi.fn(),
+  deleteExam: vi.fn(),
+  listTopics: vi.fn(),
+  createTopic: vi.fn(),
+  updateTopic: vi.fn(),
+  deleteTopic: vi.fn(),
+  listExamTopics: vi.fn(),
+  linkExamTopic: vi.fn(),
+  unlinkExamTopic: vi.fn(),
+  listGradeScales: vi.fn(),
+  createGradeScale: vi.fn(),
+  updateGradeScale: vi.fn(),
+  deleteGradeScale: vi.fn(),
+  listGradeCategories: vi.fn(),
+  createGradeCategory: vi.fn(),
+  updateGradeCategory: vi.fn(),
+  deleteGradeCategory: vi.fn(),
+  listGradeEntries: vi.fn(),
+  createGradeEntry: vi.fn(),
+  updateGradeEntry: vi.fn(),
+  deleteGradeEntry: vi.fn(),
+  getSubjectGrade: vi.fn(),
   listAcademicYears: vi.fn(),
   createAcademicYear: vi.fn(),
   updateAcademicYear: vi.fn(),
@@ -121,18 +161,33 @@ const vaultEmpty = {
 
 const pendingTask = {
   id: "t1",
+  subjectId: null,
+  parentTaskId: null,
+  taskType: "task",
   title: "Repasar matrices",
+  description: null,
+  startDate: null,
+  dueDate: null,
+  dueTime: null,
+  priority: "medium",
+  important: false,
+  estimateMinutes: null,
   status: "pending",
-  createdAt: "2026-11-08T10:00:00.000Z",
   completedAt: null,
+  recurrence: null,
+  tags: [],
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
 };
 
 const doneTask = {
+  ...pendingTask,
   id: "t2",
   title: "Entregar práctico",
   status: "done",
-  createdAt: "2026-11-07T10:00:00.000Z",
   completedAt: "2026-11-08T09:00:00.000Z",
+  createdAt: "2026-11-07T10:00:00.000Z",
+  updatedAt: "2026-11-08T09:00:00.000Z",
 };
 
 function todayIso(): string {
@@ -175,6 +230,120 @@ const algebra = {
   attendanceMinBp: 7500,
   createdAt: "2026-11-08T10:00:00.000Z",
   updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const examTag = {
+  id: "tag-1",
+  name: "examen",
+  color: null,
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const gradeScale = {
+  id: "scale-1",
+  subjectId: "subject-1",
+  name: "Escala 0–100",
+  minCp: 0,
+  maxCp: 10000,
+  passCp: 6000,
+  precision: 2,
+  isDefault: true,
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const gradeCategories = [
+  {
+    id: "cat-1",
+    subjectId: "subject-1",
+    scaleId: "scale-1",
+    name: "Parciales",
+    weightBp: 6000,
+    dropLowest: 1,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  },
+  {
+    id: "cat-2",
+    subjectId: "subject-1",
+    scaleId: "scale-1",
+    name: "Trabajos",
+    weightBp: 4000,
+    dropLowest: 0,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  },
+];
+
+const gradeEntries = [
+  {
+    id: "entry-1",
+    subjectId: "subject-1",
+    categoryId: "cat-1",
+    examId: null,
+    title: "Parcial 1",
+    scoreCp: 9000,
+    maxCp: 10000,
+    weightBp: null,
+    date: "2026-04-01",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  },
+  {
+    id: "entry-2",
+    subjectId: "subject-1",
+    categoryId: "cat-1",
+    examId: null,
+    title: "Parcial 2",
+    scoreCp: 10000,
+    maxCp: 10000,
+    weightBp: null,
+    date: "2026-05-01",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  },
+  {
+    id: "entry-3",
+    subjectId: "subject-1",
+    categoryId: "cat-2",
+    examId: null,
+    title: "Trabajo 1",
+    scoreCp: 8000,
+    maxCp: 10000,
+    weightBp: null,
+    date: "2026-05-15",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  },
+];
+
+const subjectGrade = {
+  subjectId: "subject-1",
+  scaleId: "scale-1",
+  finalBp: 9200,
+  finalCp: 9200,
+  passed: true,
+  categories: [
+    {
+      categoryId: "cat-1",
+      categoryName: "Parciales",
+      weightBp: 6000,
+      entries: 2,
+      dropped: 1,
+      percentBp: 10000,
+      averageCp: 10000,
+    },
+    {
+      categoryId: "cat-2",
+      categoryName: "Trabajos",
+      weightBp: 4000,
+      entries: 1,
+      dropped: 0,
+      percentBp: 8000,
+      averageCp: 8000,
+    },
+  ],
 };
 
 const classSlot = {
@@ -259,6 +428,79 @@ beforeEach(() => {
     completedAt: "2026-11-08T11:00:00.000Z",
   });
   api.deleteTask.mockResolvedValue(undefined);
+  api.createTaskFull.mockResolvedValue(pendingTask);
+  api.updateTask.mockResolvedValue(pendingTask);
+  api.setTaskStatus.mockResolvedValue(pendingTask);
+  api.searchTasks.mockResolvedValue([pendingTask, doneTask]);
+  api.listTags.mockResolvedValue([]);
+  api.createTag.mockResolvedValue({
+    id: "tag-1",
+    name: "mate",
+    color: null,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.updateTag.mockResolvedValue({
+    id: "tag-1",
+    name: "mate",
+    color: null,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.deleteTag.mockResolvedValue(undefined);
+  api.setTaskTags.mockResolvedValue(undefined);
+  api.listSavedFilters.mockResolvedValue([]);
+  api.createSavedFilter.mockResolvedValue({
+    id: "filter-1",
+    screen: "tasks",
+    name: "Urgentes",
+    queryJson: "{}",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.updateSavedFilter.mockResolvedValue({
+    id: "filter-1",
+    screen: "tasks",
+    name: "Urgentes",
+    queryJson: "{}",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.deleteSavedFilter.mockResolvedValue(undefined);
+  api.listUndoEntries.mockResolvedValue([]);
+  api.undoEntry.mockResolvedValue(pendingTask);
+  api.purgeExpiredUndo.mockResolvedValue(0);
+  api.listExams.mockResolvedValue([]);
+  api.createExam.mockResolvedValue(null);
+  api.updateExam.mockResolvedValue(null);
+  api.deleteExam.mockResolvedValue(undefined);
+  api.listTopics.mockResolvedValue([]);
+  api.createTopic.mockResolvedValue(null);
+  api.updateTopic.mockResolvedValue(null);
+  api.deleteTopic.mockResolvedValue(undefined);
+  api.listExamTopics.mockResolvedValue([]);
+  api.linkExamTopic.mockResolvedValue(null);
+  api.unlinkExamTopic.mockResolvedValue(undefined);
+  api.listGradeScales.mockResolvedValue([]);
+  api.createGradeScale.mockResolvedValue(null);
+  api.updateGradeScale.mockResolvedValue(null);
+  api.deleteGradeScale.mockResolvedValue(undefined);
+  api.listGradeCategories.mockResolvedValue([]);
+  api.createGradeCategory.mockResolvedValue(null);
+  api.updateGradeCategory.mockResolvedValue(null);
+  api.deleteGradeCategory.mockResolvedValue(undefined);
+  api.listGradeEntries.mockResolvedValue([]);
+  api.createGradeEntry.mockResolvedValue(null);
+  api.updateGradeEntry.mockResolvedValue(null);
+  api.deleteGradeEntry.mockResolvedValue(undefined);
+  api.getSubjectGrade.mockResolvedValue({
+    subjectId: "subject-1",
+    scaleId: null,
+    finalBp: null,
+    finalCp: null,
+    passed: null,
+    categories: [],
+  });
   api.chooseVault.mockResolvedValue(vaultReady);
   api.createBackup.mockResolvedValue(vaultReady);
   api.exportVault.mockResolvedValue({
@@ -412,7 +654,7 @@ describe("App con IPC de Tauri", () => {
         name: "Reabrir «Repasar matrices»",
       }),
     ).toBeChecked();
-    expect(screen.getByText("Hechas")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hechas" })).toBeInTheDocument();
   });
 
   it("elimina una tarea", async () => {
@@ -730,5 +972,89 @@ describe("App con IPC de Tauri", () => {
       ),
     );
     expect(await screen.findByText("100.0% / mín. 75.0%")).toBeInTheDocument();
+  });
+
+  it("muestra el promedio ponderado y el descarte del menor", async () => {
+    const user = userEvent.setup();
+    api.listGradeScales.mockResolvedValue([gradeScale]);
+    api.listGradeCategories.mockResolvedValue(gradeCategories);
+    api.listGradeEntries.mockResolvedValue(gradeEntries);
+    api.getSubjectGrade.mockResolvedValue(subjectGrade);
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Notas" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Notas", level: 1 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("92.00")).toBeInTheDocument();
+    expect(screen.getByText("92.0 % · aprobada")).toBeInTheDocument();
+    expect(screen.getByText("Parciales · 60.0 %")).toBeInTheDocument();
+    expect(screen.getByText("100.0 % · descarta 1")).toBeInTheDocument();
+    expect(screen.getByText("Trabajos · 40.0 %")).toBeInTheDocument();
+    expect(screen.getByText("80.0 %")).toBeInTheDocument();
+    expect(api.getSubjectGrade).toHaveBeenCalledWith("subject-1");
+  });
+
+  it("busca tareas por texto en la bóveda", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Tareas" }));
+    const search = await screen.findByPlaceholderText(
+      "Buscar en título, descripción o etiquetas",
+    );
+    api.searchTasks.mockResolvedValue([pendingTask]);
+
+    await user.type(search, "matrices");
+
+    await waitFor(() =>
+      expect(api.searchTasks).toHaveBeenLastCalledWith({ text: "matrices" }),
+    );
+    expect(await screen.findByText("Repasar matrices")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("Entregar práctico")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("filtra tareas por etiqueta", async () => {
+    const user = userEvent.setup();
+    api.listTags.mockResolvedValue([examTag]);
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Tareas" }));
+    const tagFilter = await screen.findByLabelText("Etiqueta");
+    api.searchTasks.mockResolvedValue([
+      {
+        ...pendingTask,
+        id: "t3",
+        title: "Leer apunte de examen",
+        tags: [examTag],
+      },
+    ]);
+
+    await user.selectOptions(tagFilter, "tag-1");
+
+    await waitFor(() =>
+      expect(api.searchTasks).toHaveBeenLastCalledWith({ tagId: "tag-1" }),
+    );
+    expect(
+      await screen.findByText("Leer apunte de examen"),
+    ).toBeInTheDocument();
+  });
+
+  it("abre la vista de exámenes y temas", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Exámenes" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Exámenes", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Nuevo examen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear tema" })).toBeDisabled();
   });
 });

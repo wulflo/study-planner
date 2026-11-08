@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { WindowControls } from "./components/WindowControls";
 import {
@@ -21,7 +21,11 @@ import {
   type VaultStatus,
 } from "./lib/ipc";
 import { AcademicView } from "./views/AcademicView";
+import { CalendarView } from "./views/CalendarView";
+import { ExamsView } from "./views/ExamsView";
+import { GradesView } from "./views/GradesView";
 import { ScheduleView } from "./views/ScheduleView";
+import { TasksView } from "./views/TasksView";
 import { TodaySchedule } from "./views/TodaySchedule";
 import "./styles.css";
 
@@ -42,7 +46,14 @@ const navItems = [
 type SectionId = (typeof navItems)[number]["id"];
 type PlaceholderId = Exclude<
   SectionId,
-  "today" | "tasks" | "vault" | "subjects" | "schedule"
+  | "today"
+  | "tasks"
+  | "vault"
+  | "subjects"
+  | "schedule"
+  | "calendar"
+  | "exams"
+  | "grades"
 >;
 
 interface SectionInfo {
@@ -52,39 +63,6 @@ interface SectionInfo {
 }
 
 const sectionInfo: Record<PlaceholderId, SectionInfo> = {
-  calendar: {
-    phase: "Fase 3",
-    summary:
-      "Exámenes, tareas y entregas en una línea de tiempo local, sin sincronización externa.",
-    features: [
-      "Calendario mensual y semanal",
-      "Exámenes y entregas con prioridad",
-      "Tareas recurrentes y filtros guardados",
-      "Búsqueda local en texto y etiquetas",
-    ],
-  },
-  exams: {
-    phase: "Fase 3",
-    summary:
-      "Exámenes, temas y pesos para preparar cada evaluación con un plan claro.",
-    features: [
-      "CRUD de exámenes y temas",
-      "Pesos y escala de evaluación",
-      "Relación con materias y fechas",
-      "Repaso vinculado a cada tema",
-    ],
-  },
-  grades: {
-    phase: "Fase 3",
-    summary:
-      "Notas por categorías, promedio ponderado y descarte del menor, con enteros de punto fijo.",
-    features: [
-      "Escalas de nota configurables",
-      "Categorías y entradas de evaluación",
-      "Promedio ponderado determinista",
-      "Descarte del menor según regla",
-    ],
-  },
   strengths: {
     phase: "Fase 4",
     summary:
@@ -129,6 +107,7 @@ const projectChecklist = [
   { done: true, label: "Backups verificados y restauración" },
   { done: true, label: "Exportación e importación canónica" },
   { done: true, label: "Materias, horario, rotaciones y asistencia" },
+  { done: true, label: "Exámenes, notas, tareas avanzadas y calendario" },
 ];
 
 const iconPaths: Record<string, string> = {
@@ -502,159 +481,6 @@ function TodayView({
         </ul>
         {taskError ? <p className="notice error">{taskError}</p> : null}
       </section>
-    </>
-  );
-}
-
-function TasksView({
-  vault,
-  tasks,
-  error,
-  onGoVault,
-  onCreate,
-  onToggle,
-  onDelete,
-}: {
-  vault: VaultStatus | null;
-  tasks: Task[];
-  error: string | null;
-  onGoVault: () => void;
-  onCreate: (title: string) => Promise<boolean>;
-  onToggle: (task: Task) => void;
-  onDelete: (task: Task) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const ready = vault?.ready === true;
-  const openTasks = tasks.filter((task) => task.status !== "done");
-  const doneTasks = tasks.filter((task) => task.status === "done");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = title.trim();
-    if (trimmed.length === 0 || submitting) {
-      return;
-    }
-
-    setSubmitting(true);
-    const created = await onCreate(trimmed);
-    setSubmitting(false);
-    if (created) {
-      setTitle("");
-    }
-  }
-
-  return (
-    <>
-      <section className="hero section-hero">
-        <p className="eyebrow">Tareas · datos locales</p>
-        <h1>Tareas</h1>
-        <p className="hero-copy">
-          Anotá lo que tenés que hacer y marcalo cuando termines. Todo queda en
-          tu bóveda, sin conexión.
-        </p>
-        <div className="hero-actions">
-          {ready ? (
-            <span className="status-pill is-ok">
-              Bóveda: {vault?.name ?? "lista"}
-            </span>
-          ) : (
-            <button type="button" className="button filled" onClick={onGoVault}>
-              Configurar bóveda
-            </button>
-          )}
-        </div>
-      </section>
-
-      {!ready ? (
-        <section className="next-card">
-          <p className="eyebrow">Bóveda requerida</p>
-          <h2>Primero elegí dónde guardar tus datos</h2>
-          <p>
-            {vault?.message ??
-              "Las tareas se guardan en <bóveda>/omega. Elegí una carpeta en la sección Bóveda y volvé acá."}
-          </p>
-          <div className="hero-actions">
-            <button type="button" className="button filled" onClick={onGoVault}>
-              Ir a Bóveda
-            </button>
-          </div>
-        </section>
-      ) : (
-        <>
-          <form className="task-composer" onSubmit={submit}>
-            <label className="sr-only" htmlFor="task-title">
-              Nueva tarea
-            </label>
-            <input
-              id="task-title"
-              className="text-field"
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="¿Qué tenés que hacer?"
-              maxLength={200}
-              autoComplete="off"
-              disabled={submitting}
-            />
-            <button
-              type="submit"
-              className="button filled"
-              disabled={submitting || title.trim().length === 0}
-            >
-              {submitting ? "Guardando…" : "Agregar"}
-            </button>
-          </form>
-
-          {error ? (
-            <p className="notice error" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <section className="task-board" aria-labelledby="open-title">
-            <div className="task-board-head">
-              <h2 id="open-title">Abiertas</h2>
-              <span className="count-chip">{openTasks.length}</span>
-            </div>
-            {openTasks.length === 0 ? (
-              <p className="empty-state">
-                Nada pendiente. Agregá una tarea arriba.
-              </p>
-            ) : (
-              <ul className="task-list">
-                {openTasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={onToggle}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {doneTasks.length > 0 ? (
-            <section className="task-board" aria-labelledby="done-title">
-              <div className="task-board-head">
-                <h2 id="done-title">Hechas</h2>
-                <span className="count-chip">{doneTasks.length}</span>
-              </div>
-              <ul className="task-list">
-                {doneTasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={onToggle}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </>
-      )}
     </>
   );
 }
@@ -1220,11 +1046,7 @@ function App() {
   const activeLabel =
     navItems.find((item) => item.id === active)?.label ?? "Hoy";
   const placeholder =
-    active !== "today" &&
-    active !== "tasks" &&
-    active !== "vault" &&
-    active !== "subjects" &&
-    active !== "schedule"
+    active === "strengths" || active === "stats" || active === "settings"
       ? sectionInfo[active]
       : null;
 
@@ -1296,6 +1118,7 @@ function App() {
               onCreate={handleCreateTask}
               onToggle={handleToggleTask}
               onDelete={handleDeleteTask}
+              onTasksChanged={setTasks}
             />
           ) : null}
 
@@ -1305,6 +1128,31 @@ function App() {
 
           {active === "schedule" ? (
             <ScheduleView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+            />
+          ) : null}
+
+          {active === "calendar" ? (
+            <CalendarView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+              onBack={() => setActive("today")}
+            />
+          ) : null}
+
+          {active === "exams" ? (
+            <ExamsView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+            />
+          ) : null}
+
+          {active === "grades" ? (
+            <GradesView
               vault={vault}
               onGoVault={() => setActive("vault")}
               onGoSubjects={() => setActive("subjects")}
