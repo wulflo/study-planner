@@ -25,6 +25,9 @@ import { CalendarView } from "./views/CalendarView";
 import { ExamsView } from "./views/ExamsView";
 import { GradesView } from "./views/GradesView";
 import { ScheduleView } from "./views/ScheduleView";
+import { StatsView } from "./views/StatsView";
+import { StrengthsView } from "./views/StrengthsView";
+import { StudyView } from "./views/StudyView";
 import { TasksView } from "./views/TasksView";
 import { TodaySchedule } from "./views/TodaySchedule";
 import "./styles.css";
@@ -37,6 +40,7 @@ const navItems = [
   { id: "tasks", label: "Tareas", icon: "tasks" },
   { id: "exams", label: "Exámenes", icon: "exams" },
   { id: "grades", label: "Notas", icon: "grades" },
+  { id: "study", label: "Estudio", icon: "study" },
   { id: "strengths", label: "Fortalezas", icon: "strengths" },
   { id: "stats", label: "Estadísticas", icon: "stats" },
   { id: "vault", label: "Bóveda", icon: "vault" },
@@ -54,6 +58,9 @@ type PlaceholderId = Exclude<
   | "calendar"
   | "exams"
   | "grades"
+  | "study"
+  | "strengths"
+  | "stats"
 >;
 
 interface SectionInfo {
@@ -63,28 +70,6 @@ interface SectionInfo {
 }
 
 const sectionInfo: Record<PlaceholderId, SectionInfo> = {
-  strengths: {
-    phase: "Fase 4",
-    summary:
-      "Clasificación de temas por fortaleza, neutralidad o debilidad, con override manual.",
-    features: [
-      "Temas jerárquicos y autoevaluación 1–5",
-      "Clasificación fortaleza/neutral/debilidad",
-      "Override manual justificable",
-      "Prioridad de estudio explicable",
-    ],
-  },
-  stats: {
-    phase: "Fase 4",
-    summary:
-      "Tiempo de estudio, constancia, materias débiles y próximos repasos en gráficos locales.",
-    features: [
-      "Tiempo y constancia por materia",
-      "Materias débiles y temas pendientes",
-      "Próximos repasos y sesiones",
-      "Agregaciones reproducibles",
-    ],
-  },
   settings: {
     phase: "Fase 5",
     summary:
@@ -108,6 +93,8 @@ const projectChecklist = [
   { done: true, label: "Exportación e importación canónica" },
   { done: true, label: "Materias, horario, rotaciones y asistencia" },
   { done: true, label: "Exámenes, notas, tareas avanzadas y calendario" },
+  { done: true, label: "Autoevaluación, fortalezas y repaso SM-2" },
+  { done: true, label: "Pomodoro, prioridad explicable y estadísticas" },
 ];
 
 const iconPaths: Record<string, string> = {
@@ -122,6 +109,8 @@ const iconPaths: Record<string, string> = {
     "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm3 4v2h2V8H8Zm4 0v2h5V8h-5Zm-4 4v2h2v-2H8Zm4 0v2h5v-2h-5Z",
   exams: "M6 3h9l4 4v14H6V3Zm8 2v3h3l-3-3ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z",
   grades: "M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z",
+  study:
+    "M12 5.5C10 4.2 7.6 3.6 5 3.6H3v14h2c2.6 0 5 .6 7 1.9 2-1.3 4.4-1.9 7-1.9h2v-14h-2c-2.6 0-5 .6-7 1.9Zm1 12.2V7.2c1.6-.8 3.3-1.2 5-1.2v10.5c-1.8 0-3.5.4-5 1.2Z",
   strengths:
     "M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9L12 3Z",
   stats: "M4 19h16v2H4v-2Zm1-7h3v5H5v-5Zm5-5h3v10h-3V7Zm5 3h3v7h-3v-7Z",
@@ -1045,10 +1034,7 @@ function App() {
 
   const activeLabel =
     navItems.find((item) => item.id === active)?.label ?? "Hoy";
-  const placeholder =
-    active === "strengths" || active === "stats" || active === "settings"
-      ? sectionInfo[active]
-      : null;
+  const placeholder = active === "settings" ? sectionInfo[active] : null;
 
   return (
     <div className="app">
@@ -1156,6 +1142,32 @@ function App() {
               vault={vault}
               onGoVault={() => setActive("vault")}
               onGoSubjects={() => setActive("subjects")}
+            />
+          ) : null}
+
+          {active === "study" ? (
+            <StudyView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+              onGoStrengths={() => setActive("strengths")}
+            />
+          ) : null}
+
+          {active === "strengths" ? (
+            <StrengthsView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+              onGoExams={() => setActive("exams")}
+            />
+          ) : null}
+
+          {active === "stats" ? (
+            <StatsView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoStrengths={() => setActive("strengths")}
             />
           ) : null}
 

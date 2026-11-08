@@ -86,6 +86,23 @@ const api = vi.hoisted(() => ({
   clearAttendance: vi.fn(),
   getWeekSchedule: vi.fn(),
   getNextClass: vi.fn(),
+  listSelfAssessments: vi.fn(),
+  createSelfAssessment: vi.fn(),
+  deleteSelfAssessment: vi.fn(),
+  listStrengthOverrides: vi.fn(),
+  setStrengthOverride: vi.fn(),
+  clearStrengthOverride: vi.fn(),
+  listReviewItems: vi.fn(),
+  reviewTopic: vi.fn(),
+  setReviewDue: vi.fn(),
+  deleteReviewItem: vi.fn(),
+  listStudySessions: vi.fn(),
+  startStudySession: vi.fn(),
+  finishStudySession: vi.fn(),
+  deleteStudySession: vi.fn(),
+  listTopicStudies: vi.fn(),
+  listStudyPriorities: vi.fn(),
+  getStudyStats: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -401,6 +418,119 @@ const weekSchedule = {
   ],
 };
 
+const selfAssessment = {
+  id: "assessment-1",
+  topicId: "topic-1",
+  score: 2,
+  note: "Flojo",
+  source: "manual",
+  assessedAt: "2026-11-08T10:00:00.000Z",
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const reviewItem = {
+  id: "review-1",
+  topicId: "topic-1",
+  algorithm: "sm2",
+  algorithmVersion: "1",
+  easeFactorCp: 250,
+  intervalDays: 1,
+  repetitions: 1,
+  lapses: 0,
+  dueDate: "2026-11-01",
+  lastReviewedAt: "2026-10-31T10:00:00.000Z",
+  createdAt: "2026-10-31T10:00:00.000Z",
+  updatedAt: "2026-10-31T10:00:00.000Z",
+};
+
+const topicStudy = {
+  topicId: "topic-1",
+  subjectId: "subject-1",
+  parentTopicId: null,
+  name: "Matrices",
+  description: null,
+  sortOrder: 0,
+  latestAssessment: selfAssessment,
+  derivedClassification: "weak",
+  overrideClassification: null,
+  classification: "weak",
+  overrideReason: null,
+  reviewItem,
+  nextExamDate: null,
+};
+
+const studyPriority = {
+  topicId: "topic-1",
+  topicName: "Matrices",
+  subjectId: "subject-1",
+  subjectName: "Álgebra lineal",
+  score: 8400,
+  classification: "weak",
+  reasons: [
+    { code: "weak", label: "Tema débil", points: 4000 },
+    {
+      code: "review_overdue",
+      label: "Repaso vencido hace 7 día(s)",
+      points: 4400,
+    },
+  ],
+  reviewDue: "2026-11-01",
+  nextExamDate: null,
+};
+
+const studySession = {
+  id: "session-1",
+  subjectId: "subject-1",
+  topicId: null,
+  startedAt: "2026-11-08T10:00:00.000Z",
+  endedAt: "2026-11-08T10:25:00.000Z",
+  plannedMinutes: 25,
+  actualMinutes: 25,
+  mode: "pomodoro",
+  interruptions: 0,
+  notes: null,
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:25:00.000Z",
+};
+
+const studyStats = {
+  totals: {
+    totalMinutes: 25,
+    sessionCount: 1,
+    currentStreakDays: 1,
+    longestStreakDays: 1,
+  },
+  minutesBySubject: [
+    {
+      subjectId: "subject-1",
+      subjectName: "Álgebra lineal",
+      minutes: 25,
+      sessions: 1,
+    },
+  ],
+  weakSubjects: [
+    {
+      subjectId: "subject-1",
+      subjectName: "Álgebra lineal",
+      topicCount: 1,
+      weakTopics: 1,
+      averageScoreBp: 4000,
+    },
+  ],
+  upcomingReviews: [
+    {
+      topicId: "topic-1",
+      topicName: "Matrices",
+      subjectId: "subject-1",
+      subjectName: "Álgebra lineal",
+      dueDate: "2026-11-01",
+      daysUntil: -7,
+    },
+  ],
+  dueReviews: 1,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAppInfo.mockResolvedValue({
@@ -584,6 +714,39 @@ beforeEach(() => {
   api.clearAttendance.mockResolvedValue(undefined);
   api.getWeekSchedule.mockResolvedValue(weekSchedule);
   api.getNextClass.mockResolvedValue(null);
+  api.listSelfAssessments.mockResolvedValue([selfAssessment]);
+  api.createSelfAssessment.mockResolvedValue(selfAssessment);
+  api.deleteSelfAssessment.mockResolvedValue(undefined);
+  api.listStrengthOverrides.mockResolvedValue([]);
+  api.setStrengthOverride.mockResolvedValue({
+    id: "override-1",
+    topicId: "topic-1",
+    classification: "strength",
+    reason: null,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.clearStrengthOverride.mockResolvedValue(undefined);
+  api.listReviewItems.mockResolvedValue([reviewItem]);
+  api.reviewTopic.mockResolvedValue({
+    ...reviewItem,
+    dueDate: "2026-11-09",
+    intervalDays: 6,
+    repetitions: 2,
+  });
+  api.setReviewDue.mockResolvedValue({ ...reviewItem, dueDate: "2026-12-01" });
+  api.deleteReviewItem.mockResolvedValue(undefined);
+  api.listStudySessions.mockResolvedValue([studySession]);
+  api.startStudySession.mockResolvedValue({
+    ...studySession,
+    endedAt: null,
+    actualMinutes: null,
+  });
+  api.finishStudySession.mockResolvedValue(studySession);
+  api.deleteStudySession.mockResolvedValue(undefined);
+  api.listTopicStudies.mockResolvedValue([topicStudy]);
+  api.listStudyPriorities.mockResolvedValue([studyPriority]);
+  api.getStudyStats.mockResolvedValue(studyStats);
 });
 
 afterEach(cleanup);
@@ -1056,5 +1219,131 @@ describe("App con IPC de Tauri", () => {
       screen.getByRole("heading", { name: "Nuevo examen" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear tema" })).toBeDisabled();
+  });
+
+  it("evalúa un tema y aplica un override en Fortalezas", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Fortalezas" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Fortalezas", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Matrices" }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Autoevaluación"), "4");
+    await user.type(screen.getByLabelText("Nota de autoevaluación"), "mejoró");
+    await user.click(
+      screen.getByRole("button", { name: "Guardar autoevaluación" }),
+    );
+
+    await waitFor(() =>
+      expect(api.createSelfAssessment).toHaveBeenCalledWith(
+        "topic-1",
+        4,
+        "mejoró",
+      ),
+    );
+
+    await user.selectOptions(
+      screen.getByLabelText("Clasificación manual"),
+      "strength",
+    );
+    await user.type(
+      screen.getByLabelText("Motivo del override"),
+      "práctica extra",
+    );
+    await user.click(screen.getByRole("button", { name: "Aplicar override" }));
+
+    await waitFor(() =>
+      expect(api.setStrengthOverride).toHaveBeenCalledWith(
+        "topic-1",
+        "strength",
+        "práctica extra",
+      ),
+    );
+  });
+
+  it("registra un repaso SM-2 desde Fortalezas", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Fortalezas" }));
+    await screen.findByRole("heading", { name: "Matrices" });
+
+    await user.selectOptions(screen.getByLabelText("Calidad del repaso"), "5");
+    await user.click(screen.getByRole("button", { name: "Registrar repaso" }));
+
+    await waitFor(() =>
+      expect(api.reviewTopic).toHaveBeenCalledWith("topic-1", 5, todayIso()),
+    );
+    expect(await screen.findByText(/Repaso registrado/)).toBeInTheDocument();
+  });
+
+  it("muestra la prioridad y registra una sesión de estudio", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Estudio" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Estudio", level: 1 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Tema débil")).toBeInTheDocument();
+    expect(
+      screen.getByText("Repaso vencido hace 7 día(s)"),
+    ).toBeInTheDocument();
+
+    const minutes = screen.getByLabelText("Minutos planificados");
+    await user.clear(minutes);
+    await user.type(minutes, "5");
+    await user.click(screen.getByRole("button", { name: "Empezar" }));
+
+    await waitFor(() =>
+      expect(api.startStudySession).toHaveBeenCalledWith(
+        "subject-1",
+        null,
+        "pomodoro",
+        5,
+      ),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Terminar sesión" }),
+    );
+
+    await waitFor(() =>
+      expect(api.finishStudySession).toHaveBeenCalledWith(
+        "session-1",
+        0,
+        0,
+        null,
+      ),
+    );
+  });
+
+  it("muestra estadísticas de estudio", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Estadísticas" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Estadísticas", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("1 de 1 temas débiles · promedio 40 %"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/vencido hace 7 día\(s\)/)).toBeInTheDocument();
+    expect(await screen.findAllByText("25 min")).not.toHaveLength(0);
+    expect(api.getStudyStats).toHaveBeenCalledWith(
+      expect.any(String),
+      todayIso(),
+    );
   });
 });

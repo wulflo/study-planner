@@ -2112,12 +2112,7 @@ pub fn finish_study_session(
 ) -> Result<StudySession, String> {
     with_store(&state, |store| {
         store
-            .finish_study_session(
-                &id,
-                actual_minutes,
-                interruptions,
-                notes.as_deref(),
-            )
+            .finish_study_session(&id, actual_minutes, interruptions, notes.as_deref())
             .map_err(|error| error.to_string())
     })
 }
