@@ -8,4 +8,11 @@ rust-version.workspace = true
 description = "Módulo de actualización aislado de Study Planner (Fase 5)"
 
 [dependencies]
+base64.workspace = true
+hex.workspace = true
+minisign-verify.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true

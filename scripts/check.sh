@@ -10,14 +10,14 @@ npm run check
 echo "==> Rust: formato"
 cargo fmt --all -- --check
 
-echo "==> Rust: clippy (core, store, transfer)"
-cargo clippy -p study-planner-core -p study-planner-store -p study-planner-transfer --all-targets -- -D warnings
+echo "==> Rust: clippy (core, store, transfer, updater)"
+cargo clippy -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater --all-targets -- -D warnings
 
 echo "==> Rust: clippy (host Tauri)"
 cargo clippy -p study-planner --all-targets -- -D warnings
 
-echo "==> Rust: tests (core, store, transfer)"
-cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer
+echo "==> Rust: tests (core, store, transfer, updater)"
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater
 
 echo "==> Rust: tests (host Tauri / bóveda)"
 cargo test -p study-planner

@@ -459,7 +459,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 > verde y un commit local pequeño. La bitácora se actualiza **antes** de seguir.
 
 - [x] **Paso 0 — Línea base y corrección visual:** `./scripts/check.sh` verde antes de tocar nada. Se normalizaron los controles en toda la interfaz: selects con padding derecho y chevron propio, botones con menos padding y radio de 12 px, y separación mínima entre botones contiguos.
-- [ ] **Paso 1 — Núcleo del updater:** manifiesto, validación de URL/host, comparación de versión, firma minisign y SHA-256 con tests.
+- [x] **Paso 1 — Núcleo del updater:** manifiesto, validación de URL/host, comparación de versión, firma minisign y SHA-256 con tests. 9 tests de `study-planner-updater`; la firma debe declarar la misma versión que el manifiesto.
 - [ ] **Paso 2 — Descarga e instalación:** cliente HTTP aislado, descarga temporal, reemplazo atómico, backup y rollback con tests locales.
 - [ ] **Paso 3 — Integración Tauri y UI:** comandos Rust, ajuste opt-in, registro en `network_event` y vista «Ajustes».
 - [ ] **Paso 4 — Notificaciones locales:** avisos de clases, tareas, exámenes y repasos calculados y entregados desde Rust.
