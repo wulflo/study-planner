@@ -38,7 +38,11 @@ jobs:
             -e REVISION \
             -e CHANNEL \
             docker.io/snapcore/snapcraft:stable \
-            bash -lc 'snapcraft release study-planner "$REVISION" "$CHANNEL"'
+            bash -lc 'set -e
+              umask 077
+              printf "%s" "$SNAPCRAFT_STORE_CREDENTIALS" > /tmp/snap-login.txt
+              snapcraft login --with /tmp/snap-login.txt
+              snapcraft release study-planner "$REVISION" "$CHANNEL"'
 
 # Promueve una revisión ya subida, sin recompilar. Se usa después de validar
 # una revisión en edge/beta antes de pasarla a stable.
