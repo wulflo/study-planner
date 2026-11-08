@@ -1,0 +1,28 @@
+[package]
+name = "study-planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Study Planner: organización académica local"
+
+[lib]
+name = "study_planner_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde.workspace = true
+serde_json.workspace = true
+study-planner-core = { path = "../crates/study-planner-core" }
+study-planner-store = { path = "../crates/study-planner-store" }
+study-planner-transfer = { path = "../crates/study-planner-transfer" }
+study-planner-updater = { path = "../crates/study-planner-updater" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true

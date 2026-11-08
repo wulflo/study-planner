@@ -1,0 +1,44 @@
+name: Snap
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "snap/**"
+      - ".snapcraftignore"
+      - ".github/workflows/snap.yml"
+      - "scripts/check-snap-version.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar snap (sin publicar)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Verificar versión del snap
+        run: bash scripts/check-snap-version.sh
+
+      - name: Compilar snap
+        id: build
+        uses: snapcore/action-build@v1
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-planner-snap
+          path: ${{ steps.build.outputs.snap }}
+          if-no-files-found: error
+
+# La publicación a la Snap Store se agrega cuando el usuario lo pida.
+# Requiere el secreto SNAPCRAFT_STORE_CREDENTIALS y elegir el canal.

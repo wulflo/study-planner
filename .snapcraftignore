@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+target
+src-tauri/target
+dist
+dist-release
+*.AppImage
+*.AppImage.sig
+*.deb
+*.rpm
+*.snap

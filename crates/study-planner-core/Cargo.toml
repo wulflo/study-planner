@@ -1,0 +1,12 @@
+[package]
+name = "study-planner-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Dominio puro de Study Planner, sin Tauri ni red"
+
+[dependencies]
+serde.workspace = true
+uuid.workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "study-planner-transfer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Exportación e importación canónica de Study Planner"
+
+[dependencies]
+study-planner-core = { path = "../study-planner-core" }
+study-planner-store = { path = "../study-planner-store" }
+rusqlite.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2.workspace = true
+hex.workspace = true
+base64.workspace = true
+thiserror.workspace = true

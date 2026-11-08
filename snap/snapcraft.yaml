@@ -1,0 +1,68 @@
+name: study-planner
+base: core24
+version: "0.1.0"
+summary: Organización académica local, sin nube ni telemetría
+description: |
+  Study Planner organiza horarios, materias, exámenes, notas, tareas y repaso
+  espaciado en una bóveda SQLite local. No usa cuentas, nube, telemetría ni
+  publicidad.
+
+  Esta edición Snap usa confinamiento estricto y no declara el plug de red.
+  Las actualizaciones del paquete las gestiona snapd desde la Snap Store.
+license: MIT
+grade: stable
+confinement: strict
+website: https://github.com/wulflo/study-planner
+source-code: https://github.com/wulflo/study-planner
+contact: https://github.com/wulflo/study-planner/issues
+issues: https://github.com/wulflo/study-planner/issues
+
+layout:
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1:
+    bind: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1
+
+apps:
+  study-planner:
+    command: usr/bin/study-planner
+    desktop: usr/share/applications/study-planner.desktop
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+
+parts:
+  study-planner:
+    plugin: dump
+    source: .
+    build-snaps:
+      - node/22/stable
+    build-packages:
+      - build-essential
+      - curl
+      - dpkg
+      - file
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+      - libssl-dev
+      - libwebkit2gtk-4.1-dev
+      - libxdo-dev
+      - pkg-config
+      - wget
+    stage-packages:
+      - libayatana-appindicator3-1
+      - libwebkit2gtk-4.1-0
+    override-build: |
+      set -eu
+      export PATH="$HOME/.cargo/bin:$PATH"
+      # El snap rustup/latest apunta a core26 y choca con la libc del SDK
+      # gnome-46 (core24). Se instala rustup con el instalador oficial.
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable
+      npm ci
+      npm run tauri build -- --bundles deb
+      set -- target/release/bundle/deb/*.deb
+      dpkg -x "$1" "$CRAFT_PART_INSTALL"/
+      desktop="$CRAFT_PART_INSTALL/usr/share/applications/Study Planner.desktop"
+      mv "$desktop" "$CRAFT_PART_INSTALL/usr/share/applications/study-planner.desktop"
+      sed -i 's|^Icon=.*$|Icon=study-planner|' \
+        "$CRAFT_PART_INSTALL/usr/share/applications/study-planner.desktop"
