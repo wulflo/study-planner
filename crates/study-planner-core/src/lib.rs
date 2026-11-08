@@ -8,6 +8,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 mod academic;
+mod exam;
+mod grade;
 mod task;
 
 pub use academic::{
@@ -20,7 +22,21 @@ pub use academic::{
     time_to_minutes, validate_basis_points, validate_date_range, validate_time_range,
     validate_weekday, week_occurrences, week_start_of, weekday_of, weekdays_between,
 };
-pub use task::{TASK_TITLE_MAX_CHARS, Task, TaskStatus, validate_task_title};
+pub use exam::{
+    EXAM_TITLE_MAX_CHARS, Exam, ExamResultStatus, ExamTopic, TOPIC_NAME_MAX_CHARS, Topic,
+    normalize_topic_description, topic_would_create_cycle, validate_exam_times,
+    validate_exam_title, validate_topic_name,
+};
+pub use grade::{
+    CategoryGrade, GradeCategory, GradeEntry, GradeScale, SubjectGrade, entry_percent_bp,
+    grade_category_result, scale_cp_from_percent, subject_grade, validate_grade_entry,
+    validate_grade_scale, validate_grade_weight,
+};
+pub use task::{
+    SavedFilter, TAG_NAME_MAX_CHARS, TASK_DESCRIPTION_MAX_CHARS, TASK_TITLE_MAX_CHARS, Tag, Task,
+    TaskFilter, TaskPriority, TaskRecurrence, TaskRecurrenceKind, TaskStatus, TaskType, add_months,
+    normalize_task_description, validate_tag_name, validate_task_title,
+};
 
 /// Nombre visible de la aplicación.
 pub const APP_NAME: &str = "Study Planner";

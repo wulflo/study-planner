@@ -14,12 +14,22 @@ use thiserror::Error;
 
 mod academic;
 mod backup;
+mod exams;
+mod grades;
 mod schedule;
 mod tasks;
+mod undo;
+
+#[cfg(test)]
+mod tests_support;
 
 pub use academic::{SubjectInput, TermInput};
 pub use backup::BackupReport;
+pub use exams::{ExamInput, TopicInput};
+pub use grades::{GradeCategoryInput, GradeEntryInput, GradeScaleInput};
 pub use schedule::{ClassSlotInput, RotationInput, WeekHoliday, WeekSchedule};
+pub use tasks::TaskInput;
+pub use undo::{UNDO_TTL_MINUTES, UndoEntry};
 
 const INITIAL_NAME: &str = "0001_initial";
 const INITIAL_SQL: &str = include_str!("../migrations/0001_initial.sql");
@@ -36,12 +46,36 @@ pub enum StoreError {
     MissingMeta(&'static str),
     #[error("tarea inválida: {0}")]
     InvalidTask(&'static str),
+    #[error("examen o tema inválido: {0}")]
+    InvalidExam(&'static str),
+    #[error("nota inválida: {0}")]
+    InvalidGrade(&'static str),
     #[error("dato académico inválido: {0}")]
     InvalidAcademic(&'static str),
     #[error("horario inválido: {0}")]
     InvalidSchedule(&'static str),
     #[error("tarea no encontrada")]
     TaskNotFound,
+    #[error("examen no encontrado")]
+    ExamNotFound,
+    #[error("tema no encontrado")]
+    TopicNotFound,
+    #[error("vínculo examen–tema no encontrado")]
+    ExamTopicNotFound,
+    #[error("escala de nota no encontrada")]
+    GradeScaleNotFound,
+    #[error("categoría de nota no encontrada")]
+    GradeCategoryNotFound,
+    #[error("entrada de nota no encontrada")]
+    GradeEntryNotFound,
+    #[error("etiqueta no encontrada")]
+    TagNotFound,
+    #[error("filtro guardado no encontrado")]
+    SavedFilterNotFound,
+    #[error("acción de undo no encontrada")]
+    UndoNotFound,
+    #[error("la acción de undo expiró")]
+    UndoExpired,
     #[error("año académico no encontrado")]
     AcademicYearNotFound,
     #[error("término no encontrado")]
@@ -62,6 +96,8 @@ pub enum StoreError {
     Conflict(&'static str),
     #[error("error de archivo: {0}")]
     Io(#[from] std::io::Error),
+    #[error("error de JSON: {0}")]
+    Json(#[from] serde_json::Error),
     #[error("backup inválido: {0}")]
     InvalidBackup(String),
 }
@@ -210,6 +246,19 @@ impl Store {
     /// Acceso de bajo nivel para la capa de repositorios (Fase 1).
     pub fn connection(&self) -> &Connection {
         &self.conn
+    }
+
+    /// Comprueba que una materia exista y no esté borrada.
+    pub(crate) fn ensure_live_subject(&self, subject_id: &str) -> Result<(), StoreError> {
+        let exists: i64 = self.conn.query_row(
+            "SELECT count(*) FROM subject WHERE id = ?1 AND deleted_at IS NULL",
+            params![subject_id],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            return Err(StoreError::SubjectNotFound);
+        }
+        Ok(())
     }
 }
 

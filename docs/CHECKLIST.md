@@ -1,7 +1,7 @@
 # Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 2 — Año académico, materias, horario y asistencia (en curso)
+> **Fase actual:** 3 — Exámenes, notas, tareas y búsqueda (en curso)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,7 +24,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 2 — Año académico, materias, horario y asistencia (en curso) |
+| Fase | 3 — Exámenes, notas, tareas y búsqueda (en curso) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
@@ -418,12 +418,29 @@ Resumen; detalle en `docs/OFFLINE.md`.
 
 **Estado Fase 2:** 21 tests de UI y 61 tests de Rust en verde. Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto.
 
+### 2026-11-08 — Fase 3 en curso (bitácora por pasos)
+
+> Misma regla que la Fase 2: cada paso termina con `./scripts/check.sh` en verde
+> y un commit local pequeño.
+
+- [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (21 tests de UI y 61 de Rust) antes de tocar nada.
+- [x] **Paso 1 — Modelos puros:** exámenes, temas, escalas, categorías, entradas y cálculo de promedio ponderado con descarte del menor; extensión de tareas con subtareas, etiquetas, prioridad, recurrencia y filtros. 31 tests de `study-planner-core`.
+- [x] **Paso 2 — Persistencia de exámenes y temas:** CRUD con borrado lógico, jerarquía sin ciclos y vínculo examen–tema.
+- [x] **Paso 3 — Persistencia de notas:** escalas, categorías y entradas; promedio por materia con enteros de punto fijo.
+- [x] **Paso 4 — Tareas completas:** subtareas, etiquetas, prioridad, vencimientos, recurrencia, filtros guardados, búsqueda FTS y journal de undo con expiración. 32 tests de `study-planner-store`.
+- [ ] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades nuevas.
+- [ ] **Paso 6 — UI de exámenes y temas:** sección «Exámenes» funcional con pesos, resultados y vínculo a temas.
+- [ ] **Paso 7 — UI de notas:** sección «Notas» con escalas, categorías, entradas y promedio final.
+- [ ] **Paso 8 — UI de tareas y búsqueda:** subtareas, etiquetas, prioridad, filtros guardados y deshacer.
+- [ ] **Paso 9 — Calendario:** vista mensual con exámenes y vencimientos de tareas.
+- [ ] **Paso 10 — Transferencia y cierre:** fixture de Fase 3 con semántica y round-trip, documentación, changelog y verificación final.
+
 ---
 
 ## Próximos 5 pasos
 
-1. Abrir Fase 3: exámenes, temas y pesos.
-2. Escalas de nota, categorías y promedio ponderado con enteros de punto fijo.
-3. Subtareas, etiquetas y filtros guardados de tareas.
-4. Calendario y búsqueda FTS local.
+1. Completar la Fase 3 con la bitácora de arriba.
+2. Abrir Fase 4: temas jerárquicos, autoevaluación y repaso espaciado.
+3. Implementar SM-2 y la cola de prioridad explicable.
+4. Estadísticas de estudio, constancia y materias débiles.
 5. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.
