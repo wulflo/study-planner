@@ -386,7 +386,7 @@ impl Store {
             .optional()?)
     }
 
-    fn get_topic(&self, id: &str) -> Result<Option<Topic>, StoreError> {
+    pub(crate) fn get_topic(&self, id: &str) -> Result<Option<Topic>, StoreError> {
         Ok(self
             .connection()
             .query_row(
@@ -431,7 +431,7 @@ impl Store {
         Ok(())
     }
 
-    fn ensure_live_topic(&self, topic_id: &str) -> Result<(), StoreError> {
+    pub(crate) fn ensure_live_topic(&self, topic_id: &str) -> Result<(), StoreError> {
         self.get_topic(topic_id)?
             .map(|_| ())
             .ok_or(StoreError::TopicNotFound)

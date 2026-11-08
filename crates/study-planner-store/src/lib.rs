@@ -17,6 +17,7 @@ mod backup;
 mod exams;
 mod grades;
 mod schedule;
+mod study;
 mod tasks;
 mod undo;
 
@@ -28,6 +29,10 @@ pub use backup::BackupReport;
 pub use exams::{ExamInput, TopicInput};
 pub use grades::{GradeCategoryInput, GradeEntryInput, GradeScaleInput};
 pub use schedule::{ClassSlotInput, RotationInput, WeekHoliday, WeekSchedule};
+pub use study::{
+    StudyPriorityView, StudyStats, SubjectMinutesView, TopicStudy, UpcomingReviewView,
+    WeakSubjectView,
+};
 pub use tasks::TaskInput;
 pub use undo::{UNDO_TTL_MINUTES, UndoEntry};
 
@@ -72,6 +77,16 @@ pub enum StoreError {
     TagNotFound,
     #[error("filtro guardado no encontrado")]
     SavedFilterNotFound,
+    #[error("dato de estudio inválido: {0}")]
+    InvalidStudy(&'static str),
+    #[error("autoevaluación no encontrada")]
+    SelfAssessmentNotFound,
+    #[error("override de fortaleza no encontrado")]
+    StrengthOverrideNotFound,
+    #[error("ítem de repaso no encontrado")]
+    ReviewItemNotFound,
+    #[error("sesión de estudio no encontrada")]
+    StudySessionNotFound,
     #[error("acción de undo no encontrada")]
     UndoNotFound,
     #[error("la acción de undo expiró")]
