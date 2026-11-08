@@ -87,7 +87,7 @@ fixtures/export/     fixtures de round-trip
 - No hay claves, contraseñas ni bases de datos en el repositorio.
 - No se aceptan contribuciones que agreguen red, cuentas, telemetría o permisos amplios al frontend.
 - La clave privada del updater y su passphrase se custodian fuera del repo; ver `docs/KEYS.md`.
-- Si encontrás un problema de seguridad, no abras un issue público: contactá al mantenedor de forma privada.
+- Si encontrás un problema de seguridad, usá el [reporte privado de GitHub](https://github.com/wulflo/study-planner/security/advisories/new). No abras un issue público. Ver [`SECURITY.md`](SECURITY.md).
 
 ## Licencia
 
