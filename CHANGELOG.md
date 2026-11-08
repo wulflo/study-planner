@@ -15,6 +15,10 @@ Todos los cambios relevantes de Omega se registran acá. El formato sigue [Keep 
 - La ventana principal usa `decorations: false`; la barra de título de la app reemplaza la decoración del sistema.
 - La barra de título reserva una altura fija y agrupa metadatos y controles para mantener estable el layout.
 
+### Conocido
+
+- Dependabot reporta una debilidad media en `glib` 0.18.5 (iteradores de `VariantStrIter`). Llega de forma transitiva por `gtk 0.18` en la pila de Tauri; la corrección requiere `glib 0.20` y una actualización mayor de Tauri/gtk-rs. Omega no usa esos iteradores directamente. Ver `docs/CHECKLIST.md`.
+
 ## [0.1.0] — 2026-11-08 — Fase 0: base técnica
 
 ### Agregado
