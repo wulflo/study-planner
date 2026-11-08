@@ -10,6 +10,7 @@ use uuid::Uuid;
 mod academic;
 mod exam;
 mod grade;
+mod study;
 mod task;
 
 pub use academic::{
@@ -31,6 +32,18 @@ pub use grade::{
     CategoryGrade, GradeCategory, GradeEntry, GradeScale, SubjectGrade, entry_percent_bp,
     grade_category_result, scale_cp_from_percent, subject_grade, validate_grade_entry,
     validate_grade_scale, validate_grade_weight,
+};
+pub use study::{
+    ASSESSMENT_MAX, ASSESSMENT_MIN, AssessmentSource, DEFAULT_BREAK_MINUTES,
+    DEFAULT_POMODORO_MINUTES, DEFAULT_PRIORITY_DECAY_DAYS, DEFAULT_STRONG_THRESHOLD_BP,
+    DEFAULT_WEAK_THRESHOLD_BP, EASE_DEFAULT_CP, EASE_MIN_CP, PriorityReason, REVIEW_ALGORITHM,
+    REVIEW_ALGORITHM_VERSION, REVIEW_HORIZON_DAYS, ReviewItem, SelfAssessment, Sm2Result, Sm2State,
+    StrengthClassification, StrengthOverride, StudyPriority, StudyPriorityInput, StudySession,
+    StudySessionMode, StudyTotals, SubjectMinutes, TopicStrengthRow, UpcomingReview, WeakSubject,
+    classification_from_score, effective_classification, effective_session_minutes,
+    minutes_by_subject, normalize_assessment_note, session_totals, sm2_review,
+    sort_study_priorities, streak_days, study_priority, summarize_weak_subjects, upcoming_reviews,
+    validate_assessment_score, validate_strength_thresholds,
 };
 pub use task::{
     SavedFilter, TAG_NAME_MAX_CHARS, TASK_DESCRIPTION_MAX_CHARS, TASK_TITLE_MAX_CHARS, Tag, Task,
