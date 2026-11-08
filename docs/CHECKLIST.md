@@ -445,7 +445,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (25 tests de UI y 89 de Rust) antes de tocar nada.
 - [x] **Paso 1 — Modelos puros:** autoevaluación 1–5, clasificación con override, SM-2 versionado, prioridad explicable, sesiones y estadísticas. 42 tests de `study-planner-core` (11 nuevos).
 - [x] **Paso 2 — Persistencia de estudio:** autoevaluaciones, overrides, ítems de repaso, sesiones y consultas agregadas con tests. 39 tests de `study-planner-store` (7 nuevos).
-- [ ] **Paso 3 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades de estudio.
+- [x] **Paso 3 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades de estudio.
 - [ ] **Paso 4 — UI de fortalezas:** temas, autoevaluación, clasificación, override y repaso desde la sección «Fortalezas».
 - [ ] **Paso 5 — UI de estudio:** cola de prioridad explicable, Pomodoro y registro de sesiones.
 - [ ] **Paso 6 — UI de estadísticas:** tiempo, constancia, materias débiles y próximos repasos.

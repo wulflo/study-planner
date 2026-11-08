@@ -125,7 +125,24 @@ pub fn run() {
             vault::set_attendance,
             vault::clear_attendance,
             vault::get_week_schedule,
-            vault::get_next_class
+            vault::get_next_class,
+            vault::list_self_assessments,
+            vault::create_self_assessment,
+            vault::delete_self_assessment,
+            vault::list_strength_overrides,
+            vault::set_strength_override,
+            vault::clear_strength_override,
+            vault::list_review_items,
+            vault::review_topic,
+            vault::set_review_due,
+            vault::delete_review_item,
+            vault::list_study_sessions,
+            vault::start_study_session,
+            vault::finish_study_session,
+            vault::delete_study_session,
+            vault::list_topic_studies,
+            vault::list_study_priorities,
+            vault::get_study_stats
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar Study Planner");

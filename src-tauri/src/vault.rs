@@ -21,12 +21,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use study_planner_core::{
     AcademicYear, AttendanceRecord, ClassException, ClassSlot, Exam, ExamTopic, GradeCategory,
-    GradeEntry, GradeScale, Holiday, RotationConfig, SCHEMA_VERSION, SavedFilter,
-    ScheduleOccurrence, Subject, SubjectGrade, Tag, Task, TaskFilter, Term, Topic,
+    GradeEntry, GradeScale, Holiday, ReviewItem, RotationConfig, SCHEMA_VERSION, SavedFilter,
+    ScheduleOccurrence, SelfAssessment, StrengthOverride, StudySession, Subject, SubjectGrade, Tag,
+    Task, TaskFilter, Term, Topic,
 };
 use study_planner_store::{
     BackupReport, ClassSlotInput, ExamInput, GradeCategoryInput, GradeEntryInput, GradeScaleInput,
-    RotationInput, Store, SubjectInput, TaskInput, TermInput, TopicInput, UndoEntry, WeekSchedule,
+    RotationInput, Store, StudyPriorityView, StudyStats, SubjectInput, TaskInput, TermInput,
+    TopicInput, TopicStudy, UndoEntry, WeekSchedule,
 };
 use study_planner_transfer::{
     ExportReport, ImportMode, export_to_path, import_from_path, is_empty_vault,
@@ -1939,6 +1941,230 @@ pub fn get_next_class(
     with_store(&state, |store| {
         store
             .next_class(&term_id, &from_date, &from_time)
+            .map_err(|error| error.to_string())
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Estudio, autoevaluación, repaso y estadísticas
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_self_assessments(
+    topic_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SelfAssessment>, String> {
+    with_store(&state, |store| {
+        store
+            .list_self_assessments(&topic_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_self_assessment(
+    topic_id: String,
+    score: i64,
+    note: Option<String>,
+    source: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<SelfAssessment, String> {
+    let source = source.as_deref().unwrap_or("manual");
+    with_store(&state, |store| {
+        store
+            .create_self_assessment(&topic_id, score, note.as_deref(), source)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_self_assessment(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_self_assessment(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_strength_overrides(
+    state: State<'_, AppState>,
+) -> Result<Vec<StrengthOverride>, String> {
+    with_store(&state, |store| {
+        store
+            .list_strength_overrides()
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn set_strength_override(
+    topic_id: String,
+    classification: String,
+    reason: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<StrengthOverride, String> {
+    with_store(&state, |store| {
+        store
+            .set_strength_override(&topic_id, &classification, reason.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn clear_strength_override(topic_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .clear_strength_override(&topic_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_review_items(
+    subject_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<ReviewItem>, String> {
+    with_store(&state, |store| {
+        store
+            .list_review_items(subject_id.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn review_topic(
+    topic_id: String,
+    quality: i64,
+    today: String,
+    state: State<'_, AppState>,
+) -> Result<ReviewItem, String> {
+    with_store(&state, |store| {
+        store
+            .review_topic(&topic_id, quality, &today)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn set_review_due(
+    topic_id: String,
+    due_date: String,
+    state: State<'_, AppState>,
+) -> Result<ReviewItem, String> {
+    with_store(&state, |store| {
+        store
+            .set_review_due(&topic_id, &due_date)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_review_item(topic_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_review_item(&topic_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_study_sessions(
+    from: Option<String>,
+    to: Option<String>,
+    subject_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<StudySession>, String> {
+    with_store(&state, |store| {
+        store
+            .list_study_sessions(from.as_deref(), to.as_deref(), subject_id.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn start_study_session(
+    subject_id: Option<String>,
+    topic_id: Option<String>,
+    mode: String,
+    planned_minutes: Option<i64>,
+    state: State<'_, AppState>,
+) -> Result<StudySession, String> {
+    with_store(&state, |store| {
+        store
+            .start_study_session(
+                subject_id.as_deref(),
+                topic_id.as_deref(),
+                &mode,
+                planned_minutes,
+            )
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn finish_study_session(
+    id: String,
+    actual_minutes: Option<i64>,
+    interruptions: Option<i64>,
+    notes: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<StudySession, String> {
+    with_store(&state, |store| {
+        store
+            .finish_study_session(
+                &id,
+                actual_minutes,
+                interruptions,
+                notes.as_deref(),
+            )
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_study_session(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_study_session(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_topic_studies(
+    subject_id: Option<String>,
+    today: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<TopicStudy>, String> {
+    with_store(&state, |store| {
+        store
+            .list_topic_studies(subject_id.as_deref(), &today)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_study_priorities(
+    today: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<StudyPriorityView>, String> {
+    with_store(&state, |store| {
+        store
+            .list_study_priorities(&today)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn get_study_stats(
+    from: Option<String>,
+    today: String,
+    state: State<'_, AppState>,
+) -> Result<StudyStats, String> {
+    with_store(&state, |store| {
+        store
+            .study_stats(from.as_deref(), &today)
             .map_err(|error| error.to_string())
     })
 }

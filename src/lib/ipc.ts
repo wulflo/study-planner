@@ -1001,3 +1001,267 @@ export async function getNextClass(
     fromTime,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Estudio, autoevaluación, repaso y estadísticas
+// ---------------------------------------------------------------------------
+
+export type AssessmentSource = "manual" | "prompt" | "review";
+export type StrengthClassification = "weak" | "neutral" | "strength";
+export type StudySessionMode = "pomodoro" | "free" | "review";
+
+export interface SelfAssessment {
+  id: string;
+  topicId: string;
+  score: number;
+  note: string | null;
+  source: AssessmentSource;
+  assessedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StrengthOverride {
+  id: string;
+  topicId: string;
+  classification: StrengthClassification;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewItem {
+  id: string;
+  topicId: string;
+  algorithm: string;
+  algorithmVersion: string;
+  easeFactorCp: number;
+  intervalDays: number;
+  repetitions: number;
+  lapses: number;
+  dueDate: string | null;
+  lastReviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudySession {
+  id: string;
+  subjectId: string | null;
+  topicId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  plannedMinutes: number | null;
+  actualMinutes: number | null;
+  mode: StudySessionMode;
+  interruptions: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TopicStudy {
+  topicId: string;
+  subjectId: string;
+  parentTopicId: string | null;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  latestAssessment: SelfAssessment | null;
+  derivedClassification: StrengthClassification;
+  overrideClassification: StrengthClassification | null;
+  classification: StrengthClassification;
+  overrideReason: string | null;
+  reviewItem: ReviewItem | null;
+  nextExamDate: string | null;
+}
+
+export interface PriorityReason {
+  code: string;
+  label: string;
+  points: number;
+}
+
+export interface StudyPriorityView {
+  topicId: string;
+  topicName: string;
+  subjectId: string;
+  subjectName: string;
+  score: number;
+  classification: StrengthClassification;
+  reasons: PriorityReason[];
+  reviewDue: string | null;
+  nextExamDate: string | null;
+}
+
+export interface SubjectMinutesView {
+  subjectId: string | null;
+  subjectName: string | null;
+  minutes: number;
+  sessions: number;
+}
+
+export interface WeakSubjectView {
+  subjectId: string;
+  subjectName: string;
+  topicCount: number;
+  weakTopics: number;
+  averageScoreBp: number | null;
+}
+
+export interface UpcomingReviewView {
+  topicId: string;
+  topicName: string;
+  subjectId: string;
+  subjectName: string;
+  dueDate: string;
+  daysUntil: number;
+}
+
+export interface StudyTotals {
+  totalMinutes: number;
+  sessionCount: number;
+  currentStreakDays: number;
+  longestStreakDays: number;
+}
+
+export interface StudyStats {
+  totals: StudyTotals;
+  minutesBySubject: SubjectMinutesView[];
+  weakSubjects: WeakSubjectView[];
+  upcomingReviews: UpcomingReviewView[];
+  dueReviews: number;
+}
+
+export async function listSelfAssessments(
+  topicId: string,
+): Promise<SelfAssessment[]> {
+  return invoke<SelfAssessment[]>("list_self_assessments", { topicId });
+}
+
+export async function createSelfAssessment(
+  topicId: string,
+  score: number,
+  note: string | null = null,
+  source: AssessmentSource = "manual",
+): Promise<SelfAssessment> {
+  return invoke<SelfAssessment>("create_self_assessment", {
+    topicId,
+    score,
+    note,
+    source,
+  });
+}
+
+export async function deleteSelfAssessment(id: string): Promise<void> {
+  return invoke<void>("delete_self_assessment", { id });
+}
+
+export async function listStrengthOverrides(): Promise<StrengthOverride[]> {
+  return invoke<StrengthOverride[]>("list_strength_overrides");
+}
+
+export async function setStrengthOverride(
+  topicId: string,
+  classification: StrengthClassification,
+  reason: string | null = null,
+): Promise<StrengthOverride> {
+  return invoke<StrengthOverride>("set_strength_override", {
+    topicId,
+    classification,
+    reason,
+  });
+}
+
+export async function clearStrengthOverride(topicId: string): Promise<void> {
+  return invoke<void>("clear_strength_override", { topicId });
+}
+
+export async function listReviewItems(
+  subjectId: string | null = null,
+): Promise<ReviewItem[]> {
+  return invoke<ReviewItem[]>("list_review_items", { subjectId });
+}
+
+export async function reviewTopic(
+  topicId: string,
+  quality: number,
+  today: string,
+): Promise<ReviewItem> {
+  return invoke<ReviewItem>("review_topic", { topicId, quality, today });
+}
+
+export async function setReviewDue(
+  topicId: string,
+  dueDate: string,
+): Promise<ReviewItem> {
+  return invoke<ReviewItem>("set_review_due", { topicId, dueDate });
+}
+
+export async function deleteReviewItem(topicId: string): Promise<void> {
+  return invoke<void>("delete_review_item", { topicId });
+}
+
+export async function listStudySessions(
+  from: string | null = null,
+  to: string | null = null,
+  subjectId: string | null = null,
+): Promise<StudySession[]> {
+  return invoke<StudySession[]>("list_study_sessions", {
+    from,
+    to,
+    subjectId,
+  });
+}
+
+export async function startStudySession(
+  subjectId: string | null,
+  topicId: string | null,
+  mode: StudySessionMode,
+  plannedMinutes: number | null = null,
+): Promise<StudySession> {
+  return invoke<StudySession>("start_study_session", {
+    subjectId,
+    topicId,
+    mode,
+    plannedMinutes,
+  });
+}
+
+export async function finishStudySession(
+  id: string,
+  actualMinutes: number | null,
+  interruptions = 0,
+  notes: string | null = null,
+): Promise<StudySession> {
+  return invoke<StudySession>("finish_study_session", {
+    id,
+    actualMinutes,
+    interruptions,
+    notes,
+  });
+}
+
+export async function deleteStudySession(id: string): Promise<void> {
+  return invoke<void>("delete_study_session", { id });
+}
+
+export async function listTopicStudies(
+  subjectId: string | null,
+  today: string,
+): Promise<TopicStudy[]> {
+  return invoke<TopicStudy[]>("list_topic_studies", { subjectId, today });
+}
+
+export async function listStudyPriorities(
+  today: string,
+): Promise<StudyPriorityView[]> {
+  return invoke<StudyPriorityView[]>("list_study_priorities", { today });
+}
+
+export async function getStudyStats(
+  from: string | null,
+  today: string,
+): Promise<StudyStats> {
+  return invoke<StudyStats>("get_study_stats", { from, today });
+}
