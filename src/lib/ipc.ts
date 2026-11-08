@@ -68,13 +68,235 @@ export interface VaultStatus {
 }
 
 export type TaskStatus = "pending" | "in_progress" | "done";
+export type TaskType = "task" | "practical" | "project" | "personal";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskRecurrenceKind = "daily" | "weekly" | "monthly";
+
+export interface TaskRecurrence {
+  kind: TaskRecurrenceKind;
+  interval: number;
+  until: string | null;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Task {
   id: string;
+  subjectId: string | null;
+  parentTaskId: string | null;
+  taskType: TaskType;
   title: string;
+  description: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  dueTime: string | null;
+  priority: TaskPriority;
+  important: boolean;
+  estimateMinutes: number | null;
   status: TaskStatus;
-  createdAt: string;
   completedAt: string | null;
+  recurrence: TaskRecurrence | null;
+  tags: Tag[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskInput {
+  subjectId: string | null;
+  parentTaskId: string | null;
+  taskType: TaskType;
+  title: string;
+  description: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  dueTime: string | null;
+  priority: number;
+  important: boolean;
+  estimateMinutes: number | null;
+  status: TaskStatus;
+  recurrence: TaskRecurrence | null;
+  tagIds: string[];
+}
+
+export interface TaskFilter {
+  text?: string | null;
+  status?: TaskStatus | "open" | null;
+  priority?: number | null;
+  tagId?: string | null;
+  subjectId?: string | null;
+  dueFrom?: string | null;
+  dueTo?: string | null;
+  parentTaskId?: string | null;
+  rootsOnly?: boolean;
+}
+
+export interface SavedFilter {
+  id: string;
+  screen: string;
+  name: string;
+  queryJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UndoEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  beforeJson: string | null;
+  afterJson: string | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export type ExamResultStatus = "pending" | "passed" | "failed" | "absent";
+
+export interface Exam {
+  id: string;
+  subjectId: string;
+  termId: string;
+  title: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  weightBp: number | null;
+  resultScoreCp: number | null;
+  resultMaxCp: number | null;
+  resultStatus: ExamResultStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Topic {
+  id: string;
+  subjectId: string;
+  parentTopicId: string | null;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExamTopic {
+  id: string;
+  examId: string;
+  topicId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExamInput {
+  title: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  weightBp: number | null;
+  resultScoreCp: number | null;
+  resultMaxCp: number | null;
+  resultStatus: ExamResultStatus;
+  notes: string | null;
+}
+
+export interface TopicInput {
+  parentTopicId: string | null;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+}
+
+export interface GradeScale {
+  id: string;
+  subjectId: string | null;
+  name: string;
+  minCp: number;
+  maxCp: number;
+  passCp: number;
+  precision: number;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GradeCategory {
+  id: string;
+  subjectId: string;
+  scaleId: string;
+  name: string;
+  weightBp: number;
+  dropLowest: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GradeEntry {
+  id: string;
+  subjectId: string;
+  categoryId: string;
+  examId: string | null;
+  title: string;
+  scoreCp: number;
+  maxCp: number;
+  weightBp: number | null;
+  date: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryGrade {
+  categoryId: string;
+  categoryName: string;
+  weightBp: number;
+  entries: number;
+  dropped: number;
+  percentBp: number | null;
+  averageCp: number | null;
+}
+
+export interface SubjectGrade {
+  subjectId: string;
+  scaleId: string | null;
+  finalBp: number | null;
+  finalCp: number | null;
+  passed: boolean | null;
+  categories: CategoryGrade[];
+}
+
+export interface GradeScaleInput {
+  subjectId: string | null;
+  name: string;
+  minCp: number;
+  maxCp: number;
+  passCp: number;
+  precision: number;
+  isDefault: boolean;
+}
+
+export interface GradeCategoryInput {
+  scaleId: string;
+  name: string;
+  weightBp: number;
+  dropLowest: number;
+}
+
+export interface GradeEntryInput {
+  categoryId: string;
+  examId: string | null;
+  title: string;
+  scoreCp: number;
+  maxCp: number;
+  weightBp: number | null;
+  date: string | null;
 }
 
 export const runningInTauri =
@@ -129,6 +351,249 @@ export async function setTaskDone(id: string, done: boolean): Promise<Task> {
 
 export async function deleteTask(id: string): Promise<void> {
   return invoke<void>("delete_task", { id });
+}
+
+export async function createTaskFull(input: TaskInput): Promise<Task> {
+  return invoke<Task>("create_task_full", { input });
+}
+
+export async function updateTask(id: string, input: TaskInput): Promise<Task> {
+  return invoke<Task>("update_task", { id, input });
+}
+
+export async function setTaskStatus(
+  id: string,
+  status: TaskStatus,
+): Promise<Task> {
+  return invoke<Task>("set_task_status", { id, status });
+}
+
+export async function searchTasks(filter: TaskFilter): Promise<Task[]> {
+  return invoke<Task[]>("search_tasks", { filter });
+}
+
+export async function listTags(): Promise<Tag[]> {
+  return invoke<Tag[]>("list_tags");
+}
+
+export async function createTag(
+  name: string,
+  color: string | null = null,
+): Promise<Tag> {
+  return invoke<Tag>("create_tag", { name, color });
+}
+
+export async function updateTag(
+  id: string,
+  name: string,
+  color: string | null = null,
+): Promise<Tag> {
+  return invoke<Tag>("update_tag", { id, name, color });
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  return invoke<void>("delete_tag", { id });
+}
+
+export async function setTaskTags(
+  taskId: string,
+  tagIds: string[],
+): Promise<void> {
+  return invoke<void>("set_task_tags", { taskId, tagIds });
+}
+
+export async function listSavedFilters(
+  screen: string | null = null,
+): Promise<SavedFilter[]> {
+  return invoke<SavedFilter[]>("list_saved_filters", { screen });
+}
+
+export async function createSavedFilter(
+  screen: string,
+  name: string,
+  queryJson: string,
+): Promise<SavedFilter> {
+  return invoke<SavedFilter>("create_saved_filter", {
+    screen,
+    name,
+    queryJson,
+  });
+}
+
+export async function updateSavedFilter(
+  id: string,
+  name: string,
+  queryJson: string,
+): Promise<SavedFilter> {
+  return invoke<SavedFilter>("update_saved_filter", {
+    id,
+    name,
+    queryJson,
+  });
+}
+
+export async function deleteSavedFilter(id: string): Promise<void> {
+  return invoke<void>("delete_saved_filter", { id });
+}
+
+export async function listUndoEntries(): Promise<UndoEntry[]> {
+  return invoke<UndoEntry[]>("list_undo_entries");
+}
+
+export async function undoEntry(id: string): Promise<Task | null> {
+  return invoke<Task | null>("undo_entry", { id });
+}
+
+export async function purgeExpiredUndo(): Promise<number> {
+  return invoke<number>("purge_expired_undo");
+}
+
+// ---------------------------------------------------------------------------
+// Exámenes y temas
+// ---------------------------------------------------------------------------
+
+export async function listExams(
+  termId: string | null,
+  subjectId: string | null = null,
+): Promise<Exam[]> {
+  return invoke<Exam[]>("list_exams", { termId, subjectId });
+}
+
+export async function createExam(
+  subjectId: string,
+  termId: string,
+  input: ExamInput,
+): Promise<Exam> {
+  return invoke<Exam>("create_exam", { subjectId, termId, input });
+}
+
+export async function updateExam(id: string, input: ExamInput): Promise<Exam> {
+  return invoke<Exam>("update_exam", { id, input });
+}
+
+export async function deleteExam(id: string): Promise<void> {
+  return invoke<void>("delete_exam", { id });
+}
+
+export async function listTopics(subjectId: string): Promise<Topic[]> {
+  return invoke<Topic[]>("list_topics", { subjectId });
+}
+
+export async function createTopic(
+  subjectId: string,
+  input: TopicInput,
+): Promise<Topic> {
+  return invoke<Topic>("create_topic", { subjectId, input });
+}
+
+export async function updateTopic(
+  id: string,
+  input: TopicInput,
+): Promise<Topic> {
+  return invoke<Topic>("update_topic", { id, input });
+}
+
+export async function deleteTopic(id: string): Promise<void> {
+  return invoke<void>("delete_topic", { id });
+}
+
+export async function listExamTopics(examId: string): Promise<ExamTopic[]> {
+  return invoke<ExamTopic[]>("list_exam_topics", { examId });
+}
+
+export async function linkExamTopic(
+  examId: string,
+  topicId: string,
+): Promise<ExamTopic> {
+  return invoke<ExamTopic>("link_exam_topic", { examId, topicId });
+}
+
+export async function unlinkExamTopic(
+  examId: string,
+  topicId: string,
+): Promise<void> {
+  return invoke<void>("unlink_exam_topic", { examId, topicId });
+}
+
+// ---------------------------------------------------------------------------
+// Notas
+// ---------------------------------------------------------------------------
+
+export async function listGradeScales(
+  subjectId: string | null,
+): Promise<GradeScale[]> {
+  return invoke<GradeScale[]>("list_grade_scales", { subjectId });
+}
+
+export async function createGradeScale(
+  input: GradeScaleInput,
+): Promise<GradeScale> {
+  return invoke<GradeScale>("create_grade_scale", { input });
+}
+
+export async function updateGradeScale(
+  id: string,
+  input: GradeScaleInput,
+): Promise<GradeScale> {
+  return invoke<GradeScale>("update_grade_scale", { id, input });
+}
+
+export async function deleteGradeScale(id: string): Promise<void> {
+  return invoke<void>("delete_grade_scale", { id });
+}
+
+export async function listGradeCategories(
+  subjectId: string,
+): Promise<GradeCategory[]> {
+  return invoke<GradeCategory[]>("list_grade_categories", { subjectId });
+}
+
+export async function createGradeCategory(
+  subjectId: string,
+  input: GradeCategoryInput,
+): Promise<GradeCategory> {
+  return invoke<GradeCategory>("create_grade_category", { subjectId, input });
+}
+
+export async function updateGradeCategory(
+  id: string,
+  input: GradeCategoryInput,
+): Promise<GradeCategory> {
+  return invoke<GradeCategory>("update_grade_category", { id, input });
+}
+
+export async function deleteGradeCategory(id: string): Promise<void> {
+  return invoke<void>("delete_grade_category", { id });
+}
+
+export async function listGradeEntries(
+  subjectId: string,
+): Promise<GradeEntry[]> {
+  return invoke<GradeEntry[]>("list_grade_entries", { subjectId });
+}
+
+export async function createGradeEntry(
+  subjectId: string,
+  input: GradeEntryInput,
+): Promise<GradeEntry> {
+  return invoke<GradeEntry>("create_grade_entry", { subjectId, input });
+}
+
+export async function updateGradeEntry(
+  id: string,
+  input: GradeEntryInput,
+): Promise<GradeEntry> {
+  return invoke<GradeEntry>("update_grade_entry", { id, input });
+}
+
+export async function deleteGradeEntry(id: string): Promise<void> {
+  return invoke<void>("delete_grade_entry", { id });
+}
+
+export async function getSubjectGrade(
+  subjectId: string,
+): Promise<SubjectGrade> {
+  return invoke<SubjectGrade>("get_subject_grade", { subjectId });
 }
 
 // ---------------------------------------------------------------------------

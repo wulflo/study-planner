@@ -428,7 +428,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 2 — Persistencia de exámenes y temas:** CRUD con borrado lógico, jerarquía sin ciclos y vínculo examen–tema.
 - [x] **Paso 3 — Persistencia de notas:** escalas, categorías y entradas; promedio por materia con enteros de punto fijo.
 - [x] **Paso 4 — Tareas completas:** subtareas, etiquetas, prioridad, vencimientos, recurrencia, filtros guardados, búsqueda FTS y journal de undo con expiración. 32 tests de `study-planner-store`.
-- [ ] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades nuevas.
+- [x] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades nuevas.
 - [ ] **Paso 6 — UI de exámenes y temas:** sección «Exámenes» funcional con pesos, resultados y vínculo a temas.
 - [ ] **Paso 7 — UI de notas:** sección «Notas» con escalas, categorías, entradas y promedio final.
 - [ ] **Paso 8 — UI de tareas y búsqueda:** subtareas, etiquetas, prioridad, filtros guardados y deshacer.

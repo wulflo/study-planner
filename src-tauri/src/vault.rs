@@ -20,11 +20,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use study_planner_core::{
-    AcademicYear, AttendanceRecord, ClassException, ClassSlot, Holiday, RotationConfig,
-    SCHEMA_VERSION, ScheduleOccurrence, Subject, Task, Term,
+    AcademicYear, AttendanceRecord, ClassException, ClassSlot, Exam, ExamTopic, GradeCategory,
+    GradeEntry, GradeScale, Holiday, RotationConfig, SCHEMA_VERSION, SavedFilter,
+    ScheduleOccurrence, Subject, SubjectGrade, Tag, Task, TaskFilter, Term, Topic,
 };
 use study_planner_store::{
-    BackupReport, ClassSlotInput, RotationInput, Store, SubjectInput, TermInput, WeekSchedule,
+    BackupReport, ClassSlotInput, ExamInput, GradeCategoryInput, GradeEntryInput, GradeScaleInput,
+    RotationInput, Store, SubjectInput, TaskInput, TermInput, TopicInput, UndoEntry, WeekSchedule,
 };
 use study_planner_transfer::{
     ExportReport, ImportMode, export_to_path, import_from_path, is_empty_vault,
@@ -1112,6 +1114,467 @@ pub fn set_task_done(id: String, done: bool, state: State<'_, AppState>) -> Resu
 pub fn delete_task(id: String, state: State<'_, AppState>) -> Result<(), String> {
     with_store(&state, |store| {
         store.delete_task(&id).map_err(|error| error.to_string())
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Tareas completas, etiquetas, filtros y undo
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn create_task_full(input: TaskInput, state: State<'_, AppState>) -> Result<Task, String> {
+    with_store(&state, |store| {
+        store
+            .create_task_full(&input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_task(
+    id: String,
+    input: TaskInput,
+    state: State<'_, AppState>,
+) -> Result<Task, String> {
+    with_store(&state, |store| {
+        store
+            .update_task(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn set_task_status(
+    id: String,
+    status: String,
+    state: State<'_, AppState>,
+) -> Result<Task, String> {
+    with_store(&state, |store| {
+        store
+            .set_task_status(&id, &status)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn search_tasks(filter: TaskFilter, state: State<'_, AppState>) -> Result<Vec<Task>, String> {
+    with_store(&state, |store| {
+        store
+            .search_tasks(&filter)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, String> {
+    with_store(&state, |store| {
+        store.list_tags().map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_tag(
+    name: String,
+    color: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Tag, String> {
+    with_store(&state, |store| {
+        store
+            .create_tag(&name, color.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_tag(
+    id: String,
+    name: String,
+    color: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Tag, String> {
+    with_store(&state, |store| {
+        store
+            .update_tag(&id, &name, color.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_tag(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store.delete_tag(&id).map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn set_task_tags(
+    task_id: String,
+    tag_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .set_task_tags(&task_id, &tag_ids)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_saved_filters(
+    screen: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<SavedFilter>, String> {
+    with_store(&state, |store| {
+        store
+            .list_saved_filters(screen.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_saved_filter(
+    screen: String,
+    name: String,
+    query_json: String,
+    state: State<'_, AppState>,
+) -> Result<SavedFilter, String> {
+    with_store(&state, |store| {
+        store
+            .create_saved_filter(&screen, &name, &query_json)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_saved_filter(
+    id: String,
+    name: String,
+    query_json: String,
+    state: State<'_, AppState>,
+) -> Result<SavedFilter, String> {
+    with_store(&state, |store| {
+        store
+            .update_saved_filter(&id, &name, &query_json)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_saved_filter(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_saved_filter(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_undo_entries(state: State<'_, AppState>) -> Result<Vec<UndoEntry>, String> {
+    with_store(&state, |store| {
+        store.list_undo_entries().map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn undo_entry(id: String, state: State<'_, AppState>) -> Result<Option<Task>, String> {
+    with_store(&state, |store| {
+        store.undo_entry(&id).map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn purge_expired_undo(state: State<'_, AppState>) -> Result<usize, String> {
+    with_store(&state, |store| {
+        store
+            .purge_expired_undo()
+            .map_err(|error| error.to_string())
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Exámenes y temas
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_exams(
+    term_id: Option<String>,
+    subject_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<Exam>, String> {
+    with_store(&state, |store| {
+        store
+            .list_exams(term_id.as_deref(), subject_id.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_exam(
+    subject_id: String,
+    term_id: String,
+    input: ExamInput,
+    state: State<'_, AppState>,
+) -> Result<Exam, String> {
+    with_store(&state, |store| {
+        store
+            .create_exam(&subject_id, &term_id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_exam(
+    id: String,
+    input: ExamInput,
+    state: State<'_, AppState>,
+) -> Result<Exam, String> {
+    with_store(&state, |store| {
+        store
+            .update_exam(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_exam(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store.delete_exam(&id).map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_topics(subject_id: String, state: State<'_, AppState>) -> Result<Vec<Topic>, String> {
+    with_store(&state, |store| {
+        store
+            .list_topics(&subject_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_topic(
+    subject_id: String,
+    input: TopicInput,
+    state: State<'_, AppState>,
+) -> Result<Topic, String> {
+    with_store(&state, |store| {
+        store
+            .create_topic(&subject_id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_topic(
+    id: String,
+    input: TopicInput,
+    state: State<'_, AppState>,
+) -> Result<Topic, String> {
+    with_store(&state, |store| {
+        store
+            .update_topic(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_topic(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store.delete_topic(&id).map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_exam_topics(
+    exam_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<ExamTopic>, String> {
+    with_store(&state, |store| {
+        store
+            .list_exam_topics(&exam_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn link_exam_topic(
+    exam_id: String,
+    topic_id: String,
+    state: State<'_, AppState>,
+) -> Result<ExamTopic, String> {
+    with_store(&state, |store| {
+        store
+            .link_exam_topic(&exam_id, &topic_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn unlink_exam_topic(
+    exam_id: String,
+    topic_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .unlink_exam_topic(&exam_id, &topic_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Notas
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_grade_scales(
+    subject_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<GradeScale>, String> {
+    with_store(&state, |store| {
+        store
+            .list_grade_scales(subject_id.as_deref())
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_grade_scale(
+    input: GradeScaleInput,
+    state: State<'_, AppState>,
+) -> Result<GradeScale, String> {
+    with_store(&state, |store| {
+        store
+            .create_grade_scale(&input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_grade_scale(
+    id: String,
+    input: GradeScaleInput,
+    state: State<'_, AppState>,
+) -> Result<GradeScale, String> {
+    with_store(&state, |store| {
+        store
+            .update_grade_scale(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_grade_scale(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_grade_scale(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_grade_categories(
+    subject_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<GradeCategory>, String> {
+    with_store(&state, |store| {
+        store
+            .list_grade_categories(&subject_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_grade_category(
+    subject_id: String,
+    input: GradeCategoryInput,
+    state: State<'_, AppState>,
+) -> Result<GradeCategory, String> {
+    with_store(&state, |store| {
+        store
+            .create_grade_category(&subject_id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_grade_category(
+    id: String,
+    input: GradeCategoryInput,
+    state: State<'_, AppState>,
+) -> Result<GradeCategory, String> {
+    with_store(&state, |store| {
+        store
+            .update_grade_category(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_grade_category(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_grade_category(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn list_grade_entries(
+    subject_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<GradeEntry>, String> {
+    with_store(&state, |store| {
+        store
+            .list_grade_entries(&subject_id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn create_grade_entry(
+    subject_id: String,
+    input: GradeEntryInput,
+    state: State<'_, AppState>,
+) -> Result<GradeEntry, String> {
+    with_store(&state, |store| {
+        store
+            .create_grade_entry(&subject_id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn update_grade_entry(
+    id: String,
+    input: GradeEntryInput,
+    state: State<'_, AppState>,
+) -> Result<GradeEntry, String> {
+    with_store(&state, |store| {
+        store
+            .update_grade_entry(&id, &input)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn delete_grade_entry(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    with_store(&state, |store| {
+        store
+            .delete_grade_entry(&id)
+            .map_err(|error| error.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn get_subject_grade(
+    subject_id: String,
+    state: State<'_, AppState>,
+) -> Result<SubjectGrade, String> {
+    with_store(&state, |store| {
+        store
+            .get_subject_grade(&subject_id)
+            .map_err(|error| error.to_string())
     })
 }
 
