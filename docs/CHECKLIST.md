@@ -1,7 +1,7 @@
 # Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 3 — Exámenes, notas, tareas y búsqueda (cerrada)
+> **Fase actual:** 4 — Estudio, repaso espaciado y estadísticas (en curso)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,7 +24,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 3 — Exámenes, notas, tareas y búsqueda (cerrada) |
+| Fase | 4 — Estudio, repaso espaciado y estadísticas (en curso) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
@@ -436,6 +436,20 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 10 — Transferencia y cierre:** fixture de Fase 3 con semántica y round-trip, documentación, changelog y verificación final.
 
 **Estado Fase 3:** 25 tests de UI y 89 tests de Rust en verde (31 core, 32 store, 15 transfer, 11 host). Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto. La aceptación se verifica con el promedio ponderado con descarte del menor en «Notas» y la búsqueda de tareas por texto y etiqueta.
+
+### 2026-11-08 — Fase 4 en curso (bitácora por pasos)
+
+> Misma regla que las fases anteriores: cada paso termina con `./scripts/check.sh` en
+> verde y un commit local pequeño. La bitácora se actualiza **antes** de seguir.
+
+- [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (25 tests de UI y 89 de Rust) antes de tocar nada.
+- [ ] **Paso 1 — Modelos puros:** autoevaluación 1–5, clasificación con override, SM-2 versionado, prioridad explicable, sesiones y estadísticas.
+- [ ] **Paso 2 — Persistencia de estudio:** autoevaluaciones, overrides, ítems de repaso, sesiones y consultas agregadas con tests.
+- [ ] **Paso 3 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades de estudio.
+- [ ] **Paso 4 — UI de fortalezas:** temas, autoevaluación, clasificación, override y repaso desde la sección «Fortalezas».
+- [ ] **Paso 5 — UI de estudio:** cola de prioridad explicable, Pomodoro y registro de sesiones.
+- [ ] **Paso 6 — UI de estadísticas:** tiempo, constancia, materias débiles y próximos repasos.
+- [ ] **Paso 7 — Transferencia y cierre:** fixture de Fase 4 con semántica y round-trip, documentación, changelog y verificación final.
 
 ---
 
