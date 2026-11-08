@@ -357,13 +357,25 @@ code,
 
 .button {
   border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 11px 20px;
+  border-radius: var(--md-radius-sm);
+  padding: 9px 16px;
   font-weight: 650;
+  line-height: 1.25;
   transition:
     transform 120ms ease,
     box-shadow 120ms ease,
     background-color 120ms ease;
+}
+
+/* Separación mínima entre botones contiguos cuando el contenedor no usa gap. */
+.button + .button {
+  margin-left: 8px;
+}
+
+:where(.hero-actions, .form-actions, .inline-form, .pomodoro, .task-composer)
+  > .button
+  + .button {
+  margin-left: 0;
 }
 
 .button:hover {
@@ -1183,6 +1195,33 @@ code,
 
 .select-field {
   height: 40px;
+  appearance: none;
+  padding: 0 38px 0 12px;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--md-sys-color-on-surface-variant) 50%
+    ),
+    linear-gradient(
+      135deg,
+      var(--md-sys-color-on-surface-variant) 50%,
+      transparent 50%
+    );
+  background-position:
+    calc(100% - 17px) calc(50% + 1px),
+    calc(100% - 12px) calc(50% + 1px);
+  background-repeat: no-repeat;
+  background-size:
+    5px 5px,
+    5px 5px;
+}
+
+.inline-form > .button {
+  align-self: end;
+  justify-self: start;
+  width: auto;
+  min-height: 40px;
 }
 
 .color-field {
