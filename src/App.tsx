@@ -25,6 +25,7 @@ import { CalendarView } from "./views/CalendarView";
 import { ExamsView } from "./views/ExamsView";
 import { GradesView } from "./views/GradesView";
 import { ScheduleView } from "./views/ScheduleView";
+import { SettingsView } from "./views/SettingsView";
 import { StatsView } from "./views/StatsView";
 import { StrengthsView } from "./views/StrengthsView";
 import { StudyView } from "./views/StudyView";
@@ -48,40 +49,6 @@ const navItems = [
 ] as const;
 
 type SectionId = (typeof navItems)[number]["id"];
-type PlaceholderId = Exclude<
-  SectionId,
-  | "today"
-  | "tasks"
-  | "vault"
-  | "subjects"
-  | "schedule"
-  | "calendar"
-  | "exams"
-  | "grades"
-  | "study"
-  | "strengths"
-  | "stats"
->;
-
-interface SectionInfo {
-  phase: string;
-  summary: string;
-  features: string[];
-}
-
-const sectionInfo: Record<PlaceholderId, SectionInfo> = {
-  settings: {
-    phase: "Fase 5",
-    summary:
-      "Preferencias de la app, idioma y el updater aislado con firma obligatoria. Nada de red en la webview.",
-    features: [
-      "Idioma de la interfaz",
-      "Preferencias de notificaciones locales",
-      "Updater opt-in con firma",
-      "Diagnóstico y auditoría",
-    ],
-  },
-};
 
 const projectChecklist = [
   { done: true, label: "Scaffold Tauri 2 + React + TypeScript" },
@@ -793,51 +760,6 @@ function VaultView({
   );
 }
 
-function SectionView({
-  label,
-  info,
-  onBack,
-}: {
-  label: string;
-  info: SectionInfo;
-  onBack: () => void;
-}) {
-  return (
-    <>
-      <section className="hero section-hero" aria-labelledby="section-title">
-        <p className="eyebrow">
-          {info.phase} · {label}
-        </p>
-        <h1 id="section-title">{label}</h1>
-        <p className="hero-copy">{info.summary}</p>
-        <div className="hero-actions">
-          <button type="button" className="button tonal" onClick={onBack}>
-            Volver a Hoy
-          </button>
-        </div>
-      </section>
-
-      <section className="feature-grid" aria-label={`Alcance de ${label}`}>
-        {info.features.map((feature) => (
-          <article className="feature" key={feature}>
-            <span className="card-kicker">Previsto</span>
-            <p>{feature}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="next-card">
-        <p className="eyebrow">Estado</p>
-        <h2>Sección en preparación</h2>
-        <p>
-          La navegación ya cambia de vista, pero el contenido de {label} llega
-          en {info.phase}. El detalle está en <code>docs/CHECKLIST.md</code>.
-        </p>
-      </section>
-    </>
-  );
-}
-
 function App() {
   const [active, setActive] = useState<SectionId>("today");
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -1032,10 +954,6 @@ function App() {
     }
   }
 
-  const activeLabel =
-    navItems.find((item) => item.id === active)?.label ?? "Hoy";
-  const placeholder = active === "settings" ? sectionInfo[active] : null;
-
   return (
     <div className="app">
       <ResizeHandles />
@@ -1189,12 +1107,8 @@ function App() {
             />
           ) : null}
 
-          {placeholder ? (
-            <SectionView
-              label={activeLabel}
-              info={placeholder}
-              onBack={() => setActive("today")}
-            />
+          {active === "settings" ? (
+            <SettingsView vault={vault} onGoVault={() => setActive("vault")} />
           ) : null}
         </main>
       </div>

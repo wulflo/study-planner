@@ -81,6 +81,21 @@ describe("App en navegador", () => {
     ).toBeInTheDocument();
   });
 
+  it("muestra Ajustes y pide configurar la bóveda", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Ajustes", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/bóveda requerida/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Ir a Bóveda" }),
+    ).toBeInTheDocument();
+  });
+
   it("abre y cierra el checklist del proyecto", async () => {
     const user = userEvent.setup();
     render(<App />);

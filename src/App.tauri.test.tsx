@@ -103,6 +103,12 @@ const api = vi.hoisted(() => ({
   listTopicStudies: vi.fn(),
   listStudyPriorities: vi.fn(),
   getStudyStats: vi.fn(),
+  getUpdaterStatus: vi.fn(),
+  setUpdaterAutoCheck: vi.fn(),
+  checkUpdates: vi.fn(),
+  installUpdate: vi.fn(),
+  rollbackUpdate: vi.fn(),
+  listNetworkEvents: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -531,6 +537,34 @@ const studyStats = {
   dueReviews: 1,
 };
 
+const updaterStatus = {
+  publicKeyConfigured: true,
+  currentVersion: "0.1.0",
+  updateHost: "github.com",
+  autoCheck: false,
+  runningAsAppImage: true,
+  canRollback: false,
+};
+
+const updateInfo = {
+  version: "0.2.0",
+  pubDate: "2026-12-01T00:00:00Z",
+  notes: "Corrige el repaso espaciado.",
+};
+
+const networkEvent = {
+  id: "event-1",
+  occurredAt: "2026-11-08T10:00:00.000Z",
+  kind: "update_check",
+  host: "github.com",
+  bytesSent: 0,
+  bytesReceived: 512,
+  outcome: "ok",
+  detail: "sin actualizaciones",
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAppInfo.mockResolvedValue({
@@ -747,6 +781,18 @@ beforeEach(() => {
   api.listTopicStudies.mockResolvedValue([topicStudy]);
   api.listStudyPriorities.mockResolvedValue([studyPriority]);
   api.getStudyStats.mockResolvedValue(studyStats);
+  api.getUpdaterStatus.mockResolvedValue(updaterStatus);
+  api.setUpdaterAutoCheck.mockResolvedValue({
+    ...updaterStatus,
+    autoCheck: true,
+  });
+  api.checkUpdates.mockResolvedValue(updateInfo);
+  api.installUpdate.mockResolvedValue({
+    version: "0.2.0",
+    restartRequired: true,
+  });
+  api.rollbackUpdate.mockResolvedValue(undefined);
+  api.listNetworkEvents.mockResolvedValue([networkEvent]);
 });
 
 afterEach(cleanup);
@@ -1345,5 +1391,63 @@ describe("App con IPC de Tauri", () => {
       expect.any(String),
       todayIso(),
     );
+  });
+
+  it("configura el updater opt-in y registra eventos de red", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Ajustes", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/host fijo github\.com/i),
+    ).toBeInTheDocument();
+
+    const toggle = await screen.findByRole("checkbox", {
+      name: /buscar actualizaciones al iniciar/i,
+    });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(api.setUpdaterAutoCheck).toHaveBeenCalledWith(true);
+    expect(await screen.findByRole("checkbox")).toBeChecked();
+
+    await user.click(
+      screen.getByRole("button", { name: "Buscar actualizaciones" }),
+    );
+    expect(api.checkUpdates).toHaveBeenCalled();
+    expect(
+      await screen.findByText(/hay una actualización disponible: 0\.2\.0/i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("list", { name: "Eventos de red" }),
+    ).toHaveTextContent("sin actualizaciones");
+
+    await user.click(screen.getByRole("button", { name: "Instalar 0.2.0" }));
+    expect(api.installUpdate).toHaveBeenCalled();
+    expect(
+      await screen.findByText(/actualización 0\.2\.0 instalada/i),
+    ).toBeInTheDocument();
+  });
+
+  it("deshabilita la comprobación sin clave pública configurada", async () => {
+    api.getUpdaterStatus.mockResolvedValue({
+      ...updaterStatus,
+      publicKeyConfigured: false,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(
+      await screen.findByText(/no tiene una clave pública de producción/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Buscar actualizaciones" }),
+    ).toBeDisabled();
   });
 });

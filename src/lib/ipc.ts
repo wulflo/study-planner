@@ -1133,6 +1133,39 @@ export interface StudyStats {
   dueReviews: number;
 }
 
+export interface UpdaterStatus {
+  publicKeyConfigured: boolean;
+  currentVersion: string;
+  updateHost: string;
+  autoCheck: boolean;
+  runningAsAppImage: boolean;
+  canRollback: boolean;
+}
+
+export interface UpdateInfo {
+  version: string;
+  pubDate: string | null;
+  notes: string;
+}
+
+export interface InstallOutcome {
+  version: string;
+  restartRequired: boolean;
+}
+
+export interface NetworkEvent {
+  id: string;
+  occurredAt: string;
+  kind: string;
+  host: string;
+  bytesSent: number;
+  bytesReceived: number;
+  outcome: string;
+  detail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function listSelfAssessments(
   topicId: string,
 ): Promise<SelfAssessment[]> {
@@ -1264,4 +1297,32 @@ export async function getStudyStats(
   today: string,
 ): Promise<StudyStats> {
   return invoke<StudyStats>("get_study_stats", { from, today });
+}
+
+export async function getUpdaterStatus(): Promise<UpdaterStatus> {
+  return invoke<UpdaterStatus>("get_updater_status");
+}
+
+export async function setUpdaterAutoCheck(
+  enabled: boolean,
+): Promise<UpdaterStatus> {
+  return invoke<UpdaterStatus>("set_updater_auto_check", { enabled });
+}
+
+/** Devuelve `null` cuando la versión instalada ya es la más nueva. */
+export async function checkUpdates(): Promise<UpdateInfo | null> {
+  return invoke<UpdateInfo | null>("check_updates");
+}
+
+/** Descarga, verifica e instala; vuelve a consultar el manifiesto en Rust. */
+export async function installUpdate(): Promise<InstallOutcome> {
+  return invoke<InstallOutcome>("install_update");
+}
+
+export async function rollbackUpdate(): Promise<void> {
+  return invoke<void>("rollback_update");
+}
+
+export async function listNetworkEvents(): Promise<NetworkEvent[]> {
+  return invoke<NetworkEvent[]>("list_network_events");
 }
