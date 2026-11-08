@@ -14,6 +14,10 @@
 //! validan datos para poder probar la seguridad sin tocar la red.
 
 use std::collections::BTreeMap;
+use std::fs;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use minisign_verify::{PublicKey, Signature};
@@ -77,6 +81,14 @@ pub enum UpdateError {
     SignatureVersionMissing,
     #[error("la firma declara la versión {signed}, pero el manifiesto anuncia {expected}")]
     SignatureVersionMismatch { signed: String, expected: String },
+    #[error("error de red: {0}")]
+    Http(String),
+    #[error("respuesta HTTP {0}")]
+    HttpStatus(u16),
+    #[error("la respuesta supera el tamaño máximo permitido")]
+    ResponseTooLarge,
+    #[error("error de instalación: {0}")]
+    Install(String),
 }
 
 /// Artefacto de una plataforma dentro del manifiesto.
@@ -280,6 +292,217 @@ fn validate_https_url(raw: &str) -> Result<(), UpdateError> {
     Ok(())
 }
 
+/// Transporte HTTP abstracto para poder probar la lógica sin red.
+pub trait HttpFetcher {
+    fn fetch(&self, url: &str, max_bytes: usize) -> Result<Vec<u8>, UpdateError>;
+}
+
+/// Cliente HTTP real del updater.
+///
+/// Solo se usa desde Rust; no se expone en la webview ni acepta URLs
+/// configurables. Las redirecciones se limitan a los hosts permitidos.
+pub struct ReqwestFetcher {
+    client: reqwest::blocking::Client,
+}
+
+impl ReqwestFetcher {
+    /// Construye el cliente con un `User-Agent` que solo incluye la versión.
+    pub fn new(app_version: &str) -> Result<Self, UpdateError> {
+        let user_agent = format!("StudyPlanner/{}", app_version.trim());
+        let client = reqwest::blocking::Client::builder()
+            .user_agent(user_agent)
+            .timeout(Duration::from_secs(45))
+            .connect_timeout(Duration::from_secs(20))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 5 {
+                    attempt.error("demasiadas redirecciones")
+                } else if !allowed_https_url(attempt.url()) {
+                    attempt.error("redirección a un host no permitido")
+                } else {
+                    attempt.follow()
+                }
+            }))
+            .build()
+            .map_err(|error| UpdateError::Http(error.to_string()))?;
+        Ok(Self { client })
+    }
+}
+
+impl HttpFetcher for ReqwestFetcher {
+    fn fetch(&self, url: &str, max_bytes: usize) -> Result<Vec<u8>, UpdateError> {
+        validate_https_url(url)?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .map_err(|error| UpdateError::Http(error.to_string()))?;
+        if !response.status().is_success() {
+            return Err(UpdateError::HttpStatus(response.status().as_u16()));
+        }
+        if let Some(length) = response.content_length()
+            && length > max_bytes as u64
+        {
+            return Err(UpdateError::ResponseTooLarge);
+        }
+
+        let mut bytes = Vec::new();
+        response
+            .take(max_bytes as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| UpdateError::Http(error.to_string()))?;
+        if bytes.len() > max_bytes {
+            return Err(UpdateError::ResponseTooLarge);
+        }
+        Ok(bytes)
+    }
+}
+
+/// Consulta el manifiesto fijo y devuelve la actualización si es más nueva.
+pub fn check_for_update(
+    fetcher: &dyn HttpFetcher,
+    current_version: &str,
+) -> Result<Option<UpdateCandidate>, UpdateError> {
+    let bytes = fetcher.fetch(UPDATE_URL, MANIFEST_MAX_BYTES)?;
+    evaluate_manifest(&bytes, current_version)
+}
+
+/// Descarga el artefacto y lo verifica antes de devolverlo.
+pub fn download_update(
+    fetcher: &dyn HttpFetcher,
+    candidate: &UpdateCandidate,
+    public_key: &str,
+) -> Result<Vec<u8>, UpdateError> {
+    validate_https_url(&candidate.url)?;
+    let max_bytes =
+        usize::try_from(ARTIFACT_MAX_BYTES).map_err(|_| UpdateError::ResponseTooLarge)?;
+    let bytes = fetcher.fetch(&candidate.url, max_bytes)?;
+    verify_artifact(
+        public_key,
+        &bytes,
+        &candidate.signature,
+        &candidate.version,
+        &candidate.sha256,
+    )?;
+    Ok(bytes)
+}
+
+/// Resultado de instalar un AppImage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallReport {
+    pub installed: PathBuf,
+    pub backup: PathBuf,
+}
+
+/// Reemplaza el AppImage actual de forma atómica y conserva el anterior.
+///
+/// El archivo nuevo se escribe y sincroniza al lado del actual. Solo después
+/// se mueve el actual a `.old` y el nuevo a su lugar. Si el segundo renombre
+/// falla, se restaura el anterior.
+pub fn install_appimage(appimage: &[u8], target: &Path) -> Result<InstallReport, UpdateError> {
+    if appimage.is_empty() {
+        return Err(UpdateError::Install(
+            "el AppImage descargado está vacío".to_string(),
+        ));
+    }
+    if !target.is_file() {
+        return Err(UpdateError::Install(format!(
+            "el AppImage actual no existe: {}",
+            target.display()
+        )));
+    }
+
+    let temporary = sibling_path(target, "new");
+    let backup = backup_path(target);
+    remove_if_exists(&temporary)?;
+
+    {
+        let mut file = fs::File::create(&temporary).map_err(install_error)?;
+        file.write_all(appimage).map_err(install_error)?;
+        file.sync_all().map_err(install_error)?;
+    }
+    set_executable(&temporary)?;
+
+    remove_if_exists(&backup)?;
+    fs::rename(target, &backup).map_err(install_error)?;
+    if let Err(error) = fs::rename(&temporary, target) {
+        // Restaurar el binario anterior si el reemplazo no se pudo completar.
+        let _ = fs::rename(&backup, target);
+        let _ = fs::remove_file(&temporary);
+        return Err(install_error(error));
+    }
+
+    Ok(InstallReport {
+        installed: target.to_path_buf(),
+        backup,
+    })
+}
+
+/// Restaura el AppImage anterior guardado por [`install_appimage`].
+///
+/// El binario fallido se conserva como `.failed` para diagnóstico.
+pub fn rollback_appimage(target: &Path) -> Result<PathBuf, UpdateError> {
+    let backup = backup_path(target);
+    if !backup.is_file() {
+        return Err(UpdateError::Install(
+            "no hay un AppImage anterior para restaurar".to_string(),
+        ));
+    }
+
+    if target.is_file() {
+        let failed = sibling_path(target, "failed");
+        remove_if_exists(&failed)?;
+        fs::rename(target, &failed).map_err(install_error)?;
+    }
+    fs::rename(&backup, target).map_err(install_error)?;
+    set_executable(target)?;
+    Ok(target.to_path_buf())
+}
+
+fn backup_path(target: &Path) -> PathBuf {
+    sibling_path(target, "old")
+}
+
+fn sibling_path(target: &Path, suffix: &str) -> PathBuf {
+    let file_name = target
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "StudyPlanner.AppImage".to_string());
+    target.with_file_name(format!("{file_name}.{suffix}"))
+}
+
+fn remove_if_exists(path: &Path) -> Result<(), UpdateError> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(install_error(error)),
+    }
+}
+
+#[cfg(unix)]
+fn set_executable(path: &Path) -> Result<(), UpdateError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = fs::metadata(path).map_err(install_error)?.permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(path, permissions).map_err(install_error)
+}
+
+#[cfg(not(unix))]
+fn set_executable(_path: &Path) -> Result<(), UpdateError> {
+    Ok(())
+}
+
+fn install_error(error: std::io::Error) -> UpdateError {
+    UpdateError::Install(error.to_string())
+}
+
+fn allowed_https_url(url: &reqwest::Url) -> bool {
+    url.scheme() == "https"
+        && url
+            .host_str()
+            .is_some_and(|host| ALLOWED_HOSTS.contains(&host))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -465,5 +688,110 @@ mod tests {
     fn update_url_is_fixed_and_secure() {
         assert!(UPDATE_URL.starts_with("https://github.com/"));
         validate_https_url(UPDATE_URL).expect("URL fija válida");
+    }
+
+    struct FakeFetcher {
+        manifest: Vec<u8>,
+        artifact: Vec<u8>,
+    }
+
+    impl HttpFetcher for FakeFetcher {
+        fn fetch(&self, url: &str, max_bytes: usize) -> Result<Vec<u8>, UpdateError> {
+            let bytes = if url == UPDATE_URL {
+                &self.manifest
+            } else {
+                &self.artifact
+            };
+            if bytes.len() > max_bytes {
+                return Err(UpdateError::ResponseTooLarge);
+            }
+            Ok(bytes.clone())
+        }
+    }
+
+    fn temporary_directory(tag: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_millis());
+        let sequence = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "study-planner-updater-{tag}-{}-{millis}-{sequence}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).expect("crear directorio temporal");
+        path
+    }
+
+    #[test]
+    fn fetches_and_verifies_a_candidate_without_network() {
+        let fetcher = FakeFetcher {
+            manifest: manifest("0.2.0").into_bytes(),
+            artifact: TEST_ARTIFACT.to_vec(),
+        };
+
+        let candidate = check_for_update(&fetcher, "0.1.0")
+            .expect("consulta válida")
+            .expect("actualización disponible");
+        let bytes =
+            download_update(&fetcher, &candidate, TEST_PUBLIC_KEY).expect("descarga válida");
+        assert_eq!(bytes, TEST_ARTIFACT);
+    }
+
+    #[test]
+    fn refuses_to_download_an_artifact_that_does_not_match() {
+        let fetcher = FakeFetcher {
+            manifest: manifest("0.2.0").into_bytes(),
+            artifact: b"otro-artefacto".to_vec(),
+        };
+        let candidate = check_for_update(&fetcher, "0.1.0")
+            .expect("consulta válida")
+            .expect("actualización disponible");
+
+        assert!(matches!(
+            download_update(&fetcher, &candidate, TEST_PUBLIC_KEY),
+            Err(UpdateError::HashMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn installs_atomically_and_rolls_back() {
+        let directory = temporary_directory("install");
+        let target = directory.join("Study Planner.AppImage");
+        fs::write(&target, b"binario-anterior").expect("crear binario anterior");
+
+        let report = install_appimage(b"binario-nuevo", &target).expect("instalar");
+        assert_eq!(fs::read(&target).unwrap(), b"binario-nuevo");
+        assert_eq!(fs::read(&report.backup).unwrap(), b"binario-anterior");
+
+        let restored = rollback_appimage(&target).expect("rollback");
+        assert_eq!(restored, target);
+        assert_eq!(fs::read(&target).unwrap(), b"binario-anterior");
+        assert_eq!(
+            fs::read(directory.join("Study Planner.AppImage.failed")).unwrap(),
+            b"binario-nuevo"
+        );
+
+        fs::remove_dir_all(directory).expect("limpiar temporal");
+    }
+
+    #[test]
+    fn install_requires_an_existing_appimage() {
+        let directory = temporary_directory("install-missing");
+        let target = directory.join("Study Planner.AppImage");
+
+        assert!(matches!(
+            install_appimage(b"binario-nuevo", &target),
+            Err(UpdateError::Install(_))
+        ));
+        assert!(matches!(
+            rollback_appimage(&target),
+            Err(UpdateError::Install(_))
+        ));
+
+        fs::remove_dir_all(directory).expect("limpiar temporal");
     }
 }
