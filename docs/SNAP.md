@@ -1,13 +1,12 @@
 # Empaquetado Snap
 
 > **Estado:** empaquetado y publicación manual a la Snap Store implementados
-> (2026-11-09). El nombre `study-planner` está registrado a la cuenta `wulflo`.
-> El workflow compila el `.snap`, lo deja como artefacto y, al lanzarlo a mano, lo
-> publica en el canal elegido (`stable` por defecto, `beta` o `edge` para
-> pruebas). El secreto `SNAPCRAFT_STORE_CREDENTIALS` actual solo permite `edge`:
-> hay que rotarlo con los canales `stable,beta,edge` antes de publicar en
-> `stable`. Los builds de `pull_request` solo compilan. Falta probar la
-> instalación desde la tienda en Ubuntu 24.04 limpio.
+> (2026-11-09). El nombre `study-planner` está registrado a la cuenta `wulflo` y
+> el secreto `SNAPCRAFT_STORE_CREDENTIALS` está cargado con un token limitado a
+> `study-planner` y a los canales `stable`, `beta` y `edge`. El workflow compila
+> el `.snap`, lo deja como artefacto y, al lanzarlo a mano, lo publica en el canal
+> elegido (`stable` por defecto). Los builds de `pull_request` solo compilan.
+> Falta probar la instalación desde la tienda en Ubuntu 24.04 limpio.
 
 ## Decisión
 
@@ -93,9 +92,9 @@ que lanzar el workflow «Snap» a mano desde la pestaña Actions y elegir el can
 ## Credenciales de Snapcraft
 
 > **Estado actual:** nombre `study-planner` registrado a la cuenta `wulflo` y
-> `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub. El token actual está limitado a
-> `study-planner` y al canal `edge`, y expira el 2027-11-08. Para publicar en
-> `stable` hay que rotarlo con los canales `stable,beta,edge` (comando abajo).
+> `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub. El token está limitado a
+> `study-planner`, a los canales `stable`, `beta` y `edge`, a los ACLs de paquete
+> y expira el 2027-11-08.
 
 El registro del nombre y el login con contraseña + 2FA los hace el usuario. Se usa
 la imagen `docker.io/snapcore/snapcraft:stable` (4.4.4), que guarda la sesión en
