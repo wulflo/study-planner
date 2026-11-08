@@ -36,7 +36,6 @@ parts:
     source: .
     build-snaps:
       - node/22/stable
-      - rustup/latest/stable
     build-packages:
       - build-essential
       - curl
@@ -55,7 +54,10 @@ parts:
     override-build: |
       set -eu
       export PATH="$HOME/.cargo/bin:$PATH"
-      rustup default stable
+      # El snap rustup/latest apunta a core26 y choca con la libc del SDK
+      # gnome-46 (core24). Se instala rustup con el instalador oficial.
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable
       npm ci
       npm run tauri build -- --bundles deb
       dpkg -x src-tauri/target/release/bundle/deb/*.deb "$CRAFT_PART_INSTALL"/

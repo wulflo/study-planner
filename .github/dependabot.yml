@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  # Las actualizaciones de versión quedan desactivadas (límite 0); las de
+  # seguridad siguen activas vía alertas de Dependabot.
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    ignore:
+      # glib < 0.20 no se puede instalar: gtk 0.18 (pila de Tauri) exige 0.18.
+      # La corrección requiere actualizar Tauri/gtk-rs. Ver docs/CHECKLIST.md.
+      - dependency-name: glib
+        versions: ["< 0.20.0"]

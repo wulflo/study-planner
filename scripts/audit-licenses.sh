@@ -8,7 +8,7 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
 if ! cargo metadata --offline --format-version 1 > "$tmp"; then
-  echo "FALLO: no se pudo leer el grafo de Cargo" >&2
+  echo "FALLO: no se pudo leer el grafo de Cargo (¿falta 'cargo fetch --locked'?)" >&2
   exit 1
 fi
 

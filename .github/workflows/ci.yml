@@ -37,6 +37,11 @@ jobs:
       - name: Caché de Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Dependencias de Cargo
+        # cargo fetch trae también las dependencias de otros targets (p. ej.
+        # hermit-abi), que cargo metadata necesita para la auditoría offline.
+        run: cargo fetch --locked
+
       - name: Dependencias de sistema para Tauri
         run: |
           sudo apt-get update

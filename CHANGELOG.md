@@ -84,6 +84,13 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - La ventana principal usa `decorations: false`; la barra de título de la app reemplaza la decoración del sistema.
 - La barra de título reserva una altura fija y agrupa metadatos y controles para mantener estable el layout.
 
+### Corregido
+
+- CI: `cargo fetch --locked` antes de las auditorías para que `cargo metadata --offline` tenga también las dependencias de otros targets (fallaba con `hermit-abi`).
+- Release: el job de macOS usa `macos-15`; `macos-14` ya no está disponible en GitHub Actions.
+- Snap: el toolchain de Rust se instala con `rustup-init` oficial porque el snap `rustup/latest` (core26) choca con la libc del SDK gnome-46 (core24).
+- Dependabot: se ignoran las actualizaciones de `glib < 0.20.0`, imposibles de resolver mientras Tauri use gtk 0.18, para que el workflow no falle.
+
 ### Conocido
 
 - Dependabot reporta una debilidad media en `glib` 0.18.5 (iteradores de `VariantStrIter`). Llega de forma transitiva por `gtk 0.18` en la pila de Tauri; la corrección requiere `glib 0.20` y una actualización mayor de Tauri/gtk-rs. Study Planner no usa esos iteradores directamente. Ver `docs/CHECKLIST.md`.

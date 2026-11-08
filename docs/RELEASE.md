@@ -30,7 +30,7 @@ el snap.
 |---|---|---|
 | Linux x86_64 | `ubuntu-24.04` | `.AppImage`, `.deb`, `.rpm` |
 | Windows x64 | `windows-latest` | `.exe` (NSIS) y `.msi` |
-| macOS arm64 | `macos-14` | `.dmg` |
+| macOS arm64 | `macos-15` | `.dmg` |
 
 Pasos del workflow:
 

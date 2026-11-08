@@ -32,6 +32,9 @@ fi
 echo "==> Snap: versión sincronizada"
 bash scripts/check-snap-version.sh
 
+echo "==> Rust: dependencias de Cargo (todos los targets)"
+cargo fetch --locked
+
 echo "==> Auditoría de red, permisos y secretos"
 bash scripts/audit-network.sh
 

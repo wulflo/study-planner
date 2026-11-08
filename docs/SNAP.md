@@ -189,6 +189,10 @@ El token actual no permite publicar fuera de `edge`.
 
 ## Riesgos y límites
 
+- **Rust en el build:** `snapcraft.yaml` instala el toolchain con el
+  `rustup-init` oficial dentro de `override-build`. El snap `rustup/latest`
+  apunta a core26 y choca con la libc del SDK gnome-46 (core24), que falla con
+  `undefined symbol: __nptl_change_stack_perm`.
 - **WebKitGTK:** la extensión `gnome` aporta WebKitGTK/GTK; el `layout` apunta a
   `$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1`. Hay que revisar el
   arranque real en cada actualización de base o de la extensión.

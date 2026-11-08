@@ -33,7 +33,7 @@ jobs:
             bundles: nsis,msi
             artifact: windows
           - name: macOS (DMG)
-            os: macos-14
+            os: macos-15
             bundles: dmg
             artifact: macos
     runs-on: ${{ matrix.os }}

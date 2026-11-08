@@ -263,7 +263,7 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 - [ ] Custodia final de la clave y su passphrase (VeraCrypt, copia offline, Drive cifrado).
 - [x] Repositorio publicado en GitHub: [`wulflo/study-planner`](https://github.com/wulflo/study-planner), público, sin datos ni secretos.
 - [x] Estructura de bóveda `<raíz>/omega` + `<raíz>/longlife` confirmada en **ADR-016**.
-- [ ] Evaluar la alerta de Dependabot de `glib` 0.18.5 (unsoundness en iteradores de `VariantStrIter`, severidad media): viene de `gtk 0.18` en la pila de Tauri y la corrección exige `glib 0.20`, es decir, una actualización mayor de Tauri/gtk-rs. No se usa directamente en el código de Study Planner.
+- [ ] Evaluar la alerta de Dependabot de `glib` 0.18.5 (unsoundness en iteradores de `VariantStrIter`, severidad media): viene de `gtk 0.18` en la pila de Tauri y la corrección exige `glib 0.20`, es decir, una actualización mayor de Tauri/gtk-rs. No se usa directamente en el código de Study Planner. Las actualizaciones automáticas de `glib < 0.20.0` se ignoran en `.github/dependabot.yml` para que el workflow de Dependabot no falle; la alerta sigue abierta para reevaluar al actualizar Tauri/gtk-rs.
 
 ---
 
