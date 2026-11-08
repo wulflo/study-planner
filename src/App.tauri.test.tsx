@@ -135,6 +135,13 @@ const doneTask = {
   completedAt: "2026-11-08T09:00:00.000Z",
 };
 
+function todayIso(): string {
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 const academicYear = {
   id: "year-1",
   name: "2026",
@@ -664,5 +671,64 @@ describe("App con IPC de Tauri", () => {
         }),
       ),
     );
+  });
+
+  it("muestra la próxima clase y registra la asistencia del día", async () => {
+    const user = userEvent.setup();
+    const today = todayIso();
+    const occurrence = {
+      ...weekSchedule.occurrences[0],
+      date: today,
+    };
+    const todayWeek = {
+      ...weekSchedule,
+      occurrences: [occurrence],
+    };
+    api.getWeekSchedule.mockResolvedValue(todayWeek);
+    api.getNextClass.mockResolvedValue(occurrence);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Próxima clase" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Clases de hoy")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(api.getNextClass).toHaveBeenCalledWith(
+        "term-1",
+        today,
+        expect.any(String),
+      ),
+    );
+
+    const mark = await screen.findByRole("button", {
+      name: `Marcar presente «Álgebra lineal» ${today}`,
+    });
+
+    api.getWeekSchedule.mockResolvedValue({
+      ...todayWeek,
+      occurrences: [{ ...occurrence, attendanceStatus: "present" }],
+      attendance: [
+        {
+          ...weekSchedule.attendance[0],
+          present: 1,
+          counted: 1,
+          attended: 1,
+          percentBp: 10000,
+        },
+      ],
+    });
+
+    await user.click(mark);
+
+    await waitFor(() =>
+      expect(api.setAttendance).toHaveBeenCalledWith(
+        "slot-1",
+        today,
+        "present",
+        null,
+      ),
+    );
+    expect(await screen.findByText("100.0% / mín. 75.0%")).toBeInTheDocument();
   });
 });

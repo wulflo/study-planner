@@ -22,6 +22,7 @@ import {
 } from "./lib/ipc";
 import { AcademicView } from "./views/AcademicView";
 import { ScheduleView } from "./views/ScheduleView";
+import { TodaySchedule } from "./views/TodaySchedule";
 import "./styles.css";
 
 const navItems = [
@@ -323,6 +324,7 @@ function TodayView({
   onOpenChecklist,
   onOpenTasks,
   onOpenVault,
+  onGoSubjects,
   onToggleTask,
 }: {
   info: AppInfo | null;
@@ -334,6 +336,7 @@ function TodayView({
   onOpenChecklist: () => void;
   onOpenTasks: () => void;
   onOpenVault: () => void;
+  onGoSubjects: () => void;
   onToggleTask: (task: Task) => void;
 }) {
   const ready = vault?.ready === true;
@@ -374,6 +377,10 @@ function TodayView({
           </button>
         </div>
       </section>
+
+      {ready ? (
+        <TodaySchedule vault={vault} onGoSubjects={onGoSubjects} />
+      ) : null}
 
       {ready ? (
         <section className="status-card" aria-labelledby="pending-title">
@@ -1274,6 +1281,7 @@ function App() {
               onOpenChecklist={() => setChecklistOpen(true)}
               onOpenTasks={() => setActive("tasks")}
               onOpenVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
               onToggleTask={handleToggleTask}
             />
           ) : null}

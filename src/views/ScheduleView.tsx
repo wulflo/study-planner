@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { AttendanceButtons } from "../components/AttendanceButtons";
 import {
   type AttendanceStatus,
   type ClassException,
@@ -62,29 +63,11 @@ const occurrenceLabels: Record<ScheduleOccurrence["kind"], string> = {
   moved: "Movida",
   extra: "Extra",
 };
-const attendanceLabels: Record<AttendanceStatus, string> = {
-  present: "Presente",
-  absent: "Ausente",
-  late: "Tarde",
-  justified: "Justificado",
-};
-const attendanceShort: Record<AttendanceStatus, string> = {
-  present: "P",
-  absent: "A",
-  late: "T",
-  justified: "J",
-};
 const rotationModeLabels: Record<RotationMode, string> = {
   weekly_ab: "Semanal A/B",
   parity: "Paridad de semanas",
   day_cycle: "Ciclo de días",
 };
-const allAttendance: AttendanceStatus[] = [
-  "present",
-  "absent",
-  "late",
-  "justified",
-];
 
 const emptySlotForm = {
   id: null as string | null,
@@ -675,34 +658,13 @@ export function ScheduleView({
                                 ) : null}
                               </div>
                               {occurrence.kind !== "cancelled" ? (
-                                <fieldset
-                                  className="attendance-row"
-                                  aria-label={`Asistencia de «${occurrence.subjectName}» el ${occurrence.date}`}
-                                >
-                                  {allAttendance.map((status) => {
-                                    const active =
-                                      occurrence.attendanceStatus === status;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={status}
-                                        className={`attendance-button${active ? " is-active" : ""}`}
-                                        title={attendanceLabels[status]}
-                                        aria-label={`Marcar ${attendanceLabels[status].toLowerCase()} «${occurrence.subjectName}» ${occurrence.date}`}
-                                        aria-pressed={active}
-                                        onClick={() =>
-                                          void markAttendance(
-                                            occurrence,
-                                            active ? null : status,
-                                          )
-                                        }
-                                        disabled={busy}
-                                      >
-                                        {attendanceShort[status]}
-                                      </button>
-                                    );
-                                  })}
-                                </fieldset>
+                                <AttendanceButtons
+                                  occurrence={occurrence}
+                                  busy={busy}
+                                  onChange={(status) =>
+                                    void markAttendance(occurrence, status)
+                                  }
+                                />
                               ) : null}
                             </li>
                           ))}
