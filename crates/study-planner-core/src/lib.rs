@@ -1,4 +1,4 @@
-//! Núcleo de dominio de Omega.
+//! Núcleo de dominio de Study Planner.
 //!
 //! Este crate no depende de Tauri, de la red ni del sistema de archivos.
 //! Contiene constantes compartidas, identificadores y, más adelante, las
@@ -7,8 +7,23 @@
 use serde::Serialize;
 use uuid::Uuid;
 
+mod academic;
+mod task;
+
+pub use academic::{
+    AcademicYear, AttendanceRecord, AttendanceStatus, AttendanceSummary, ClassException, ClassSlot,
+    DEFAULT_SUBJECT_COLOR, ExceptionKind, Holiday, NAME_MAX_CHARS, OccurrenceKind, Recurrence,
+    RotationConfig, RotationMode, SHORT_TEXT_MAX_CHARS, ScheduleOccurrence, ScheduleSlot,
+    SlotOverlap, Subject, Term, TermKind, add_days, attendance_summary, date_within, days_between,
+    find_overlaps, minutes_to_time, next_class, normalize_color, normalize_date, normalize_name,
+    normalize_optional_short, normalize_optional_text, normalize_time, parse_date, slot_occurs_on,
+    time_to_minutes, validate_basis_points, validate_date_range, validate_time_range,
+    validate_weekday, week_occurrences, week_start_of, weekday_of, weekdays_between,
+};
+pub use task::{TASK_TITLE_MAX_CHARS, Task, TaskStatus, validate_task_title};
+
 /// Nombre visible de la aplicación.
-pub const APP_NAME: &str = "Omega";
+pub const APP_NAME: &str = "Study Planner";
 
 /// Versión de la aplicación tomada del paquete Cargo.
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -57,7 +72,7 @@ mod tests {
     #[test]
     fn app_info_is_stable() {
         let info = AppInfo::default();
-        assert_eq!(info.name, "Omega");
+        assert_eq!(info.name, "Study Planner");
         assert_eq!(info.schema_version, SCHEMA_VERSION);
         assert_eq!(info.export_format_version, EXPORT_FORMAT_VERSION);
     }
