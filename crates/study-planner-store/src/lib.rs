@@ -17,6 +17,7 @@ mod backup;
 mod exams;
 mod grades;
 mod schedule;
+mod settings;
 mod study;
 mod tasks;
 mod undo;
@@ -29,6 +30,7 @@ pub use backup::BackupReport;
 pub use exams::{ExamInput, TopicInput};
 pub use grades::{GradeCategoryInput, GradeEntryInput, GradeScaleInput};
 pub use schedule::{ClassSlotInput, RotationInput, WeekHoliday, WeekSchedule};
+pub use settings::NetworkEvent;
 pub use study::{
     StudyPriorityView, StudyStats, SubjectMinutesView, TopicStudy, UpcomingReviewView,
     WeakSubjectView,
@@ -87,6 +89,10 @@ pub enum StoreError {
     ReviewItemNotFound,
     #[error("sesión de estudio no encontrada")]
     StudySessionNotFound,
+    #[error("ajuste inválido: {0}")]
+    InvalidSetting(String),
+    #[error("evento de red no encontrado")]
+    NetworkEventNotFound,
     #[error("acción de undo no encontrada")]
     UndoNotFound,
     #[error("la acción de undo expiró")]
