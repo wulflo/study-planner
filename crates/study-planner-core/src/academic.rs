@@ -1081,6 +1081,20 @@ mod tests {
     }
 
     #[test]
+    fn parity_and_biweekly_alternate_by_week() {
+        let config = rotation(RotationMode::Parity, "2026-03-02", &[]);
+        assert_eq!(config.label_for("2026-03-02").as_deref(), Some("Par"));
+        assert_eq!(config.label_for("2026-03-09").as_deref(), Some("Impar"));
+        assert_eq!(config.label_for("2026-03-16").as_deref(), Some("Par"));
+
+        let mut biweekly = slot("slot", "subject", 1, "08:00", "10:00");
+        biweekly.slot.recurrence = Recurrence::Biweekly;
+        assert!(slot_occurs_on(&biweekly.slot, "2026-03-02", Some(&config)));
+        assert!(!slot_occurs_on(&biweekly.slot, "2026-03-09", Some(&config)));
+        assert!(slot_occurs_on(&biweekly.slot, "2026-03-16", Some(&config)));
+    }
+
+    #[test]
     fn holidays_and_exceptions_transform_the_week() {
         let subject = "subject";
         let slot = slot("slot", subject, 1, "08:00", "10:00");
