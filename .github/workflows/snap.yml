@@ -2,6 +2,15 @@ name: Snap
 
 on:
   workflow_dispatch:
+    inputs:
+      channel:
+        description: "Canal de la Snap Store"
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - edge
   pull_request:
     paths:
       - "snap/**"
@@ -42,11 +51,11 @@ jobs:
 
       # Solo se publica al lanzar el workflow a mano. Los builds de pull_request
       # (incluidos los de forks, sin acceso a secretos) nunca suben a la tienda.
-      - name: Publicar en la Snap Store (edge)
+      - name: Publicar en la Snap Store
         if: github.event_name == 'workflow_dispatch'
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.build.outputs.snap }}
-          release: edge
+          release: ${{ inputs.channel }}
