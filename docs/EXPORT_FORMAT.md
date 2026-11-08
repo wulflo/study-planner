@@ -1,6 +1,6 @@
 # Formato de exportación `.txt` — v1
 
-Contrato del archivo canónico de Omega. La implementación completa vive en `crates/omega-transfer` y corresponde a la Fase 1; en Fase 0 solo existen las constantes y la validación de magia/versión.
+Contrato del archivo canónico de Study Planner. La implementación vive en `crates/study-planner-transfer` y se expone a la UI mediante los comandos `export_vault` e `import_vault`; la Fase 1 la validó con round-trip byte a byte, adjuntos y rollback transaccional.
 
 ## Objetivo
 
@@ -15,7 +15,7 @@ La igualdad byte a byte se garantiza dentro de la misma versión de formato y es
 ## Estructura
 
 ```text
-OMEGA-EXPORT
+STUDY-PLANNER-EXPORT
 format-version: 1
 schema-version: 1
 app-version: 0.1.0
@@ -29,14 +29,14 @@ body-sha256: 9f2c...64hex...
 ...
 {"table":"attachment_blob","row":{"attachment_id":"...","data_base64":"...","sha256":"..."}}
 {"table":"setting","row":{"key":"locale","scope":"portable","updated_at":"...","value_json":"\"es\""}}
-OMEGA-END
+STUDY-PLANNER-END
 ```
 
 ### Cabecera
 
 - Codificación UTF-8 **sin BOM**.
 - Saltos de línea `LF` (`\n`) únicamente. Se rechazan `CRLF`.
-- Primera línea exacta: `OMEGA-EXPORT`.
+- Primera línea exacta: `STUDY-PLANNER-EXPORT`.
 - Luego, en este orden fijo, una línea `clave: valor` por campo:
 
 | Campo | Regla |
@@ -73,8 +73,8 @@ OMEGA-END
 
 ### Terminador
 
-- Última línea exacta: `OMEGA-END` seguida de `\n`.
-- El cuerpo canónico son los bytes desde el primer `{` hasta el `\n` anterior a `OMEGA-END`, inclusive ese `\n`.
+- Última línea exacta: `STUDY-PLANNER-END` seguida de `\n`.
+- El cuerpo canónico son los bytes desde el primer `{` hasta el `\n` anterior a `STUDY-PLANNER-END`, inclusive ese `\n`.
 - `body-sha256` se calcula sobre esos bytes exactos, no sobre el archivo completo.
 
 ## Orden de tablas
@@ -173,7 +173,7 @@ El archivo contiene **todos** los datos sin cifrar. La UI debe advertirlo antes 
 ## Ejemplo mínimo
 
 ```text
-OMEGA-EXPORT
+STUDY-PLANNER-EXPORT
 format-version: 1
 schema-version: 1
 app-version: 0.1.0
@@ -183,7 +183,7 @@ attachments: embedded
 body-sha256: 0000000000000000000000000000000000000000000000000000000000000000
 ---
 {"table":"academic_year","row":{"created_at":"2026-11-08T07:00:00.000Z","deleted_at":null,"end_date":"2026-12-20","id":"019abcde-0000-7000-8000-000000000001","name":"2026","start_date":"2026-03-01","updated_at":"2026-11-08T08:00:00.000Z"}}
-OMEGA-END
+STUDY-PLANNER-END
 ```
 
 El checksum del ejemplo es ficticio; un archivo real debe tener el SHA-256 correcto.
@@ -197,13 +197,13 @@ El checksum del ejemplo es ficticio; un archivo real debe tener el SHA-256 corre
 
 ## Tests obligatorios (Fase 1)
 
-- [ ] Exportar fixture vacío e importarlo: bytes idénticos.
-- [ ] Exportar fixture con todas las tablas, adjuntos y borrados lógicos: bytes idénticos.
-- [ ] Checksum alterado: rechazo sin escribir.
-- [ ] `format-version` futura: rechazo claro.
-- [ ] `schema-version` futura: rechazo claro.
-- [ ] Columna faltante, columna extra o tipo incorrecto: rechazo con línea.
-- [ ] FK inválida: rollback y bóveda intacta.
-- [ ] Adjunto con hash incorrecto: rollback.
-- [ ] Importación interrumpida: no queda bóveda a medio escribir.
-- [ ] Exportación interrumpida: no queda archivo final corrupto.
+- [x] Exportar fixture vacío e importarlo: bytes idénticos.
+- [x] Exportar fixture con todas las tablas, adjuntos y borrados lógicos: bytes idénticos.
+- [x] Checksum alterado: rechazo sin escribir.
+- [x] `format-version` futura: rechazo claro.
+- [x] `schema-version` futura: rechazo claro.
+- [x] Columna faltante, columna extra o tipo incorrecto: rechazo con línea.
+- [x] FK inválida: rollback y bóveda intacta.
+- [x] Adjunto con hash incorrecto: rollback.
+- [x] Importación interrumpida: no queda bóveda a medio escribir.
+- [x] Exportación interrumpida: no queda archivo final corrupto.

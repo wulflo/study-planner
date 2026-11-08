@@ -4,7 +4,7 @@
 //! La matemática de ocurrencias vive en `study-planner-core`; acá solo se
 //! cargan las filas y se arma el resultado que consume la UI.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use study_planner_core::{
     AttendanceRecord, AttendanceStatus, AttendanceSummary, ClassException, ClassSlot,
     ExceptionKind, Holiday, Recurrence, RotationConfig, RotationMode, ScheduleOccurrence,
@@ -26,7 +26,8 @@ const EXCEPTION_COLUMNS: &str = "id, class_slot_id, date, kind, new_start_time, 
 const ATTENDANCE_COLUMNS: &str = "id, class_slot_id, date, status, note, created_at, updated_at";
 
 /// Datos editables de una franja horaria.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClassSlotInput {
     pub weekday: u8,
     pub start_time: String,
@@ -39,7 +40,8 @@ pub struct ClassSlotInput {
 }
 
 /// Datos editables de una rotación.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RotationInput {
     pub mode: String,
     pub anchor_date: String,

@@ -1,14 +1,14 @@
 [package]
-name = "omega"
+name = "study-planner"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 rust-version.workspace = true
-description = "Omega: organización académica local"
+description = "Study Planner: organización académica local"
 
 [lib]
-name = "omega_lib"
+name = "study_planner_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -16,8 +16,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json.workspace = true
-omega-core = { path = "../crates/omega-core" }
-omega-store = { path = "../crates/omega-store" }
-omega-transfer = { path = "../crates/omega-transfer" }
+study-planner-core = { path = "../crates/study-planner-core" }
+study-planner-store = { path = "../crates/study-planner-store" }
+study-planner-transfer = { path = "../crates/study-planner-transfer" }

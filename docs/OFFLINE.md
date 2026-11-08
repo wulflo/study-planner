@@ -1,6 +1,6 @@
 # Trabajo sin internet
 
-Omega debe poder retomarse sin conexión. Este documento explica qué funciona offline, qué no, y cómo evitar romper el proyecto cuando no hay red.
+Study Planner debe poder retomarse sin conexión. Este documento explica qué funciona offline, qué no, y cómo evitar romper el proyecto cuando no hay red.
 
 ## Requisito previo
 
@@ -28,8 +28,8 @@ npm test
 npm run build
 
 # Rust
-CARGO_NET_OFFLINE=true cargo test -p omega-core -p omega-store -p omega-transfer
-CARGO_NET_OFFLINE=true cargo check -p omega
+CARGO_NET_OFFLINE=true cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer
+CARGO_NET_OFFLINE=true cargo check -p study-planner
 
 # App completa (sin red; Vite sirve local)
 npm run tauri dev
@@ -80,7 +80,7 @@ CARGO_NET_OFFLINE=true cargo build
 - `connect-src` de la CSP de producción.
 - URLs remotas en `src/`, `index.html` y `public/`.
 - `withGlobalTauri`.
-- Dependencias de red en `omega-updater`.
+- Dependencias de red en `study-planner-updater`.
 
 No reemplaza una prueba dinámica con el monitor del sistema, pero detecta regresiones obvias.
 
@@ -103,7 +103,7 @@ No reemplaza una prueba dinámica con el monitor del sistema, pero detecta regre
 
 ## Copias de seguridad del proyecto
 
-El código vive en git local. Los datos de una bóveda real (Fase 1+) viven en `/omega` y sus backups en `/loglife`, fuera del repo. Nunca agregues la bóveda al repositorio.
+El código vive en git local. Los datos de una bóveda real (Fase 1+) viven en `<bóveda>/omega` y sus snapshots en `<bóveda>/longlife/<dispositivo>/<AAAA-MM-DD>`, fuera del repo. Nunca agregues la bóveda al repositorio.
 
 ## Limitaciones
 

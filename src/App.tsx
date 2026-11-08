@@ -1,12 +1,24 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { WindowControls } from "./components/WindowControls";
 import {
   type AppInfo,
+  chooseVault,
+  createBackup,
+  createTask,
+  deleteTask,
+  exportVault,
   getAppInfo,
+  getVaultStatus,
+  importVault,
+  listTasks,
+  restoreMainBackup,
   runningInTauri,
   runSchemaSelfCheck,
   type SchemaCheck,
+  setTaskDone,
+  type Task,
+  type VaultStatus,
 } from "./lib/ipc";
 import "./styles.css";
 
@@ -22,6 +34,105 @@ const navItems = [
   { id: "vault", label: "Bóveda", icon: "vault" },
   { id: "settings", label: "Ajustes", icon: "settings" },
 ] as const;
+
+type SectionId = (typeof navItems)[number]["id"];
+type PlaceholderId = Exclude<SectionId, "today" | "tasks" | "vault">;
+
+interface SectionInfo {
+  phase: string;
+  summary: string;
+  features: string[];
+}
+
+const sectionInfo: Record<PlaceholderId, SectionInfo> = {
+  schedule: {
+    phase: "Fase 2",
+    summary:
+      "Vista semanal, rotaciones A/B, feriados, excepciones y asistencia por materia. Todo calculado en local.",
+    features: [
+      "Vista semanal y vista «Hoy»",
+      "Rotaciones A/B, paridad y ciclos de días",
+      "Feriados y clases canceladas, movidas o extra",
+      "Asistencia y umbral mínimo por materia",
+    ],
+  },
+  calendar: {
+    phase: "Fase 3",
+    summary:
+      "Exámenes, tareas y entregas en una línea de tiempo local, sin sincronización externa.",
+    features: [
+      "Calendario mensual y semanal",
+      "Exámenes y entregas con prioridad",
+      "Tareas recurrentes y filtros guardados",
+      "Búsqueda local en texto y etiquetas",
+    ],
+  },
+  exams: {
+    phase: "Fase 3",
+    summary:
+      "Exámenes, temas y pesos para preparar cada evaluación con un plan claro.",
+    features: [
+      "CRUD de exámenes y temas",
+      "Pesos y escala de evaluación",
+      "Relación con materias y fechas",
+      "Repaso vinculado a cada tema",
+    ],
+  },
+  grades: {
+    phase: "Fase 3",
+    summary:
+      "Notas por categorías, promedio ponderado y descarte del menor, con enteros de punto fijo.",
+    features: [
+      "Escalas de nota configurables",
+      "Categorías y entradas de evaluación",
+      "Promedio ponderado determinista",
+      "Descarte del menor según regla",
+    ],
+  },
+  strengths: {
+    phase: "Fase 4",
+    summary:
+      "Clasificación de temas por fortaleza, neutralidad o debilidad, con override manual.",
+    features: [
+      "Temas jerárquicos y autoevaluación 1–5",
+      "Clasificación fortaleza/neutral/debilidad",
+      "Override manual justificable",
+      "Prioridad de estudio explicable",
+    ],
+  },
+  stats: {
+    phase: "Fase 4",
+    summary:
+      "Tiempo de estudio, constancia, materias débiles y próximos repasos en gráficos locales.",
+    features: [
+      "Tiempo y constancia por materia",
+      "Materias débiles y temas pendientes",
+      "Próximos repasos y sesiones",
+      "Agregaciones reproducibles",
+    ],
+  },
+  settings: {
+    phase: "Fase 5",
+    summary:
+      "Preferencias de la app, idioma y el updater aislado con firma obligatoria. Nada de red en la webview.",
+    features: [
+      "Idioma de la interfaz",
+      "Preferencias de notificaciones locales",
+      "Updater opt-in con firma",
+      "Diagnóstico y auditoría",
+    ],
+  },
+};
+
+const projectChecklist = [
+  { done: true, label: "Scaffold Tauri 2 + React + TypeScript" },
+  { done: true, label: "Esquema SQLite v1 y migración con checksum" },
+  { done: true, label: "Permisos mínimos y CSP base" },
+  { done: true, label: "Bóveda local elegible y tareas persistentes" },
+  { done: true, label: "Contrato de exportación v1" },
+  { done: true, label: "Backups verificados y restauración" },
+  { done: true, label: "Exportación e importación canónica" },
+];
 
 const iconPaths: Record<string, string> = {
   today:
@@ -42,6 +153,45 @@ const iconPaths: Record<string, string> = {
     "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.4 4a6.6 6.6 0 0 0-.1-1l2-1.5-2-3.4-2.3.9a7.8 7.8 0 0 0-1.7-1L16 3.5h-4l-.4 2.4a7.8 7.8 0 0 0-1.7 1l-2.3-.9-2 3.4 2 1.5a6.6 6.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9c.5.4 1.1.8 1.7 1l.4 2.4h4l.4-2.4c.6-.2 1.2-.6 1.7-1l2.3.9 2-3.4-2-1.5c.1-.3.1-.7.1-1Z",
 };
 
+const dateFormatter = new Intl.DateTimeFormat("es", {
+  day: "numeric",
+  month: "short",
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat("es", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : dateFormatter.format(date);
+}
+
+function formatDateTime(value: string | number): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : dateTimeFormatter.format(date);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function messageOf(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
+}
+
 function Icon({ name }: { name: string }) {
   return (
     <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -50,11 +200,840 @@ function Icon({ name }: { name: string }) {
   );
 }
 
+function ChecklistDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checklist-title"
+      >
+        <div className="modal-head">
+          <div>
+            <p className="eyebrow">Proyecto</p>
+            <h2 id="checklist-title">Checklist persistente</h2>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className="icon-button"
+            aria-label="Cerrar checklist"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <p className="modal-copy">
+          Resumen del estado actual. El detalle completo vive en{" "}
+          <code>docs/CHECKLIST.md</code>.
+        </p>
+        <ul className="checklist modal-checklist">
+          {projectChecklist.map((item) => (
+            <li key={item.label} className={item.done ? "done" : undefined}>
+              {item.label}
+            </li>
+          ))}
+        </ul>
+        <div className="modal-actions">
+          <button type="button" className="button filled" onClick={onClose}>
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskItem({
+  task,
+  onToggle,
+  onDelete,
+}: {
+  task: Task;
+  onToggle: (task: Task) => void;
+  onDelete?: (task: Task) => void;
+}) {
+  const done = task.status === "done";
+  const action = done ? "Reabrir" : "Completar";
+
+  return (
+    <li className={`task-row${done ? " is-done" : ""}`}>
+      <input
+        type="checkbox"
+        className="task-check"
+        checked={done}
+        onChange={() => onToggle(task)}
+        aria-label={`${action} «${task.title}»`}
+      />
+      <span className="task-title">{task.title}</span>
+      <span className="task-meta">
+        {done
+          ? "Hecha"
+          : task.status === "in_progress"
+            ? "En curso"
+            : formatDate(task.createdAt)}
+      </span>
+      {onDelete ? (
+        <button
+          type="button"
+          className="task-delete"
+          onClick={() => onDelete(task)}
+          aria-label={`Eliminar «${task.title}»`}
+        >
+          ×
+        </button>
+      ) : null}
+    </li>
+  );
+}
+
+function TodayView({
+  info,
+  schema,
+  error,
+  vault,
+  tasks,
+  taskError,
+  onOpenChecklist,
+  onOpenTasks,
+  onOpenVault,
+  onToggleTask,
+}: {
+  info: AppInfo | null;
+  schema: SchemaCheck | null;
+  error: string | null;
+  vault: VaultStatus | null;
+  tasks: Task[];
+  taskError: string | null;
+  onOpenChecklist: () => void;
+  onOpenTasks: () => void;
+  onOpenVault: () => void;
+  onToggleTask: (task: Task) => void;
+}) {
+  const ready = vault?.ready === true;
+  const openTasks = tasks.filter((task) => task.status !== "done");
+
+  return (
+    <>
+      <section className="hero">
+        <p className="eyebrow">
+          {ready
+            ? `Bóveda local · ${vault?.name ?? "abierta"}`
+            : "Primer paso · Hoy"}
+        </p>
+        <h1>
+          {ready
+            ? "Tu año académico, en una bóveda local."
+            : "Empezá por elegir tu bóveda local."}
+        </h1>
+        <p className="hero-copy">
+          {ready
+            ? "Tareas, horarios, exámenes y notas se guardan en la carpeta que elegiste. Sin nube, sin cuentas y sin que tus datos salgan del equipo."
+            : "Study Planner guarda todo en una carpeta de tu equipo: los datos vivos en omega y los snapshots en longlife. Sin nube, sin cuentas y sin telemetría."}
+        </p>
+        <div className="hero-actions">
+          <button
+            type="button"
+            className="button filled"
+            onClick={ready ? onOpenTasks : onOpenVault}
+          >
+            {ready ? "Ver tareas" : "Configurar bóveda"}
+          </button>
+          <button
+            type="button"
+            className="button tonal"
+            onClick={onOpenChecklist}
+          >
+            Ver checklist
+          </button>
+        </div>
+      </section>
+
+      {ready ? (
+        <section className="status-card" aria-labelledby="pending-title">
+          <div>
+            <p className="eyebrow">Hoy</p>
+            <h2 id="pending-title">Pendientes</h2>
+            <p>
+              {openTasks.length === 0
+                ? "No hay tareas abiertas."
+                : `${openTasks.length} ${openTasks.length === 1 ? "tarea abierta" : "tareas abiertas"}.`}
+            </p>
+            <button
+              type="button"
+              className="button tonal"
+              onClick={onOpenTasks}
+            >
+              Gestionar tareas
+            </button>
+          </div>
+          {openTasks.length === 0 ? (
+            <p className="notice">
+              Creá la primera tarea en la sección Tareas o desde el botón de
+              arriba.
+            </p>
+          ) : (
+            <ul className="task-list compact" aria-label="Tareas pendientes">
+              {openTasks.slice(0, 4).map((task) => (
+                <TaskItem key={task.id} task={task} onToggle={onToggleTask} />
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      <section className="cards" aria-label="Principios del proyecto">
+        <article className="card">
+          <span className="card-kicker">Datos</span>
+          <h2>Bóveda local</h2>
+          <p>
+            Datos vivos en <code>&lt;bóveda&gt;/omega</code> y snapshots futuros
+            en <code>&lt;bóveda&gt;/longlife</code>.
+          </p>
+        </article>
+        <article className="card">
+          <span className="card-kicker">Portabilidad</span>
+          <h2>Exportación total</h2>
+          <p>
+            Un único <code>.txt</code> canónico, con checksum y round-trip byte
+            a byte.
+          </p>
+        </article>
+        <article className="card">
+          <span className="card-kicker">Privacidad</span>
+          <h2>Sin red</h2>
+          <p>
+            La webview no tiene permisos de archivos, SQL ni HTTP. El único
+            módulo de red será el updater.
+          </p>
+        </article>
+        <article className="card">
+          <span className="card-kicker">Continuidad</span>
+          <h2>Reanudable</h2>
+          <p>
+            Cada fase deja tests, changelog y un checklist para retomar sin
+            romper lo anterior.
+          </p>
+        </article>
+      </section>
+
+      <section className="status-card" aria-labelledby="status-title">
+        <div>
+          <p className="eyebrow">Autodiagnóstico</p>
+          <h2 id="status-title">Estado técnico</h2>
+        </div>
+        {!runningInTauri ? (
+          <p className="notice">
+            Modo navegador: el IPC de Tauri no está disponible. Abrí la app con{" "}
+            <code>npm run tauri dev</code> para ejecutar el autodiagnóstico.
+          </p>
+        ) : error ? (
+          <p className="notice error">{error}</p>
+        ) : (
+          <dl className="status-grid">
+            <div>
+              <dt>Esquema</dt>
+              <dd>{schema ? `v${schema.schemaVersion}` : "…"}</dd>
+            </div>
+            <div>
+              <dt>Integridad</dt>
+              <dd>{schema?.integrity ?? "…"}</dd>
+            </div>
+            <div>
+              <dt>Claves foráneas</dt>
+              <dd>
+                {schema ? `${schema.foreignKeyViolations} violaciones` : "…"}
+              </dd>
+            </div>
+            <div>
+              <dt>Formato export</dt>
+              <dd>{info ? `v${info.exportFormatVersion}` : "…"}</dd>
+            </div>
+            <div className="span-2">
+              <dt>ID de bóveda de prueba</dt>
+              <dd className="mono">{schema?.vaultId ?? "…"}</dd>
+            </div>
+          </dl>
+        )}
+      </section>
+
+      <section className="next-card" aria-labelledby="next-title">
+        <p className="eyebrow">Siguiente</p>
+        <h2 id="next-title">Primer flujo funcional</h2>
+        <ul className="checklist">
+          <li className="done">Bóveda local con SQLite propia</li>
+          <li className="done">Tareas con crear, completar y eliminar</li>
+          <li>Backups verificados en longlife</li>
+          <li>Horario, rotaciones y asistencia</li>
+        </ul>
+        {taskError ? <p className="notice error">{taskError}</p> : null}
+      </section>
+    </>
+  );
+}
+
+function TasksView({
+  vault,
+  tasks,
+  error,
+  onGoVault,
+  onCreate,
+  onToggle,
+  onDelete,
+}: {
+  vault: VaultStatus | null;
+  tasks: Task[];
+  error: string | null;
+  onGoVault: () => void;
+  onCreate: (title: string) => Promise<boolean>;
+  onToggle: (task: Task) => void;
+  onDelete: (task: Task) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const ready = vault?.ready === true;
+  const openTasks = tasks.filter((task) => task.status !== "done");
+  const doneTasks = tasks.filter((task) => task.status === "done");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = title.trim();
+    if (trimmed.length === 0 || submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+    const created = await onCreate(trimmed);
+    setSubmitting(false);
+    if (created) {
+      setTitle("");
+    }
+  }
+
+  return (
+    <>
+      <section className="hero section-hero">
+        <p className="eyebrow">Tareas · datos locales</p>
+        <h1>Tareas</h1>
+        <p className="hero-copy">
+          Anotá lo que tenés que hacer y marcalo cuando termines. Todo queda en
+          tu bóveda, sin conexión.
+        </p>
+        <div className="hero-actions">
+          {ready ? (
+            <span className="status-pill is-ok">
+              Bóveda: {vault?.name ?? "lista"}
+            </span>
+          ) : (
+            <button type="button" className="button filled" onClick={onGoVault}>
+              Configurar bóveda
+            </button>
+          )}
+        </div>
+      </section>
+
+      {!ready ? (
+        <section className="next-card">
+          <p className="eyebrow">Bóveda requerida</p>
+          <h2>Primero elegí dónde guardar tus datos</h2>
+          <p>
+            {vault?.message ??
+              "Las tareas se guardan en <bóveda>/omega. Elegí una carpeta en la sección Bóveda y volvé acá."}
+          </p>
+          <div className="hero-actions">
+            <button type="button" className="button filled" onClick={onGoVault}>
+              Ir a Bóveda
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
+          <form className="task-composer" onSubmit={submit}>
+            <label className="sr-only" htmlFor="task-title">
+              Nueva tarea
+            </label>
+            <input
+              id="task-title"
+              className="text-field"
+              type="text"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="¿Qué tenés que hacer?"
+              maxLength={200}
+              autoComplete="off"
+              disabled={submitting}
+            />
+            <button
+              type="submit"
+              className="button filled"
+              disabled={submitting || title.trim().length === 0}
+            >
+              {submitting ? "Guardando…" : "Agregar"}
+            </button>
+          </form>
+
+          {error ? (
+            <p className="notice error" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <section className="task-board" aria-labelledby="open-title">
+            <div className="task-board-head">
+              <h2 id="open-title">Abiertas</h2>
+              <span className="count-chip">{openTasks.length}</span>
+            </div>
+            {openTasks.length === 0 ? (
+              <p className="empty-state">
+                Nada pendiente. Agregá una tarea arriba.
+              </p>
+            ) : (
+              <ul className="task-list">
+                {openTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {doneTasks.length > 0 ? (
+            <section className="task-board" aria-labelledby="done-title">
+              <div className="task-board-head">
+                <h2 id="done-title">Hechas</h2>
+                <span className="count-chip">{doneTasks.length}</span>
+              </div>
+              <ul className="task-list">
+                {doneTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+}
+
+function VaultView({
+  vault,
+  error,
+  notice,
+  choosing,
+  backingUp,
+  exporting,
+  importing,
+  restoring,
+  onChoose,
+  onCreateBackup,
+  onExport,
+  onImport,
+  onRestore,
+}: {
+  vault: VaultStatus | null;
+  error: string | null;
+  notice: string | null;
+  choosing: boolean;
+  backingUp: boolean;
+  exporting: boolean;
+  importing: boolean;
+  restoring: boolean;
+  onChoose: () => void;
+  onCreateBackup: () => void;
+  onExport: () => void;
+  onImport: () => void;
+  onRestore: () => void;
+}) {
+  const latestSnapshot = vault?.snapshots[0] ?? null;
+  const [confirmingRestore, setConfirmingRestore] = useState(false);
+  const busy = choosing || backingUp || exporting || importing || restoring;
+
+  return (
+    <>
+      <section className="hero section-hero">
+        <p className="eyebrow">Bóveda local · Fase 1</p>
+        <h1>Bóveda local</h1>
+        <p className="hero-copy">
+          Elegí una carpeta raíz fuera del repositorio. Study Planner valida la
+          ruta, bloquea la bóveda contra otras instancias y mantiene backups
+          verificados; la ruta completa no se expone a la interfaz.
+        </p>
+        <div className="hero-actions">
+          <button
+            type="button"
+            className="button filled"
+            onClick={onChoose}
+            disabled={!runningInTauri || choosing}
+            title={
+              runningInTauri
+                ? undefined
+                : "El selector de carpetas solo funciona en la app de escritorio"
+            }
+          >
+            {choosing
+              ? "Abriendo selector…"
+              : vault?.ready
+                ? "Cambiar carpeta"
+                : "Elegir carpeta"}
+          </button>
+        </div>
+      </section>
+
+      {!runningInTauri ? (
+        <p className="notice">
+          Modo navegador: el selector de carpetas solo funciona en la app de
+          escritorio con <code>npm run tauri dev</code>.
+        </p>
+      ) : error ? (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      ) : notice ? (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      <section className="vault-grid" aria-label="Partes de la bóveda">
+        <article className="card">
+          <span className="card-kicker">Estado</span>
+          <h2>
+            {vault?.ready
+              ? (vault.name ?? "Bóveda abierta")
+              : vault?.message
+                ? "No se pudo abrir"
+                : "Sin configurar"}
+          </h2>
+          <p>
+            {vault?.ready
+              ? "La base está abierta, bloqueada para esta instancia y lista para guardar tareas."
+              : (vault?.message ??
+                "Todavía no elegiste una carpeta raíz para la bóveda.")}
+          </p>
+        </article>
+        <article className="card">
+          <span className="card-kicker">Datos vivos</span>
+          <h2>omega</h2>
+          <p>
+            Base SQLite con tareas, horarios, notas y ajustes, más el backup
+            principal verificado. Es la única fuente de verdad.
+          </p>
+        </article>
+        <article className="card">
+          <span className="card-kicker">Continuidad</span>
+          <h2>longlife</h2>
+          <p>
+            Snapshots diarias verificadas por dispositivo. Se conservan las
+            últimas 7 y las incompletas se descartan.
+          </p>
+        </article>
+      </section>
+
+      {vault?.ready ? (
+        <section className="status-card" aria-labelledby="backup-title">
+          <div>
+            <p className="eyebrow">Respaldos</p>
+            <h2 id="backup-title">Backup principal</h2>
+            <p>
+              Copia online de SQLite con SHA-256, <code>integrity_check</code> y{" "}
+              <code>foreign_key_check</code> antes de darla por válida.
+            </p>
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button tonal"
+                onClick={onCreateBackup}
+                disabled={busy}
+              >
+                {backingUp ? "Creando backup…" : "Crear backup ahora"}
+              </button>
+              <button
+                type="button"
+                className="button tonal"
+                onClick={() => setConfirmingRestore(true)}
+                disabled={busy || !vault.backup}
+              >
+                Restaurar backup principal
+              </button>
+            </div>
+            {confirmingRestore ? (
+              <div
+                className="confirm-card"
+                role="alertdialog"
+                aria-labelledby="restore-confirm-title"
+              >
+                <p id="restore-confirm-title">
+                  Se reemplazarán los datos vivos por el backup principal
+                  verificado. Antes se crea un backup <code>pre-restore-*</code>{" "}
+                  del estado actual.
+                </p>
+                <div className="hero-actions">
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setConfirmingRestore(false)}
+                    disabled={restoring}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="button filled"
+                    onClick={() => {
+                      setConfirmingRestore(false);
+                      onRestore();
+                    }}
+                    disabled={restoring}
+                  >
+                    {restoring ? "Restaurando…" : "Sí, restaurar backup"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <dl className="status-grid">
+            <div>
+              <dt>Tamaño</dt>
+              <dd>
+                {vault.backup ? formatBytes(vault.backup.sizeBytes) : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>Integridad</dt>
+              <dd>{vault.backup?.integrity ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Modificado</dt>
+              <dd>
+                {vault.backup
+                  ? formatDateTime(vault.backup.modifiedAtMillis)
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>Snapshots</dt>
+              <dd>
+                {vault.snapshots.length} / 7
+                {latestSnapshot ? ` · ${latestSnapshot.date}` : ""}
+              </dd>
+            </div>
+            <div className="span-2">
+              <dt>SHA-256 del backup</dt>
+              <dd className="mono">
+                {vault.backup
+                  ? `${vault.backup.sha256.slice(0, 24)}…`
+                  : "Todavía no hay backup"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
+      {vault?.ready ? (
+        <section className="status-card" aria-labelledby="transfer-title">
+          <div>
+            <p className="eyebrow">Portabilidad</p>
+            <h2 id="transfer-title">Exportar e importar</h2>
+            <p>
+              La exportación es un único <code>.txt</code> canónico con todas
+              las tablas, adjuntos y checksum. La importación solo se permite en
+              una bóveda vacía y es transaccional: si algo falla, no deja datos
+              a medias.
+            </p>
+            <p className="notice">
+              El archivo no está cifrado: contiene todos tus datos en texto
+              plano, incluidos los adjuntos. Guardalo en un lugar seguro.
+            </p>
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button tonal"
+                onClick={onExport}
+                disabled={busy}
+              >
+                {exporting ? "Exportando…" : "Exportar bóveda"}
+              </button>
+              <button
+                type="button"
+                className="button tonal"
+                onClick={onImport}
+                disabled={busy || vault.hasData}
+                title={
+                  vault.hasData
+                    ? "La importación total solo se permite en una bóveda vacía"
+                    : undefined
+                }
+              >
+                {importing ? "Importando…" : "Importar en bóveda vacía"}
+              </button>
+            </div>
+            {vault.hasData ? (
+              <p className="notice">
+                Esta bóveda ya tiene datos. Para importar una exportación, elegí
+                una carpeta nueva y vacía.
+              </p>
+            ) : (
+              <p className="notice">
+                Bóveda vacía: podés importar un <code>.txt</code> sin miedo a
+                pisar datos existentes.
+              </p>
+            )}
+          </div>
+          <dl className="status-grid">
+            <div>
+              <dt>Datos de dominio</dt>
+              <dd>{vault.hasData ? "Presentes" : "Ninguno"}</dd>
+            </div>
+            <div>
+              <dt>Importación</dt>
+              <dd>{vault.hasData ? "Bloqueada" : "Disponible"}</dd>
+            </div>
+            <div className="span-2">
+              <dt>Garantía de round-trip</dt>
+              <dd>
+                Exportar → importar en bóveda vacía → exportar produce bytes
+                idénticos dentro de la misma versión.
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
+      {vault?.ready ? (
+        <section className="status-card" aria-labelledby="vault-title">
+          <div>
+            <p className="eyebrow">Diagnóstico</p>
+            <h2 id="vault-title">Bóveda abierta</h2>
+            <p>Integridad verificada por SQLite.</p>
+          </div>
+          <dl className="status-grid">
+            <div>
+              <dt>Esquema</dt>
+              <dd>v{vault.schemaVersion}</dd>
+            </div>
+            <div>
+              <dt>Integridad</dt>
+              <dd>{vault.integrity}</dd>
+            </div>
+            <div>
+              <dt>Claves foráneas</dt>
+              <dd>{vault.foreignKeyViolations} violaciones</dd>
+            </div>
+            <div>
+              <dt>Dispositivo</dt>
+              <dd>{vault.device ?? "—"}</dd>
+            </div>
+            <div className="span-2">
+              <dt>ID de bóveda</dt>
+              <dd className="mono">{vault.vaultId}</dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function SectionView({
+  label,
+  info,
+  onBack,
+}: {
+  label: string;
+  info: SectionInfo;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <section className="hero section-hero" aria-labelledby="section-title">
+        <p className="eyebrow">
+          {info.phase} · {label}
+        </p>
+        <h1 id="section-title">{label}</h1>
+        <p className="hero-copy">{info.summary}</p>
+        <div className="hero-actions">
+          <button type="button" className="button tonal" onClick={onBack}>
+            Volver a Hoy
+          </button>
+        </div>
+      </section>
+
+      <section className="feature-grid" aria-label={`Alcance de ${label}`}>
+        {info.features.map((feature) => (
+          <article className="feature" key={feature}>
+            <span className="card-kicker">Previsto</span>
+            <p>{feature}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="next-card">
+        <p className="eyebrow">Estado</p>
+        <h2>Sección en preparación</h2>
+        <p>
+          La navegación ya cambia de vista, pero el contenido de {label} llega
+          en {info.phase}. El detalle está en <code>docs/CHECKLIST.md</code>.
+        </p>
+      </section>
+    </>
+  );
+}
+
 function App() {
-  const [active, setActive] = useState("today");
+  const [active, setActive] = useState<SectionId>("today");
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [schema, setSchema] = useState<SchemaCheck | null>(null);
+  const [vault, setVault] = useState<VaultStatus | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [vaultError, setVaultError] = useState<string | null>(null);
+  const [vaultNotice, setVaultNotice] = useState<string | null>(null);
+  const [taskError, setTaskError] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
 
   useEffect(() => {
     if (!runningInTauri) {
@@ -62,35 +1041,198 @@ function App() {
     }
 
     let cancelled = false;
-    Promise.all([getAppInfo(), runSchemaSelfCheck()])
-      .then(([appInfo, check]) => {
+
+    async function bootstrap() {
+      try {
+        const [appInfo, check] = await Promise.all([
+          getAppInfo(),
+          runSchemaSelfCheck(),
+        ]);
         if (!cancelled) {
           setInfo(appInfo);
           setSchema(check);
         }
-      })
-      .catch((reason: unknown) => {
+      } catch (reason) {
         if (!cancelled) {
-          setError(reason instanceof Error ? reason.message : String(reason));
+          setError(messageOf(reason));
         }
-      });
+      }
+
+      try {
+        const status = await getVaultStatus();
+        if (cancelled) {
+          return;
+        }
+        setVault(status);
+        if (status.ready) {
+          const stored = await listTasks();
+          if (!cancelled) {
+            setTasks(stored);
+          }
+        }
+      } catch (reason) {
+        if (!cancelled) {
+          setVaultError(messageOf(reason));
+        }
+      }
+    }
+
+    void bootstrap();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  async function handleChooseVault() {
+    setChoosing(true);
+    setVaultError(null);
+    setVaultNotice(null);
+    try {
+      const status = await chooseVault();
+      if (!status) {
+        return;
+      }
+      setVault(status);
+      setTasks(status.ready ? await listTasks() : []);
+      setTaskError(null);
+    } catch (reason) {
+      setVaultError(messageOf(reason));
+    } finally {
+      setChoosing(false);
+    }
+  }
+
+  async function handleCreateBackup() {
+    setBackingUp(true);
+    setVaultError(null);
+    setVaultNotice(null);
+    try {
+      const status = await createBackup();
+      setVault(status);
+      setVaultNotice(
+        "Backup creado y verificado con SHA-256 e integrity_check.",
+      );
+    } catch (reason) {
+      setVaultError(messageOf(reason));
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
+  async function handleExportVault() {
+    setExporting(true);
+    setVaultError(null);
+    setVaultNotice(null);
+    try {
+      const report = await exportVault();
+      if (!report) {
+        return;
+      }
+      setVaultNotice(
+        `Exportación lista: ${report.fileName} · ${report.rows} filas · SHA-256 ${report.sha256.slice(0, 16)}…`,
+      );
+    } catch (reason) {
+      setVaultError(messageOf(reason));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleImportVault() {
+    setImporting(true);
+    setVaultError(null);
+    setVaultNotice(null);
+    try {
+      const outcome = await importVault();
+      if (!outcome) {
+        return;
+      }
+      setVault(outcome.status);
+      setTasks(await listTasks());
+      setTaskError(null);
+      setVaultNotice(
+        `Importación completada desde ${outcome.fileName}: ${outcome.rows} filas y ${outcome.attachments} adjuntos.`,
+      );
+    } catch (reason) {
+      setVaultError(messageOf(reason));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleRestoreBackup() {
+    setRestoring(true);
+    setVaultError(null);
+    setVaultNotice(null);
+    try {
+      const status = await restoreMainBackup();
+      setVault(status);
+      setTasks(await listTasks());
+      setTaskError(null);
+      setVaultNotice(
+        "Backup principal restaurado. La bóveda se reabrió y quedó un backup pre-restore del estado anterior.",
+      );
+    } catch (reason) {
+      setVaultError(messageOf(reason));
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function handleCreateTask(title: string): Promise<boolean> {
+    setTaskError(null);
+    try {
+      await createTask(title);
+      setTasks(await listTasks());
+      return true;
+    } catch (reason) {
+      setTaskError(messageOf(reason));
+      return false;
+    }
+  }
+
+  async function handleToggleTask(task: Task) {
+    setTaskError(null);
+    try {
+      await setTaskDone(task.id, task.status !== "done");
+      setTasks(await listTasks());
+    } catch (reason) {
+      setTaskError(messageOf(reason));
+    }
+  }
+
+  async function handleDeleteTask(task: Task) {
+    setTaskError(null);
+    try {
+      await deleteTask(task.id);
+      setTasks(await listTasks());
+    } catch (reason) {
+      setTaskError(messageOf(reason));
+    }
+  }
+
   const activeLabel =
     navItems.find((item) => item.id === active)?.label ?? "Hoy";
+  const placeholder =
+    active !== "today" && active !== "tasks" && active !== "vault"
+      ? sectionInfo[active]
+      : null;
 
   return (
     <div className="app">
       <ResizeHandles />
       <header className="topbar" data-tauri-drag-region="deep">
         <div className="brand">
-          <img src="/omega.svg" alt="" className="brand-mark" />
-          <span className="brand-name">Omega</span>
-          <span className="phase-chip">Fase 0</span>
+          <img
+            src="/study-planner.png"
+            alt=""
+            className="brand-mark"
+            width={30}
+            height={30}
+          />
+          <span className="brand-name">Study Planner</span>
+          <span className="phase-chip">Local</span>
         </div>
         <div className="topbar-end">
           <div className="topbar-meta">
@@ -120,125 +1262,70 @@ function App() {
         </nav>
 
         <main className="main">
-          <section className="hero">
-            <p className="eyebrow">Base del proyecto · {activeLabel}</p>
-            <h1>Tu año académico, en una bóveda local.</h1>
-            <p className="hero-copy">
-              Horarios, exámenes, tareas, notas y estudio. Sin nube, sin cuentas
-              y sin que tus datos salgan del equipo. Esta es la Fase 0: el
-              contrato técnico sobre el que se construye el resto.
-            </p>
-            <div className="hero-actions">
-              <button type="button" className="button filled">
-                Ver checklist
-              </button>
-              <button type="button" className="button tonal">
-                Abrir bóveda
-              </button>
-            </div>
-          </section>
+          {active === "today" ? (
+            <TodayView
+              info={info}
+              schema={schema}
+              error={error}
+              vault={vault}
+              tasks={tasks}
+              taskError={taskError}
+              onOpenChecklist={() => setChecklistOpen(true)}
+              onOpenTasks={() => setActive("tasks")}
+              onOpenVault={() => setActive("vault")}
+              onToggleTask={handleToggleTask}
+            />
+          ) : null}
 
-          <section className="cards" aria-label="Principios del proyecto">
-            <article className="card">
-              <span className="card-kicker">Datos</span>
-              <h2>Bóveda local</h2>
-              <p>
-                SQLite en <code>/omega</code>, adjuntos y copias verificadas en{" "}
-                <code>/loglife</code>.
-              </p>
-            </article>
-            <article className="card">
-              <span className="card-kicker">Portabilidad</span>
-              <h2>Exportación total</h2>
-              <p>
-                Un único <code>.txt</code> canónico, con checksum y round-trip
-                byte a byte.
-              </p>
-            </article>
-            <article className="card">
-              <span className="card-kicker">Privacidad</span>
-              <h2>Sin red</h2>
-              <p>
-                La webview no tiene permisos de archivos, SQL ni HTTP. El único
-                módulo de red será el updater.
-              </p>
-            </article>
-            <article className="card">
-              <span className="card-kicker">Continuidad</span>
-              <h2>Reanudable</h2>
-              <p>
-                Cada fase deja tests, changelog y un checklist para retomar sin
-                romper lo anterior.
-              </p>
-            </article>
-          </section>
+          {active === "tasks" ? (
+            <TasksView
+              vault={vault}
+              tasks={tasks}
+              error={taskError}
+              onGoVault={() => setActive("vault")}
+              onCreate={handleCreateTask}
+              onToggle={handleToggleTask}
+              onDelete={handleDeleteTask}
+            />
+          ) : null}
 
-          <section className="status-card" aria-labelledby="status-title">
-            <div>
-              <p className="eyebrow">Autodiagnóstico</p>
-              <h2 id="status-title">Estado técnico</h2>
-            </div>
-            {!runningInTauri ? (
-              <p className="notice">
-                Modo navegador: el IPC de Tauri no está disponible. Abrí la app
-                con <code>npm run tauri dev</code> para ejecutar el
-                autodiagnóstico.
-              </p>
-            ) : error ? (
-              <p className="notice error">{error}</p>
-            ) : (
-              <dl className="status-grid">
-                <div>
-                  <dt>Esquema</dt>
-                  <dd>{schema ? `v${schema.schemaVersion}` : "…"}</dd>
-                </div>
-                <div>
-                  <dt>Integridad</dt>
-                  <dd>{schema?.integrity ?? "…"}</dd>
-                </div>
-                <div>
-                  <dt>Claves foráneas</dt>
-                  <dd>
-                    {schema
-                      ? `${schema.foreignKeyViolations} violaciones`
-                      : "…"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Formato export</dt>
-                  <dd>{info ? `v${info.exportFormatVersion}` : "…"}</dd>
-                </div>
-                <div className="span-2">
-                  <dt>ID de bóveda de prueba</dt>
-                  <dd className="mono">{schema?.vaultId ?? "…"}</dd>
-                </div>
-              </dl>
-            )}
-          </section>
+          {active === "vault" ? (
+            <VaultView
+              vault={vault}
+              error={vaultError ?? vault?.message ?? null}
+              notice={vaultNotice}
+              choosing={choosing}
+              backingUp={backingUp}
+              exporting={exporting}
+              importing={importing}
+              restoring={restoring}
+              onChoose={handleChooseVault}
+              onCreateBackup={handleCreateBackup}
+              onExport={handleExportVault}
+              onImport={handleImportVault}
+              onRestore={handleRestoreBackup}
+            />
+          ) : null}
 
-          <section className="next-card" aria-labelledby="next-title">
-            <p className="eyebrow">Siguiente</p>
-            <h2 id="next-title">Fase 0 en curso</h2>
-            <ul className="checklist">
-              <li className="done">Scaffold Tauri 2 + React + TypeScript</li>
-              <li className="done">
-                Esquema SQLite v1 y migración con checksum
-              </li>
-              <li className="done">Permisos mínimos y CSP base</li>
-              <li className="done">
-                Checklist persistente en docs/CHECKLIST.md
-              </li>
-              <li>Contrato de exportación v1</li>
-              <li>Revisión de licencias y documento de arquitectura</li>
-            </ul>
-          </section>
+          {placeholder ? (
+            <SectionView
+              label={activeLabel}
+              info={placeholder}
+              onBack={() => setActive("today")}
+            />
+          ) : null}
         </main>
       </div>
 
       <footer className="footer">
-        <span>Omega · Fase 0</span>
+        <span>Study Planner · datos locales</span>
         <span>{runningInTauri ? "IPC conectado" : "Render en navegador"}</span>
       </footer>
+
+      <ChecklistDialog
+        open={checklistOpen}
+        onClose={() => setChecklistOpen(false)}
+      />
     </div>
   );
 }

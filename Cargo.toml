@@ -2,22 +2,22 @@
 resolver = "3"
 members = [
   "src-tauri",
-  "crates/omega-core",
-  "crates/omega-store",
-  "crates/omega-transfer",
-  "crates/omega-updater",
+  "crates/study-planner-core",
+  "crates/study-planner-store",
+  "crates/study-planner-transfer",
+  "crates/study-planner-updater",
 ]
 default-members = [
-  "crates/omega-core",
-  "crates/omega-store",
-  "crates/omega-transfer",
+  "crates/study-planner-core",
+  "crates/study-planner-store",
+  "crates/study-planner-transfer",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-authors = ["Omega contributors"]
+authors = ["Study Planner contributors"]
 rust-version = "1.90"
 
 [workspace.dependencies]
@@ -25,9 +25,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 thiserror = "2"
-rusqlite = { version = "0.41", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled", "backup"] }
 sha2 = "0.11"
 hex = "0.4"
+base64 = "0.22"
 
 [profile.release]
 codegen-units = 1

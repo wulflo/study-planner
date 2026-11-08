@@ -4,6 +4,7 @@
 //! puede borrar: primero hay que borrar o mover los hijos.
 
 use rusqlite::{OptionalExtension, Row, params};
+use serde::Deserialize;
 use study_planner_core::{
     AcademicYear, Subject, Term, TermKind, new_id, normalize_color, normalize_date, normalize_name,
     normalize_optional_short, normalize_optional_text, validate_basis_points, validate_date_range,
@@ -17,7 +18,8 @@ const SUBJECT_COLUMNS: &str = "id, term_id, name, code, color, teacher, room, cr
      goal_score_cp, attendance_min_bp, created_at, updated_at";
 
 /// Datos editables de un término.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TermInput {
     pub name: String,
     pub kind: String,
@@ -26,7 +28,8 @@ pub struct TermInput {
 }
 
 /// Datos editables de una materia.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SubjectInput {
     pub name: String,
     pub code: Option<String>,

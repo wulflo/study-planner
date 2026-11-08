@@ -1,4 +1,4 @@
--- Omega schema v1
+-- Study Planner schema v1
 -- Convenciones:
 --   * id: UUIDv7 en TEXT.
 --   * *_at: UTC en RFC3339 con milisegundos.

@@ -1,5 +1,5 @@
 {
-  "name": "omega",
+  "name": "study-planner",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -15,8 +15,8 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "rust:fmt": "cargo fmt --all -- --check",
-    "rust:clippy": "cargo clippy -p omega-core -p omega-store -p omega-transfer --all-targets -- -D warnings",
-    "rust:test": "cargo test -p omega-core -p omega-store -p omega-transfer",
+    "rust:clippy": "cargo clippy -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner --all-targets -- -D warnings",
+    "rust:test": "cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer && cargo test -p study-planner",
     "check:all": "npm run check && npm run rust:fmt && npm run rust:clippy && npm run rust:test"
   },
   "dependencies": {

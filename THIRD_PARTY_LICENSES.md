@@ -1,9 +1,9 @@
 # Licencias de terceros
 
-> **Estado del inventario:** 2026-11-08, Fase 0.
+> **Estado del inventario:** 2026-11-08, Fase 1 en curso.
 > **Licencia del proyecto:** MIT OR Apache-2.0.
 
-Omega no copia código GPL/AGPL. Se usan dependencias MIT, Apache-2.0, BSD, ISC, Zlib y Unicode, con las excepciones documentadas más abajo. Este archivo es un resumen; ante una distribución pública hay que conservar los textos de licencia completos de cada dependencia.
+Study Planner no copia código GPL/AGPL. Se usan dependencias MIT, Apache-2.0, BSD, ISC, Zlib y Unicode, con las excepciones documentadas más abajo. Este archivo es un resumen; ante una distribución pública hay que conservar los textos de licencia completos de cada dependencia.
 
 ## Cómo regenerar el inventario
 
@@ -93,16 +93,16 @@ No se detectaron paquetes GPL ni AGPL en el grafo resuelto.
 En Linux, Tauri usa WebKitGTK, GTK 3, GLib, libsoup y otras bibliotecas del sistema con licencia **LGPL-2.1-or-later** (algunas con licencias compatibles).
 
 - Se enlazan **dinámicamente**; no se modifican ni se incluyen en el repositorio.
-- Omega no es un trabajo derivado de esas bibliotecas.
+- Study Planner no es un trabajo derivado de esas bibliotecas.
 - Al distribuir un binario, hay que:
   - incluir los avisos de copyright y licencia correspondientes;
   - permitir que el usuario reemplace las bibliotecas del sistema (enlace dinámico);
   - ofrecer el código fuente de las versiones LGPL utilizadas, o la vía para obtenerlo.
 - La compilación estándar de Tauri ya usa enlace dinámico en Linux. No usar enlace estático de WebKitGTK/GTK sin revisar la LGPL.
 
-## Excepción pendiente: MPL-2.0 transitiva
+## Excepción aceptada: MPL-2.0 transitiva
 
-Se detectaron paquetes **MPL-2.0** en el grafo de Tauri. MPL-2.0 es copyleft a nivel de archivo: permite usar los archivos sin modificar en un programa mayor, pero exige conservar avisos y, si se modifica el archivo MPL, publicar esa modificación bajo MPL.
+Se detectaron paquetes **MPL-2.0** en el grafo de Tauri. MPL-2.0 es copyleft a nivel de archivo: permite usar los archivos sin modificar en un programa mayor, pero exige conservar avisos y, si se modifica el archivo MPL, publicar esa modificación bajo MPL. La excepción fue revisada y aceptada en **ADR-017** (2026-11-08).
 
 | Paquete | Uso | ¿Se distribuye en el binario? |
 |---|---|---|
@@ -112,7 +112,7 @@ Se detectaron paquetes **MPL-2.0** en el grafo de Tauri. MPL-2.0 es copyleft a n
 | `dtoa-short` 0.3.5 | Build, vía `cssparser` | No (solo build) |
 | `lightningcss` (npm) | Build, vía Vite | No (solo build) |
 
-**Estado:** pendiente de decisión del usuario. No se modificó ninguno de esos paquetes. Si se acepta MPL-2.0 como excepción, hay que conservar avisos y, ante modificación, publicar el archivo modificado. Si no se acepta, hay que evaluar alternativas o parchear Tauri, con costo de mantenimiento.
+**Estado:** aceptada. No se modificó ninguno de esos paquetes. Al distribuir, se conservan los avisos de copyright y licencia; si se modifica un archivo MPL, se publica ese archivo bajo MPL-2.0. Esta excepción no se extiende a otras dependencias copyleft.
 
 > Nota: `r-efi` declara `MIT OR Apache-2.0 OR LGPL-2.1-or-later`; se elige la opción MIT/Apache-2.0, así que no cuenta como excepción LGPL.
 
@@ -120,7 +120,7 @@ Se detectaron paquetes **MPL-2.0** en el grafo de Tauri. MPL-2.0 es copyleft a n
 
 - **No** se descargan fuentes remotas.
 - La UI usa fuentes del sistema con fallback (`Roboto Flex`, `Roboto`, `Segoe UI`, `system-ui`). No se bundlea ninguna fuente.
-- El ícono `public/omega.svg` y los íconos de navegación son SVG propios, cubiertos por la licencia del proyecto.
+- El logo `public/study-planner.png` y los íconos de navegación son propios, cubiertos por la licencia del proyecto.
 - No se usan íconos de CDNs ni de paquetes con licencias adicionales.
 
 ## Dependencias de desarrollo
@@ -138,7 +138,7 @@ Las dependencias de desarrollo (Vitest, Testing Library, Biome, TypeScript, Vite
 
 ## Pendientes
 
-- [ ] Decidir si se acepta MPL-2.0 transitiva o se busca alternativa.
+- [x] Decidir si se acepta MPL-2.0 transitiva o se busca alternativa (ADR-017: aceptada).
 - [ ] Generar los textos completos de licencias con `cargo-about` y una herramienta npm antes de la primera release pública.
 - [ ] Revisar licencias de cualquier dependencia nueva antes de agregarla.
 - [ ] Confirmar que el AppImage no enlace estáticamente WebKitGTK/GTK.

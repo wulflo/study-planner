@@ -79,19 +79,31 @@ console.log("OK: capacidades, CSP, withGlobalTauri y freezePrototype");
 NODE
 
 # --- Plugins de Tauri --------------------------------------------------------
-if grep -RInE 'tauri-plugin-(sql|http|fs|shell|opener|dialog|notification|updater)' \
+if grep -RInE 'tauri-plugin-(sql|http|fs|shell|opener|notification|updater)' \
   src-tauri/Cargo.toml src-tauri/src 2>/dev/null; then
   fail "plugin de Tauri prohibido en el host"
 else
-  ok "sin plugins de Tauri que amplíen permisos"
+  ok "sin plugins de Tauri que amplíen permisos de red/archivos"
+fi
+
+# El diálogo nativo se usa solo desde Rust (`DialogExt`) y no debe llegar al
+# frontend: sin permiso `dialog:` ni paquete npm del plugin.
+if grep -RInE 'tauri-plugin-dialog' src-tauri/Cargo.toml src-tauri/src >/dev/null 2>&1; then
+  if grep -RInE 'dialog:' src-tauri/capabilities >/dev/null 2>&1; then
+    fail "el plugin dialog está expuesto al frontend"
+  elif grep -RInE '@tauri-apps/plugin-dialog' package.json src >/dev/null 2>&1; then
+    fail "el frontend importa el plugin dialog"
+  else
+    ok "tauri-plugin-dialog solo desde Rust, sin permiso dialog"
+  fi
 fi
 
 # --- Updater aislado ---------------------------------------------------------
-if grep -q 'UPDATER_IMPLEMENTED: bool = false' crates/omega-updater/src/lib.rs; then
-  if grep -Eq '(reqwest|ureq|hyper|curl|tauri-plugin-updater|tokio)' crates/omega-updater/Cargo.toml; then
-    fail "omega-updater tiene dependencias de red antes de Fase 5"
+if grep -q 'UPDATER_IMPLEMENTED: bool = false' crates/study-planner-updater/src/lib.rs; then
+  if grep -Eq '(reqwest|ureq|hyper|curl|tauri-plugin-updater|tokio)' crates/study-planner-updater/Cargo.toml; then
+    fail "study-planner-updater tiene dependencias de red antes de Fase 5"
   else
-    ok "omega-updater desactivado y sin red"
+    ok "study-planner-updater desactivado y sin red"
   fi
 else
   echo "AVISO: el updater está marcado como implementado; revisar manualmente su red."
@@ -121,7 +133,7 @@ fi
 if [[ -d .git ]] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   tracked="$(git ls-files)"
   secret_hits="$(printf '%s\n' "$tracked" | grep -E \
-    '(^|/)(\.env($|\.)|secrets?/|omega-keys?/|keys?/)|\.(key|pem|pfx|p12|jks|keystore|minisign|db|sqlite|sqlite3)$|(^|/)minisign\.key$' || true)"
+    '(^|/)(\.env($|\.)|secrets?/|study-planner-keys?/|keys?/)|\.(key|pem|pfx|p12|jks|keystore|minisign|db|sqlite|sqlite3)$|(^|/)minisign\.key$' || true)"
   if [[ -n "$secret_hits" ]]; then
     printf '%s\n' "$secret_hits" >&2
     fail "archivos sensibles versionados"

@@ -48,7 +48,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 - Toda la persistencia pasa por comandos Rust.
 - El binario incluye SQLite y no depende de la versión del sistema.
-- Los repositorios y tests viven en `omega-store`.
+- Los repositorios y tests viven en `study-planner-store`.
 
 ---
 
@@ -106,7 +106,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 **Contexto:** se necesita actualizar sin abrir la app a la red y sin confiar en un manifiesto sin firma.
 
-**Decisión:** crate `omega-updater` separado, sin bindings JS, URL HTTPS fija en compilación, firma obligatoria, opt-in, sin datos de usuario, solo Linux AppImage. Tauri updater no soporta Android/iOS.
+**Decisión:** crate `study-planner-updater` separado, sin bindings JS, URL HTTPS fija en compilación, firma obligatoria, opt-in, sin datos de usuario, solo Linux AppImage. Tauri updater no soporta Android/iOS.
 
 **Consecuencias:**
 
@@ -166,11 +166,11 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 ## ADR-011 — Dependencias permisivas, con excepciones revisadas
 
-**Estado:** aceptada con revisión pendiente.
+**Estado:** aceptada; la revisión pendiente de MPL-2.0 quedó resuelta por ADR-017 (2026-11-08).
 
 **Contexto:** el usuario exige solo licencias permisivas (MIT/Apache/BSD), con excepción de plataforma WebKitGTK/GTK (LGPL).
 
-**Decisión:** se aceptan MIT, Apache-2.0, BSD, ISC, Zlib y Unicode. Cualquier licencia copyleft requiere revisión y decisión registrada. Se detectó MPL-2.0 transitiva en Tauri: `option-ext` (runtime, vía `dirs`) y `cssparser`, `selectors`, `dtoa-short` (solo build, vía `dom_query`/`tauri-utils`). Está pendiente la decisión del usuario.
+**Decisión:** se aceptan MIT, Apache-2.0, BSD, ISC, Zlib y Unicode. Cualquier licencia copyleft requiere revisión y decisión registrada. Se detectó MPL-2.0 transitiva en Tauri: `option-ext` (runtime, vía `dirs`) y `cssparser`, `selectors`, `dtoa-short` (solo build, vía `dom_query`/`tauri-utils`). La decisión del usuario quedó registrada en ADR-017.
 
 **Consecuencias:**
 
@@ -244,3 +244,76 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 - El redimensionado depende de los bordes propios; si se elimina un borde, esa dirección deja de funcionar.
 - En Linux, GTK puede emitir el aviso `gtk_window_set_titlebar() called on a realized window` al iniciar; es inocuo y no afecta el render.
 - No se agregan permisos de archivos, SQL, shell ni red: solo acciones de ventana.
+
+---
+
+## ADR-016 — Nombre Study Planner y estructura de bóveda `omega/` + `longlife/`
+
+**Estado:** aceptada (2026-11-09).
+
+**Contexto:** el proyecto se llamaba internamente `Omega`, pero ese nombre corresponde a una subcarpeta de datos, no a la aplicación. El usuario confirmó que la app es **Study Planner** y que la bóveda sigue el patrón ya usado en Better Tracker: `<bóveda>/omega` para los datos vivos y el backup principal, y `<bóveda>/longlife` para las snapshots de resguardo.
+
+**Decisión:**
+
+- El nombre visible y de producto es **Study Planner**. Los crates pasan a `study-planner-core`, `study-planner-store`, `study-planner-transfer` y `study-planner-updater`; el paquete npm y el binario son `study-planner`; el identifier es `app.studyplanner.desktop`.
+- El magic de exportación pasa a `STUDY-PLANNER-EXPORT` / `STUDY-PLANNER-END`.
+- El usuario elige **una raíz de bóveda** en el primer arranque. La app crea automáticamente:
+  - `<bóveda>/omega/` → base viva, adjuntos y backup principal.
+  - `<bóveda>/longlife/<dispositivo>/<AAAA-MM-DD>/` → snapshots diarias.
+- La retención inicial es de 7 snapshots por dispositivo.
+- Los nombres van en minúsculas para evitar duplicados en bóvedas sincronizadas entre sistemas que distinguen mayúsculas.
+- La raíz de la bóveda es una setting de máquina: no se exporta y nunca vive dentro del repositorio.
+
+**Consecuencias:**
+
+- Los documentos, comandos y pruebas deben hablar de `<bóveda>/omega` y `<bóveda>/longlife`, no de rutas absolutas `/omega` o `/loglife`.
+- `omega` sigue apareciendo en el código y en la UI solo como nombre de la subcarpeta de datos.
+- Cambiar la estructura o la retención requiere una nueva decisión y una migración de la bóveda, no un cambio silencioso.
+- El identificador `app.studyplanner.desktop` queda fijo; cambiarlo después obliga a migrar datos de `app_data_dir`.
+
+---
+
+## ADR-017 — MPL-2.0 transitiva aceptada como excepción revisada
+
+**Estado:** aceptada (2026-11-08). Resuelve la revisión pendiente de ADR-011.
+
+**Contexto:** Tauri incorpora paquetes MPL-2.0 de forma transitiva: `option-ext` en runtime (a través de `dirs` → `tauri`/`wry`) y `cssparser`, `selectors` y `dtoa-short` solo en build (a través de `dom_query`/`tauri-utils`). El usuario ya revisó la situación y pidió continuar sin bloquear el proyecto por esa dependencia. MPL-2.0 es copyleft a nivel de archivo y es compatible con distribuir un programa mayor bajo MIT/Apache-2.0.
+
+**Decisión:**
+
+- Se acepta MPL-2.0 **solo** para los paquetes transitivos listados, sin modificarlos.
+- Se conservan sus avisos de copyright y licencia en `THIRD_PARTY_LICENSES.md` y en la distribución.
+- Si en el futuro se parchea un archivo MPL, ese archivo se publica bajo MPL-2.0 y la decisión se registra.
+- Cualquier nueva dependencia MPL, GPL o AGPL sigue requiriendo revisión explícita; esta ADR no es una aceptación general de copyleft.
+- No se agrega una dependencia MPL directa ni se cambia el stack para evitar la transitiva de Tauri.
+
+**Consecuencias:**
+
+- No hay que parchear Tauri ni asumir el costo de mantenimiento de un fork.
+- El inventario de licencias debe regenerarse antes de una release y confirmar que los paquetes MPL siguen sin modificaciones.
+- La licencia del proyecto sigue siendo `MIT OR Apache-2.0`.
+- `THIRD_PARTY_LICENSES.md` deja de tener la decisión como pendiente y pasa a documentar la obligación de conservar avisos.
+
+---
+
+## ADR-018 — Importación solo en bóveda vacía y restauración con backup previo
+
+**Estado:** aceptada (2026-11-08).
+
+**Contexto:** la Fase 1 necesita recuperar una bóveda completa desde un `.txt` canónico y restaurar el backup principal sin riesgo de mezclar datos ni perder el estado actual. El núcleo de transferencia ya soporta un modo `Replace`, pero habilitarlo desde la UI exige definir confirmaciones, backups y una política de adjuntos.
+
+**Decisión:**
+
+- La importación normal desde la UI usa `ImportMode::EmptyOnly`: se rechaza cualquier bóveda con datos de dominio y se informa que hay que elegir una carpeta vacía.
+- El modo `Replace` queda implementado solo en `study-planner-transfer` como base para una fase futura; la UI no lo expone.
+- La restauración del backup principal exige confirmación explícita en la pantalla «Bóveda». Antes de reemplazar la base viva se crea un backup verificado `pre-restore-<timestamp>.db`.
+- La restauración verifica el backup principal (esquema, `integrity_check`, `foreign_key_check`) antes de tocar la base; si no pasa, no se restaura.
+- El lock de la bóveda se conserva durante la restauración y la conexión SQLite se reabre al terminar.
+- Cada operación y cada error se registra en `<omega>/study-planner.log` con timestamp UTC y sin rutas absolutas.
+
+**Consecuencias:**
+
+- No se puede importar sobre una bóveda con datos desde la UI; para hacerlo hay que abrir una carpeta nueva.
+- La restauración siempre deja dos backups: el principal restaurado y el `pre-restore-*` del estado anterior.
+- Habilitar el reemplazo total requiere una decisión nueva con confirmación de doble paso y pruebas de adjuntos huérfanos.
+- El log local crece sin rotación automática en Fase 1; la rotación se evaluará junto con el diagnóstico de Fase 5.

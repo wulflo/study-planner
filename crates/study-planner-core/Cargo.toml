@@ -1,11 +1,11 @@
 [package]
-name = "omega-core"
+name = "study-planner-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 rust-version.workspace = true
-description = "Dominio puro de Omega, sin Tauri ni red"
+description = "Dominio puro de Study Planner, sin Tauri ni red"
 
 [dependencies]
 serde.workspace = true

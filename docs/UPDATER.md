@@ -1,15 +1,15 @@
 # Updater aislado
 
-> **Estado:** diseño. No implementado. `crates/omega-updater` solo contiene `UPDATER_IMPLEMENTED = false` y no tiene dependencias de red.
+> **Estado:** diseño. No implementado. `crates/study-planner-updater` solo contiene `UPDATER_IMPLEMENTED = false` y no tiene dependencias de red.
 
-El updater es la **única** excepción a la regla de «Omega no usa red». Debe ser pequeño, auditable, opt-in y separado del resto del código.
+El updater es la **única** excepción a la regla de «Study Planner no usa red». Debe ser pequeño, auditable, opt-in y separado del resto del código.
 
 ## Principios
 
 1. **Sin bindings JS.** El frontend no puede iniciar, configurar ni consultar el updater. No se registra `tauri-plugin-updater` en la webview ni se concede permiso `updater:*`.
 2. **URL fija en compilación.** El endpoint HTTPS es una constante de Rust. No se lee de settings, base de datos, variables de entorno ni argumentos.
 3. **Firma obligatoria.** Un manifiesto sin firma válida se rechaza. No hay modo «skip signature».
-4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Omega. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
+4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Study Planner. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
 6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial.
 7. **Toda la red se registra** en `network_event` (host, bytes, resultado, error), sin contenido de datos.
@@ -19,7 +19,7 @@ El updater es la **única** excepción a la regla de «Omega no usa red». Debe 
 ```text
 botón «Buscar actualización» (UI)
   → comando Rust `check_for_update`
-  → omega-updater::check()
+  → study-planner-updater::check()
        GET <URL fija> (HTTPS, timeout, tamaño máximo)
        parsear manifiesto
        verificar firma minisign con clave pública embebida
@@ -48,7 +48,7 @@ Formato compatible con la convención de Tauri, pero verificado por nuestro cód
   "notes": "Cambios de la versión",
   "platforms": {
     "linux-x86_64": {
-      "url": "https://.../Omega_0.2.0_amd64.AppImage",
+      "url": "https://.../Study Planner_0.2.0_amd64.AppImage",
       "signature": "<firma minisign del artefacto o del manifiesto>",
       "sha256": "<hex>"
     }
@@ -110,7 +110,7 @@ Nunca se ejecuta un instalador descargado sin verificar. Nunca se borra el binar
 
 ## Rollback
 
-- Guardar el AppImage anterior como `Omega.AppImage.old` (o en el directorio de datos).
+- Guardar el AppImage anterior como `Study Planner.AppImage.old` (o en el directorio de datos).
 - Si el nuevo no arranca, el usuario puede restaurar el anterior desde la UI de recuperación o manualmente.
 - El updater no intenta «auto-repararse» descargando otra cosa.
 

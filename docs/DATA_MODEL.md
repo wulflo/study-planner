@@ -1,6 +1,6 @@
 # Modelo de datos
 
-Esquema v1 en `crates/omega-store/migrations/0001_initial.sql`. La migración es inmutable: cualquier cambio futuro va en `0002_*.sql` y sube `SCHEMA_VERSION`.
+Esquema v1 en `crates/study-planner-store/migrations/0001_initial.sql`. La migración es inmutable: cualquier cambio futuro va en `0002_*.sql` y sube `SCHEMA_VERSION`.
 
 ## Convenciones
 
@@ -135,16 +135,19 @@ Portables (se exportan):
 
 - `theme.mode`, `theme.accent`, `theme.variant`, `theme.contrast`
 - `locale`
-- `backup.retention.daily|weekly|monthly`, `backup.interval_hours`
+- `backup.retention.snapshots` (7 por dispositivo por defecto), `backup.interval_hours`
 - `notifications.enabled` y anticipaciones
 - `study.weak_threshold`, `study.strong_threshold`, `study.priority_decay_days`
 - `updater.auto_check`, `updater.strict_offline`
 
 De máquina (no se exportan):
 
-- `paths.vault`, `paths.backups`
+- `paths.vault_root`, `paths.device_id`
+- `backup.last_snapshot_at`
 - `locale.timezone`
 - `window.last_route`
+
+`paths.vault_root` es la carpeta raíz elegida por el usuario. Las subcarpetas `omega/` y `longlife/` se derivan de ella; no se guardan como rutas independientes.
 
 Los valores se guardan como JSON (`value_json`), no como texto libre.
 
@@ -163,7 +166,7 @@ Los valores se guardan como JSON (`value_json`), no como texto libre.
 
 1. Crear `000N_descripcion.sql`.
 2. Agregar la migración a la lista ordenada del `Store`.
-3. Subir `SCHEMA_VERSION` en `omega-core`.
+3. Subir `SCHEMA_VERSION` en `study-planner-core`.
 4. Backup obligatorio antes de aplicar en una bóveda real.
 5. Test: base vacía → migrar; base vN → migrar; base vN+1 → rechazar; idempotencia.
 

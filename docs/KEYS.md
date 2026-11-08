@@ -7,7 +7,7 @@
 
 | Elemento | Función | Sensibilidad |
 |---|---|---|
-| Clave privada minisign | Firmar actualizaciones de Omega | Crítica |
+| Clave privada minisign | Firmar actualizaciones de Study Planner | Crítica |
 | Passphrase de la clave | Descifrar la clave privada | Crítica |
 | Clave pública minisign | Verificar actualizaciones | Pública, se versiona |
 | `vault_id` | Identificar la bóveda | Baja, no es secreto |
@@ -41,7 +41,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
 
    ```bash
    umask 077
-   workdir="$(mktemp -d "${TMPDIR:-/tmp}/omega-keygen.XXXXXX")"
+   workdir="$(mktemp -d "${TMPDIR:-/tmp}/study-planner-keygen.XXXXXX")"
    ```
 
 3. Generar una passphrase aleatoria de alta entropía **sin mostrarla**:
@@ -58,7 +58,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
    npm run tauri signer generate -- --help
    ```
 
-   Guardar la clave privada en `$workdir/omega.key` y la pública en `$workdir/omega.key.pub`.
+   Guardar la clave privada en `$workdir/study-planner.key` y la pública en `$workdir/study-planner.key.pub`.
    La CLI pedirá la passphrase; se toma del archivo, nunca de un argumento visible en `ps`.
 
 5. Verificar el par firmando un archivo de prueba y validando la firma con la clave pública.
@@ -70,7 +70,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
 8. Borrar el temporal:
 
    ```bash
-   shred -u "$workdir/passphrase.txt" "$workdir/omega.key" 2>/dev/null || rm -f "$workdir/passphrase.txt" "$workdir/omega.key"
+   shred -u "$workdir/passphrase.txt" "$workdir/study-planner.key" 2>/dev/null || rm -f "$workdir/passphrase.txt" "$workdir/study-planner.key"
    rmdir "$workdir"
    unset workdir
    ```
@@ -88,7 +88,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
 
 ## Clave pública
 
-- Se versiona en el repo (por ejemplo `src-tauri/updater.pub` o una constante en `omega-updater`).
+- Se versiona en el repo (por ejemplo `src-tauri/updater.pub` o una constante en `study-planner-updater`).
 - Se embebe en el binario para verificar actualizaciones.
 - Se publica en las releases para que un tercero pueda verificar.
 - No es secreta; puede ir en el README de releases.
@@ -101,7 +101,7 @@ Recomendación: **firmar offline** y subir el artefacto ya firmado. Si se acepta
 
 ```bash
 # Ejecutar desde archivos locales, nunca pegando secretos en el chat.
-gh secret set TAURI_SIGNING_PRIVATE_KEY < /ruta/segura/omega.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY < /ruta/segura/study-planner.key
 gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < /ruta/segura/passphrase.txt
 ```
 

@@ -1,44 +1,43 @@
 # Arquitectura
 
-Omega es una aplicación de escritorio Tauri 2 con un frontend React y un núcleo Rust que posee la base de datos y el sistema de archivos. La seguridad se apoya en tres ideas: **la webview no toca disco ni red**, **el dominio es puro y testeable** y **la red está aislada en un único crate opcional**.
+Study Planner es una aplicación de escritorio Tauri 2 con un frontend React y un núcleo Rust que posee la base de datos y el sistema de archivos. La seguridad se apoya en tres ideas: **la webview no toca disco ni red**, **el dominio es puro y testeable** y **la red está aislada en un único crate opcional**.
 
 ## Capas
 
 ```text
-┌──────────────────────────────────────────────┐
-│ src/  (React + TypeScript)                   │
-│  · vistas, estado de UI, i18n                │
-│  · src/lib/ipc.ts: contrato tipado           │
-└──────────────────┬───────────────────────────┘
-                   │ invoke() — comandos propios
-┌──────────────────▼───────────────────────────┐
-│ src-tauri/  (host Tauri)                     │
-│  · comandos, validación de entrada           │
-│  · ventana, CSP, capabilities                │
-│  · composición de servicios                  │
-└───────┬──────────────────┬───────────────────┘
-        │                  │
-┌───────▼────────┐  ┌──────▼───────────────────┐
-│ omega-store    │  │ omega-transfer           │
-│ SQLite, WAL,   │  │ export/import canónico   │
-│ migraciones,   │  │ checksum, round-trip     │
-│ backups        │  └──────┬───────────────────┘
-└───────┬────────┘         │
-        │                  │
-┌───────▼──────────────────▼───────────────────┐
-│ omega-core  (dominio puro)                   │
-│  · constantes, IDs, reglas de negocio        │
-│  · sin Tauri, sin disco, sin red             │
-└──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ src/  (React + TypeScript)                              │
+│  · vistas, estado de UI, i18n                           │
+│  · src/lib/ipc.ts: contrato tipado                      │
+└───────────────────────────┬─────────────────────────────┘
+                            │ invoke() — comandos propios
+┌───────────────────────────▼─────────────────────────────┐
+│ src-tauri/  (host Tauri)                                │
+│  · comandos, validación de entrada                      │
+│  · ventana, CSP, capabilities                           │
+│  · composición de servicios y rutas de la bóveda        │
+└─────────────┬───────────────────────────┬───────────────┘
+              │                           │
+┌─────────────▼───────────────┐ ┌─────────▼───────────────┐
+│ study-planner-store         │ │ study-planner-transfer  │
+│  · SQLite, WAL, migraciones │ │  · export/import .txt   │
+│  · backups y snapshots      │ │  · checksum, round-trip │
+└─────────────┬───────────────┘ └─────────┬───────────────┘
+              │                           │
+┌─────────────▼───────────────────────────▼───────────────┐
+│ study-planner-core  (dominio puro)                      │
+│  · constantes, IDs, reglas de negocio                   │
+│  · sin Tauri, sin disco, sin red                        │
+└─────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────────┐
-│ omega-updater  (Fase 5, aislado)             │
-│  · única dependencia de red del proyecto     │
-│  · sin bindings JS, URL fija, firma          │
-└──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ study-planner-updater  (Fase 5, aislado)                │
+│  · única dependencia de red del proyecto                │
+│  · sin bindings JS, URL fija, firma obligatoria         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### `omega-core`
+### `study-planner-core`
 
 No depende de Tauri, SQLite, red ni sistema de archivos. Contiene:
 
@@ -48,7 +47,7 @@ No depende de Tauri, SQLite, red ni sistema de archivos. Contiene:
 
 Regla: si una función se puede testear sin base de datos ni reloj real, va acá.
 
-### `omega-store`
+### `study-planner-store`
 
 Dueño exclusivo de la conexión SQLite. Responsabilidades:
 
@@ -61,7 +60,7 @@ Dueño exclusivo de la conexión SQLite. Responsabilidades:
 
 La conexión se crea en Rust y se guarda en el estado de Tauri (`State<...>`), protegida para acceso serializado o con un pool controlado. El frontend solo invoca comandos de alto nivel.
 
-### `omega-transfer`
+### `study-planner-transfer`
 
 Codifica y decodifica el `.txt` canónico. No conoce Tauri ni la UI. El contrato está en `docs/EXPORT_FORMAT.md`.
 
@@ -69,7 +68,7 @@ Codifica y decodifica el `.txt` canónico. No conoce Tauri ni la UI. El contrato
 - Importar: valida magia, versión, checksum, integridad referencial y versión de esquema; escribe en una transacción.
 - Los tests de round-trip viven acá y usan fixtures versionados.
 
-### `omega-updater`
+### `study-planner-updater`
 
 Crate separado para que la red no se filtre al resto. Hasta la Fase 5 solo contiene `UPDATER_IMPLEMENTED = false` y ninguna dependencia de red. Diseño en `docs/UPDATER.md`.
 
@@ -82,25 +81,67 @@ Host y composición:
 - Configura CSP, ventana, bundle y capacidades.
 - No expone plugins de `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` ni `updater` al frontend.
 
-## Flujo de arranque (objetivo Fase 1+)
+## Estructura de la bóveda
+
+El usuario elige **una sola carpeta raíz** (la bóveda) en el primer arranque. La app crea y mantiene el resto automáticamente; ninguna ruta cambia en silencio.
+
+```text
+<bóveda>/
+├── omega/                              datos vivos y backup principal
+│   ├── study-planner.db                base viva (WAL)
+│   ├── study-planner.db-wal            journal de WAL
+│   ├── study-planner.db-shm            memoria compartida de WAL
+│   ├── .study-planner.lock             lock de instancia (se libera al cerrar)
+│   ├── attachments/                    adjuntos, nombrados por hash
+│   └── backup/
+│       ├── study-planner.db            backup principal verificado
+│       └── pre-migration-vN-*.db       backup previo a una migración
+└── longlife/                           snapshots de resguardo
+    └── <dispositivo>/
+        ├── 2026-11-08/
+        │   ├── study-planner.db        copia íntegra del día
+        │   ├── attachments/            adjuntos referenciados
+        │   └── snapshot.json           metadatos y checksums
+        └── 2026-11-07/
+```
+
+Reglas:
+
+- `omega/` es la **única fuente de verdad** para la base viva, su backup principal, los adjuntos y el log local.
+- `longlife/<dispositivo>/<AAAA-MM-DD>` guarda **snapshots diarias**; se conservan las últimas 7 por dispositivo.
+- `<dispositivo>` es el hostname local sanitizado (alfanumérico, `-` y `_`, hasta 64 caracteres; `equipo` si queda vacío). Identifica la carpeta de snapshots de esta máquina.
+- Los nombres van en minúsculas (`omega`, `longlife`) para que una bóveda sincronizada entre sistemas que distinguen mayúsculas no se duplique.
+- En Unix las carpetas se crean con permisos `0o700` y los archivos con `0o600`; si el sistema de archivos no soporta POSIX (exFAT/NTFS), se registra el aviso y se continúa.
+- La raíz de la bóveda es una setting **de máquina**: no se exporta y nunca se escribe dentro del repositorio.
+- Un snapshot solo se considera completo cuando existe `snapshot.json` con los checksums; si falta, se descarta.
+- La restauración nunca sobrescribe en silencio: verifica el backup, crea `backup/pre-restore-*.db` y pide confirmación en la UI. La importación es transaccional y solo se acepta en bóveda vacía.
+- `<omega>/attachments/` guarda los adjuntos por SHA-256; se exportan embebidos y se verifican al importar.
+- `<omega>/study-planner.log` registra eventos de backup, exportación, importación y restauración con timestamp UTC, sin rutas absolutas.
+
+## Flujo de arranque (implementado en Fase 1)
 
 ```text
 inicio
-  → resolver rutas (machine settings o primer arranque)
-  → validar rutas (existen, escribibles, sin sudo)
-  → abrir bóveda / crear si no existe
-  → adquirir lock
+  → leer la raíz de la bóveda desde vault.json (config de la app)
+  → validar la ruta (existe, carpeta, escribible, no raíz, fuera del repo)
+  → crear <bóveda>/omega, <bóveda>/omega/backup, <bóveda>/omega/attachments y <bóveda>/longlife/<dispositivo>
+  → adquirir <omega>/.study-planner.lock (falla si hay otra instancia)
+  → abrir <omega>/study-planner.db
   → leer schema_version
   → si hay migración pendiente:
-        backup verificado
+        backup verificado pre-migration-vN-*.db
         migrar en transacción
-        verificar integrity_check + foreign_key_check
-        si falla: restaurar backup y abortar
-  → cargar settings y estado de UI
+        si falla: restaurar el backup y abortar
+  → verificar o crear el backup principal
+  → crear la snapshot diaria si falta, está incompleta o tiene otro esquema
+  → podar snapshots a las últimas 7
+  → exponer VaultStatus a la UI
   → mostrar app
 ```
 
-Ningún paso cambia rutas ni sobrescribe datos sin confirmación explícita.
+Un fallo al cargar la bóveda no bloquea la app: la UI muestra el error y permite elegir otra carpeta. Ningún paso cambia rutas ni sobrescribe datos sin confirmación explícita.
+
+La restauración manual está implementada: verifica el backup principal, crea `backup/pre-restore-*.db` con el estado actual, reemplaza la base viva, reabre SQLite y conserva el lock. La restauración automática sigue ocurriendo solo si falla una migración.
 
 ## Contrato IPC
 
@@ -118,8 +159,18 @@ Comandos actuales:
 |---|---|---|
 | `get_app_info` | — | `AppInfo` |
 | `schema_self_check` | — | esquema, integridad, FK, `vault_id` de una base en memoria |
+| `get_vault_status` | — | estado de la bóveda (sin rutas), incluido el backup y las snapshots |
+| `choose_vault` | — | abre el selector nativo; `VaultStatus` o `null` si se cancela |
+| `create_backup` | — | crea y verifica el backup principal; `VaultStatus` actualizado |
+| `export_vault` | — | abre el selector nativo de guardado; `ExportInfo` o `null` si se cancela |
+| `import_vault` | — | abre el selector nativo; importa solo en bóveda vacía; `ImportOutcome` o `null` |
+| `restore_main_backup` | — | crea backup previo, restaura el principal verificado y reabre la bóveda |
+| `list_tasks` | — | `Task[]` de la bóveda abierta |
+| `create_task` | `title` | `Task` pendiente |
+| `set_task_done` | `id`, `done` | `Task` actualizada |
+| `delete_task` | `id` | borrado lógico (`deleted_at`) |
 
-`src/lib/ipc.ts` es la única puerta del frontend hacia Rust.
+`src/lib/ipc.ts` es la única puerta del frontend hacia Rust. `tauri-plugin-dialog` se usa solo desde Rust (`DialogExt`): la webview no recibe la ruta elegida ni tiene permiso `dialog`.
 
 ## Seguridad
 
@@ -154,7 +205,7 @@ base-uri 'none'; form-action 'none'
 
 - Solo Rust abre, lee, escribe y borra.
 - Las rutas se guardan como settings `machine`, no se exportan.
-- Los backups se verifican abriéndolos y corriendo `integrity_check`.
+- Los backups se escriben como `.partial`, se verifican con `integrity_check`, `foreign_key_check` y SHA-256, y solo entonces reemplazan al backup anterior mediante renombre atómico.
 - Los adjuntos se validan por hash y tamaño antes de servirlos a la UI.
 
 ### Red
@@ -195,6 +246,8 @@ base-uri 'none'; form-action 'none'
 | Pérdida de datos por migración | Backup verificado + transacción + restauración automática |
 | Corrupción silenciosa | `integrity_check`, checksums, backups rotativos |
 | Fuga por red | CSP, permisos mínimos, updater aislado, auditoría estática |
-| Dependencia no permisiva | Revisión de licencias; MPL-2.0 transitiva pendiente de decisión |
+| Dependencia no permisiva | Revisión de licencias; MPL-2.0 transitiva aceptada como excepción acotada en ADR-017 |
+| Bóveda abierta en dos instancias | Lock de archivo en `omega/.study-planner.lock`; la segunda instancia recibe un error explícito |
+| Ruta de bóveda peligrosa | Validación de existencia, escritura, raíz del sistema y ubicación dentro del repositorio |
 | Clave de firma comprometida | Custodia offline, passphrase separada, rotación documentada |
 | Cambio accidental de rutas | Settings `machine`, confirmación explícita, nunca silencioso |

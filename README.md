@@ -1,18 +1,19 @@
-# Omega
+# Study Planner
 
 Organización académica personal, **estrictamente local**. Horarios, materias, exámenes, notas, tareas, apuntes y repaso espaciado en una sola bóveda SQLite, sin cuentas, sin nube y sin telemetría.
 
 **Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
 
-> **Estado:** Fase 0 (base técnica) en cierre. Todavía no hay funcionalidad de dominio; la app muestra el contrato técnico y un autodiagnóstico del esquema.
+> **Estado:** Fase 0 cerrada; Fase 1 cerrada en su alcance de aceptación. La app permite elegir una bóveda validada, gestionar tareas persistentes, mantener backups verificados y snapshots diarias, exportar e importar la bóveda completa con round-trip byte a byte y restaurar el backup principal con confirmación. El resto del dominio llega en las fases siguientes.
 
 ## Principios
 
-- **Local primero:** los datos viven en `/omega`; las copias en `/loglife`. Ambas rutas son configurables y nunca cambian en silencio.
+- **Local primero:** elegís una carpeta raíz (la bóveda) y la app crea `<bóveda>/omega` para los datos vivos y el backup principal verificado, y `<bóveda>/longlife` para las snapshots diarias. La ruta se valida y nunca cambia en silencio.
+- **Continuidad verificada:** cada backup se comprueba con SHA-256, `integrity_check` y `foreign_key_check`; se conserva el backup previo a cada migración, las últimas 7 snapshots por dispositivo y un backup `pre-restore-*.db` antes de cada restauración.
 - **Sin red en la interfaz:** la webview no tiene permisos de archivos, SQL, shell, diálogos ni HTTP. La única excepción futura es un módulo de actualización aislado en Rust, opt-in y con firma obligatoria.
-- **Exportación total:** un único `.txt` canónico que permite reconstruir la bóveda. `exportar → importar → exportar` debe dar bytes idénticos en la misma versión.
+- **Exportación total:** un único `.txt` canónico que permite reconstruir la bóveda. `exportar → importar → exportar` da bytes idénticos en la misma versión; la importación solo se acepta en una bóveda vacía.
 - **Sin cifrado de bóveda:** decisión explícita del usuario. La confidencialidad depende del disco cifrado del sistema y de la custodia física.
-- **Continuidad:** cada fase deja tests, changelog y `docs/CHECKLIST.md` para retomar sin internet.
+- **Continuidad:** cada fase deja tests, changelog y `docs/CHECKLIST.md` para retomar sin internet. La MPL-2.0 transitiva de Tauri está aceptada como excepción acotada (ADR-017); ver `THIRD_PARTY_LICENSES.md`.
 
 ## Stack
 
@@ -21,8 +22,8 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 | UI | React 19, TypeScript, Vite 8, Zustand, date-fns, Material Color Utilities |
 | Host | Tauri 2.12 (Rust) |
 | Persistencia | SQLite con `rusqlite` (bundled), WAL, migraciones versionadas |
-| Exportación | Rust (`omega-transfer`), formato canónico propio |
-| Updater | Rust aislado (`omega-updater`), pendiente Fase 5 |
+| Exportación | Rust (`study-planner-transfer`), formato canónico propio |
+| Updater | Rust aislado (`study-planner-updater`), pendiente Fase 5 |
 | Tests | Vitest + Testing Library; `cargo test` |
 
 ## Requisitos
@@ -51,7 +52,7 @@ npm run dev
 ```bash
 npm run check          # typecheck + lint + tests + build
 npm run check:all      # lo anterior + fmt + clippy + tests Rust
-./scripts/check.sh     # atajo de check:all + cargo check -p omega
+./scripts/check.sh     # atajo de check:all + cargo check -p study-planner
 ./scripts/audit-network.sh
 ```
 
@@ -73,13 +74,20 @@ npm run check:all      # lo anterior + fmt + clippy + tests Rust
 ```text
 src/                 UI React
 src-tauri/           host Tauri, comandos, CSP y permisos
-crates/omega-core/   dominio puro, constantes, IDs
-crates/omega-store/  SQLite, migraciones, backups
-crates/omega-transfer/ exportación/importación
-crates/omega-updater/  red aislada (Fase 5)
+crates/study-planner-core/    dominio puro, constantes, IDs
+crates/study-planner-store/   SQLite, migraciones, backups
+crates/study-planner-transfer/ exportación/importación
+crates/study-planner-updater/  red aislada (Fase 5)
 docs/                documentación persistente
 scripts/             verificación y auditoría
 fixtures/export/     fixtures de round-trip
+```
+
+La bóveda vive fuera del repositorio:
+
+```text
+<bóveda>/omega/                          datos vivos, backup principal, adjuntos y log local
+<bóveda>/longlife/<dispositivo>/<fecha>/ snapshots diarias (7 por dispositivo)
 ```
 
 ## Seguridad

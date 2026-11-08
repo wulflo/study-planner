@@ -1,6 +1,6 @@
 # Seguridad
 
-Omega es una aplicación local que maneja datos académicos y, en el futuro, la clave de firma de sus actualizaciones. Si encontrás una vulnerabilidad, **no abras un issue público**.
+Study Planner es una aplicación local que maneja datos académicos y, en el futuro, la clave de firma de sus actualizaciones. Si encontrás una vulnerabilidad, **no abras un issue público**.
 
 ## Cómo reportar
 
@@ -10,7 +10,7 @@ Usá el reporte privado de GitHub:
 
 También podés contactar al mantenedor por los medios indicados en su perfil de GitHub. Incluí:
 
-- Versión de Omega y sistema operativo.
+- Versión de Study Planner y sistema operativo.
 - Pasos mínimos para reproducir.
 - Impacto esperado.
 - Si aplica, una prueba de concepto sin datos reales.
@@ -37,7 +37,7 @@ Quedan fuera de alcance:
 
 - Ataques que requieren acceso físico o root al equipo.
 - Ingeniería social.
-- Vulnerabilidades en WebKitGTK/GTK no explotables desde Omega.
+- Vulnerabilidades en WebKitGTK/GTK no explotables desde Study Planner.
 - Falta de cifrado de la bóveda: es una decisión explícita del proyecto (ver `docs/DECISIONS.md`).
 
 ## Versiones soportadas
