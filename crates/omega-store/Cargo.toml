@@ -1,0 +1,16 @@
+[package]
+name = "omega-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Persistencia SQLite y migraciones de Omega"
+
+[dependencies]
+omega-core = { path = "../omega-core" }
+rusqlite.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true

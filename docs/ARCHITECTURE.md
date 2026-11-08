@@ -1,0 +1,200 @@
+# Arquitectura
+
+Omega es una aplicación de escritorio Tauri 2 con un frontend React y un núcleo Rust que posee la base de datos y el sistema de archivos. La seguridad se apoya en tres ideas: **la webview no toca disco ni red**, **el dominio es puro y testeable** y **la red está aislada en un único crate opcional**.
+
+## Capas
+
+```text
+┌──────────────────────────────────────────────┐
+│ src/  (React + TypeScript)                   │
+│  · vistas, estado de UI, i18n                │
+│  · src/lib/ipc.ts: contrato tipado           │
+└──────────────────┬───────────────────────────┘
+                   │ invoke() — comandos propios
+┌──────────────────▼───────────────────────────┐
+│ src-tauri/  (host Tauri)                     │
+│  · comandos, validación de entrada           │
+│  · ventana, CSP, capabilities                │
+│  · composición de servicios                  │
+└───────┬──────────────────┬───────────────────┘
+        │                  │
+┌───────▼────────┐  ┌──────▼───────────────────┐
+│ omega-store    │  │ omega-transfer           │
+│ SQLite, WAL,   │  │ export/import canónico   │
+│ migraciones,   │  │ checksum, round-trip     │
+│ backups        │  └──────┬───────────────────┘
+└───────┬────────┘         │
+        │                  │
+┌───────▼──────────────────▼───────────────────┐
+│ omega-core  (dominio puro)                   │
+│  · constantes, IDs, reglas de negocio        │
+│  · sin Tauri, sin disco, sin red             │
+└──────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────┐
+│ omega-updater  (Fase 5, aislado)             │
+│  · única dependencia de red del proyecto     │
+│  · sin bindings JS, URL fija, firma          │
+└──────────────────────────────────────────────┘
+```
+
+### `omega-core`
+
+No depende de Tauri, SQLite, red ni sistema de archivos. Contiene:
+
+- Constantes estables: `APP_NAME`, `SCHEMA_VERSION`, `EXPORT_FORMAT_VERSION`.
+- `AppInfo`, generación de UUIDv7.
+- En fases siguientes: cálculo de recurrencias, prioridad de estudio, SM-2, agregaciones de notas y validaciones puras.
+
+Regla: si una función se puede testear sin base de datos ni reloj real, va acá.
+
+### `omega-store`
+
+Dueño exclusivo de la conexión SQLite. Responsabilidades:
+
+- Abrir la base con `foreign_keys=ON`, `synchronous=FULL`, `busy_timeout` y WAL.
+- Aplicar migraciones hacia adelante con checksum SHA-256 y `PRAGMA user_version`.
+- Rechazar bases con esquema más nuevo que el soportado.
+- Exponer repositorios tipados (Fase 1+) y transacciones.
+- Ejecutar backups online y verificarlos.
+- Nunca entrega la conexión al frontend.
+
+La conexión se crea en Rust y se guarda en el estado de Tauri (`State<...>`), protegida para acceso serializado o con un pool controlado. El frontend solo invoca comandos de alto nivel.
+
+### `omega-transfer`
+
+Codifica y decodifica el `.txt` canónico. No conoce Tauri ni la UI. El contrato está en `docs/EXPORT_FORMAT.md`.
+
+- Exportar: lee una foto consistente de la base, ordena, serializa y calcula checksum.
+- Importar: valida magia, versión, checksum, integridad referencial y versión de esquema; escribe en una transacción.
+- Los tests de round-trip viven acá y usan fixtures versionados.
+
+### `omega-updater`
+
+Crate separado para que la red no se filtre al resto. Hasta la Fase 5 solo contiene `UPDATER_IMPLEMENTED = false` y ninguna dependencia de red. Diseño en `docs/UPDATER.md`.
+
+### `src-tauri`
+
+Host y composición:
+
+- Registra comandos explícitos en `invoke_handler`.
+- Valida parámetros y traduce errores de dominio a errores IPC.
+- Configura CSP, ventana, bundle y capacidades.
+- No expone plugins de `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` ni `updater` al frontend.
+
+## Flujo de arranque (objetivo Fase 1+)
+
+```text
+inicio
+  → resolver rutas (machine settings o primer arranque)
+  → validar rutas (existen, escribibles, sin sudo)
+  → abrir bóveda / crear si no existe
+  → adquirir lock
+  → leer schema_version
+  → si hay migración pendiente:
+        backup verificado
+        migrar en transacción
+        verificar integrity_check + foreign_key_check
+        si falla: restaurar backup y abortar
+  → cargar settings y estado de UI
+  → mostrar app
+```
+
+Ningún paso cambia rutas ni sobrescribe datos sin confirmación explícita.
+
+## Contrato IPC
+
+Reglas:
+
+- Nombres en `snake_case` en Rust, `camelCase` en TypeScript (serde `rename_all`).
+- Entradas y salidas serializables, sin handles, rutas ni conexiones.
+- Errores como `Result<T, String>` en Fase 0; en Fase 1 se evalúa un enum de error estable.
+- El frontend no puede pedir «abrí este archivo» ni «ejecutá este SQL».
+- Toda operación destructiva recibe confirmación desde la UI y vuelve a validar en Rust.
+
+Comandos actuales:
+
+| Comando | Entrada | Salida |
+|---|---|---|
+| `get_app_info` | — | `AppInfo` |
+| `schema_self_check` | — | esquema, integridad, FK, `vault_id` de una base en memoria |
+
+`src/lib/ipc.ts` es la única puerta del frontend hacia Rust.
+
+## Seguridad
+
+### CSP
+
+Producción:
+
+```text
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob:; font-src 'self';
+connect-src ipc: http://ipc.localhost; media-src 'none'; object-src 'none';
+frame-src 'none'; frame-ancestors 'none'; worker-src 'self' blob:;
+base-uri 'none'; form-action 'none'
+```
+
+- Sin `unsafe-eval`, sin CDNs, sin fuentes ni imágenes remotas.
+- `style-src 'unsafe-inline'` es necesario por los estilos dinámicos de React/M3; no permite cargar CSS remoto.
+- `connect-src` solo admite el IPC de Tauri.
+- En desarrollo se agrega `unsafe-eval` y el WebSocket de Vite; nunca en producción.
+
+### Capacidades
+
+`src-tauri/capabilities/default.json` contiene solo `core:default`. Cualquier permiso nuevo debe justificarse, documentarse y auditarse con `scripts/audit-network.sh`.
+
+### Webview
+
+- `withGlobalTauri: false`: no se expone `window.__TAURI__` global.
+- `freezePrototype: true`: mitiga prototipos contaminados.
+- Sin `dangerousDisableAssetCspModification`, sin `allowlist` amplia, sin `devtools` en release.
+
+### Archivos
+
+- Solo Rust abre, lee, escribe y borra.
+- Las rutas se guardan como settings `machine`, no se exportan.
+- Los backups se verifican abriéndolos y corriendo `integrity_check`.
+- Los adjuntos se validan por hash y tamaño antes de servirlos a la UI.
+
+### Red
+
+- La webview no puede iniciar requests.
+- El updater es la única excepción, en un crate separado, sin JS, con URL fija compilada y firma obligatoria.
+- Cada intento de red del updater se registra en `network_event`.
+
+## Datos y consistencia
+
+- SQLite con WAL para lecturas concurrentes y escrituras serializadas.
+- `synchronous=FULL` para durabilidad; el costo es aceptable para uso personal.
+- Migraciones dentro de una transacción; backup previo en disco.
+- Borrado lógico con `deleted_at`; los índices únicos son parciales (`WHERE deleted_at IS NULL`).
+- Fechas civiles (`YYYY-MM-DD`) y horas locales (`HH:MM`) se guardan como texto; los instantes van en UTC RFC3339 con milisegundos.
+- Dinero/notas/pesos: enteros de punto fijo. Nada de `REAL` para valores académicos.
+- FTS5 es derivado: se reconstruye al importar y no se exporta.
+
+## Build y distribución
+
+- `npm run build` compila el frontend a `dist/`.
+- `npm run tauri build` produce el bundle; en Linux el objetivo del updater es AppImage.
+- El binario incluye SQLite (feature `bundled`), así que no depende de la versión del sistema.
+- WebKitGTK/GTK se enlazan dinámicamente y son la excepción LGPL de plataforma.
+
+## No objetivos
+
+- Cifrado de bóveda.
+- Cuentas, sincronización, nube, telemetría.
+- Servidor local o API remota.
+- Android/iOS en la primera versión.
+- Plugins de Tauri que amplíen permisos del frontend.
+
+## Riesgos conocidos
+
+| Riesgo | Mitigación |
+|---|---|
+| Pérdida de datos por migración | Backup verificado + transacción + restauración automática |
+| Corrupción silenciosa | `integrity_check`, checksums, backups rotativos |
+| Fuga por red | CSP, permisos mínimos, updater aislado, auditoría estática |
+| Dependencia no permisiva | Revisión de licencias; MPL-2.0 transitiva pendiente de decisión |
+| Clave de firma comprometida | Custodia offline, passphrase separada, rotación documentada |
+| Cambio accidental de rutas | Settings `machine`, confirmación explícita, nunca silencioso |

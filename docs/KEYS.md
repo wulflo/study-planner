@@ -1,0 +1,153 @@
+# Custodia de claves
+
+> **Estado:** protocolo definido, nada generado todavía. La clave se crea en Fase 5.
+> **Regla de oro:** la clave privada y su passphrase nunca pasan por el chat, el repositorio, un issue, una captura de pantalla ni un archivo junto a la clave.
+
+## Qué se protege
+
+| Elemento | Función | Sensibilidad |
+|---|---|---|
+| Clave privada minisign | Firmar actualizaciones de Omega | Crítica |
+| Passphrase de la clave | Descifrar la clave privada | Crítica |
+| Clave pública minisign | Verificar actualizaciones | Pública, se versiona |
+| `vault_id` | Identificar la bóveda | Baja, no es secreto |
+| Bóveda SQLite | Datos académicos | Alta, sin cifrar |
+
+La bóveda **no** se cifra (decisión del usuario). La confidencialidad depende del cifrado del disco del sistema y de la custodia física del equipo.
+
+## Custodia acordada
+
+| Copia | Ubicación | Contenido |
+|---|---|---|
+| Primaria | VeraCrypt en HDD externo (`/run/media/veracrypt1` cuando esté montado) | Clave privada + clave pública |
+| Secundaria | Copia offline (pendrive o medio separado) | Clave privada + clave pública |
+| Terciaria | Google Drive **cifrado** (contenedor cifrado, no el archivo suelto) | Clave privada + clave pública |
+| Passphrase | Bitwarden + papel en un lugar separado | Solo la passphrase |
+
+Reglas:
+
+- La passphrase **no** se guarda en el mismo medio ni en la misma carpeta que la clave.
+- El papel con la passphrase no se guarda junto al HDD de VeraCrypt.
+- No se sube la clave a Drive sin cifrar, ni siquiera dentro de un ZIP.
+- El acceso a Drive y Bitwarden usa 2FA TOTP con Aegis.
+- No se escribe nada en `/run/media/veracrypt1` hasta la Fase 5 y con el volumen montado y verificado.
+
+## Protocolo de generación (Fase 5)
+
+El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passphrase en el chat.** Puede dejarla en un archivo temporal con permisos `600` para que el usuario la respalde y luego borrarla.
+
+1. Verificar que el volumen VeraCrypt esté montado y con espacio.
+2. Crear un directorio temporal fuera del repo:
+
+   ```bash
+   umask 077
+   workdir="$(mktemp -d "${TMPDIR:-/tmp}/omega-keygen.XXXXXX")"
+   ```
+
+3. Generar una passphrase aleatoria de alta entropía **sin mostrarla**:
+
+   ```bash
+   # Ejemplo; la longitud y el formato se fijan en Fase 5.
+   openssl rand -base64 48 > "$workdir/passphrase.txt"
+   chmod 600 "$workdir/passphrase.txt"
+   ```
+
+4. Generar el par de claves con la CLI de Tauri (minisign). Consultar la sintaxis exacta con:
+
+   ```bash
+   npm run tauri signer generate -- --help
+   ```
+
+   Guardar la clave privada en `$workdir/omega.key` y la pública en `$workdir/omega.key.pub`.
+   La CLI pedirá la passphrase; se toma del archivo, nunca de un argumento visible en `ps`.
+
+5. Verificar el par firmando un archivo de prueba y validando la firma con la clave pública.
+
+6. Copiar **solo** clave privada y pública a VeraCrypt, a la copia offline y al contenedor cifrado de Drive.
+
+7. Pedir al usuario que guarde la passphrase en Bitwarden y en papel. Confirmar que la copió antes de borrar el temporal.
+
+8. Borrar el temporal:
+
+   ```bash
+   shred -u "$workdir/passphrase.txt" "$workdir/omega.key" 2>/dev/null || rm -f "$workdir/passphrase.txt" "$workdir/omega.key"
+   rmdir "$workdir"
+   unset workdir
+   ```
+
+   Nota: en SSD, CoW o sistemas con snapshots, `shred` no garantiza borrado físico. La mitigación real es no haber escrito la clave en el disco equivocado y mantener el disco cifrado.
+
+9. Confirmar que no quedaron rastros en el repo:
+
+   ```bash
+   git status --ignored
+   rg -n "BEGIN|PRIVATE|minisign|passphrase" . --glob '!node_modules/**' --glob '!target/**'
+   ```
+
+10. Registrar en `docs/CHECKLIST.md` que la clave existe, sin registrar su contenido ni la passphrase.
+
+## Clave pública
+
+- Se versiona en el repo (por ejemplo `src-tauri/updater.pub` o una constante en `omega-updater`).
+- Se embebe en el binario para verificar actualizaciones.
+- Se publica en las releases para que un tercero pueda verificar.
+- No es secreta; puede ir en el README de releases.
+
+## GitHub Actions
+
+> El repositorio aún no existe en GitHub. Estos pasos son para cuando el usuario decida publicarlo.
+
+Recomendación: **firmar offline** y subir el artefacto ya firmado. Si se acepta el riesgo de firmar en CI:
+
+```bash
+# Ejecutar desde archivos locales, nunca pegando secretos en el chat.
+gh secret set TAURI_SIGNING_PRIVATE_KEY < /ruta/segura/omega.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < /ruta/segura/passphrase.txt
+```
+
+Reglas:
+
+- El YAML solo referencia `secrets.*`; nunca contiene la clave ni la passphrase.
+- El secret de la clave debe ser el contenido exacto que espera Tauri, no una ruta.
+- Restringir workflows, revisar permisos del token y exigir revisión para `release`.
+- Si el repo es público, recordar que los secretos no se exponen en logs, pero un workflow comprometido sí puede exfiltrarlos.
+- Preferible: workflow de release sin acceso a la clave; firma en una máquina local y subida manual de artefactos.
+
+## Rotación
+
+1. Generar un par nuevo con el mismo protocolo.
+2. Publicar una release que incluya la clave pública nueva y firme con **ambas** claves durante la transición.
+3. Esperar a que la mayoría de instalaciones acepten la nueva clave.
+4. Retirar la clave vieja y revocar su confianza.
+5. Actualizar `docs/UPDATER.md`, `docs/KEYS.md` y el checklist.
+6. Conservar la clave vieja solo para verificar versiones antiguas, nunca para firmar nuevas.
+
+## Recuperación
+
+Simulacro obligatorio antes de publicar la primera release:
+
+- [ ] Restaurar la clave privada desde VeraCrypt en una máquina limpia.
+- [ ] Restaurar la passphrase desde Bitwarden.
+- [ ] Firmar un archivo de prueba.
+- [ ] Verificar la firma con la clave pública del repo.
+- [ ] Restaurar desde la copia offline.
+- [ ] Restaurar desde el contenedor cifrado de Drive.
+- [ ] Confirmar que la clave no quedó en el repo ni en el historial de shell.
+
+## Qué hacer si se compromete la clave
+
+1. Detener la publicación de updates.
+2. Asumir que un atacante puede firmar versiones maliciosas.
+3. Publicar un aviso con la clave pública nueva y un procedimiento manual de recuperación.
+4. Rotar la clave y firmar con ambas durante la transición.
+5. Revisar `network_event` y logs de release.
+6. Cambiar passphrases y revisar accesos a GitHub, Drive y Bitwarden.
+
+## Prohibiciones
+
+- No commitear `*.key`, `*.pem`, `minisign.key`, `.env`, bases ni backups.
+- No pasar la passphrase por `argv` (visible en `ps`).
+- No usar la misma passphrase que Bitwarden, Drive o el usuario del sistema.
+- No guardar la passphrase en el portapapeles más tiempo del necesario.
+- No enviar la clave ni la passphrase por chat, correo o issue.
+- No desactivar la verificación de firma «para probar».

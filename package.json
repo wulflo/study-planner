@@ -1,0 +1,47 @@
+{
+  "name": "omega",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "rust:fmt": "cargo fmt --all -- --check",
+    "rust:clippy": "cargo clippy -p omega-core -p omega-store -p omega-transfer --all-targets -- -D warnings",
+    "rust:test": "cargo test -p omega-core -p omega-store -p omega-transfer",
+    "check:all": "npm run check && npm run rust:fmt && npm run rust:clippy && npm run rust:test"
+  },
+  "dependencies": {
+    "@material/material-color-utilities": "^0.4.0",
+    "@tauri-apps/api": "^2",
+    "date-fns": "^4.4.0",
+    "i18next": "^27.0.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^18.0.0",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.6",
+    "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^31.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^5.1.0"
+  }
+}

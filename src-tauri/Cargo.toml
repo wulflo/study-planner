@@ -1,0 +1,23 @@
+[package]
+name = "omega"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Omega: organización académica local"
+
+[lib]
+name = "omega_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+omega-core = { path = "../crates/omega-core" }
+omega-store = { path = "../crates/omega-store" }
+omega-transfer = { path = "../crates/omega-transfer" }

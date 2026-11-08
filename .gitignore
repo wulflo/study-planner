@@ -1,0 +1,67 @@
+# --- Dependencias y build -------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+target/
+src-tauri/target/
+src-tauri/gen/
+coverage/
+.vitest/
+*.tsbuildinfo
+*.local
+
+# --- Secretos y claves ----------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.minisign
+minisign.key
+omega.key
+omega-keys/
+keys/
+secrets/
+
+# --- Datos locales, bóveda y backups -------------------------------------
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+backups/
+/omega/
+/loglife/
+exports/
+
+# --- Logs -----------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Sistema y editores ---------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+.envrc
+.direnv/
+
+# --- Archivos temporales de procesos -------------------------------------
+*.partial
+*.old
