@@ -1,7 +1,7 @@
 # Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 3 — Exámenes, notas, tareas y búsqueda (en curso)
+> **Fase actual:** 3 — Exámenes, notas, tareas y búsqueda (cerrada)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,7 +24,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 3 — Exámenes, notas, tareas y búsqueda (en curso) |
+| Fase | 3 — Exámenes, notas, tareas y búsqueda (cerrada) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
@@ -40,8 +40,8 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 ### Verificación vigente
 
 ```text
-npm run check       ✅  17 tests de UI
-cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  30 tests
+npm run check       ✅  25 tests de UI
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  78 tests (31 core, 32 store, 15 transfer)
 cargo test -p study-planner                                 ✅  11 tests de bóveda
 cargo clippy (core/store/transfer) -- -D warnings           ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
@@ -183,15 +183,15 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 ## Fase 3 — Exámenes, notas, tareas y búsqueda
 
-- [ ] CRUD de exámenes, temas y pesos.
-- [ ] Escalas de nota, categorías y entradas; promedio ponderado y descarte del menor.
+- [x] CRUD de exámenes, temas y pesos.
+- [x] Escalas de nota, categorías y entradas; promedio ponderado y descarte del menor.
 - [x] CRUD básico de tareas con estados `pending` / `in_progress` / `done` y borrado lógico.
-- [ ] Subtareas, etiquetas, prioridad, recurrencia, vencimientos y filtros de tareas.
-- [ ] Filtros guardados y búsqueda FTS local.
-- [ ] Journal de undo con expiración.
-- [ ] Vistas de calendario, exámenes, notas y tareas.
-- [ ] Tests de cálculo de notas, pesos, recurrencia y búsqueda.
-- [ ] Exportación/importación de las nuevas entidades sin romper v1.
+- [x] Subtareas, etiquetas, prioridad, recurrencia, vencimientos y filtros de tareas.
+- [x] Filtros guardados y búsqueda FTS local.
+- [x] Journal de undo con expiración.
+- [x] Vistas de calendario, exámenes, notas y tareas.
+- [x] Tests de cálculo de notas, pesos, recurrencia y búsqueda.
+- [x] Exportación/importación de las nuevas entidades sin romper v1.
 
 **Aceptación:** calcular la nota final de una materia con categorías y ponderaciones, y encontrar tareas por texto y etiqueta.
 
@@ -429,18 +429,20 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 3 — Persistencia de notas:** escalas, categorías y entradas; promedio por materia con enteros de punto fijo.
 - [x] **Paso 4 — Tareas completas:** subtareas, etiquetas, prioridad, vencimientos, recurrencia, filtros guardados, búsqueda FTS y journal de undo con expiración. 32 tests de `study-planner-store`.
 - [x] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado para todas las entidades nuevas.
-- [ ] **Paso 6 — UI de exámenes y temas:** sección «Exámenes» funcional con pesos, resultados y vínculo a temas.
-- [ ] **Paso 7 — UI de notas:** sección «Notas» con escalas, categorías, entradas y promedio final.
-- [ ] **Paso 8 — UI de tareas y búsqueda:** subtareas, etiquetas, prioridad, filtros guardados y deshacer.
-- [ ] **Paso 9 — Calendario:** vista mensual con exámenes y vencimientos de tareas.
-- [ ] **Paso 10 — Transferencia y cierre:** fixture de Fase 3 con semántica y round-trip, documentación, changelog y verificación final.
+- [x] **Paso 6 — UI de exámenes y temas:** sección «Exámenes» funcional con pesos, resultados y vínculo a temas.
+- [x] **Paso 7 — UI de notas:** sección «Notas» con escalas, categorías, entradas y promedio final.
+- [x] **Paso 8 — UI de tareas y búsqueda:** subtareas, etiquetas, prioridad, filtros guardados y deshacer.
+- [x] **Paso 9 — Calendario:** vista mensual con exámenes y vencimientos de tareas.
+- [x] **Paso 10 — Transferencia y cierre:** fixture de Fase 3 con semántica y round-trip, documentación, changelog y verificación final.
+
+**Estado Fase 3:** 25 tests de UI y 89 tests de Rust en verde (31 core, 32 store, 15 transfer, 11 host). Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto. La aceptación se verifica con el promedio ponderado con descarte del menor en «Notas» y la búsqueda de tareas por texto y etiqueta.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Completar la Fase 3 con la bitácora de arriba.
-2. Abrir Fase 4: temas jerárquicos, autoevaluación y repaso espaciado.
-3. Implementar SM-2 y la cola de prioridad explicable.
-4. Estadísticas de estudio, constancia y materias débiles.
-5. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.
+1. Abrir Fase 4: temas jerárquicos, autoevaluación y repaso espaciado.
+2. Implementar SM-2 y la cola de prioridad explicable.
+3. Estadísticas de estudio, constancia y materias débiles.
+4. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.
+5. Cerrar la Fase 4 con demo, tests verdes, changelog y confirmación del usuario.

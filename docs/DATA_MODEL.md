@@ -91,6 +91,8 @@ Reglas:
 
 `grade_entry` exige `max_cp > 0` y `0 <= score_cp <= max_cp`. `grade_category.weight_bp` va de 0 a 10000.
 
+El porcentaje de una entrada es `score_cp * 10000 / max_cp` (basis points). El peso de la entrada es `weight_bp` si existe; si no, `max_cp`. El descarte del menor ordena por porcentaje ascendente, fecha ascendente (nulas al final) e `id`, y siempre conserva al menos una entrada. El promedio final pondera las categorías por `grade_category.weight_bp` y se mapea a la escala con `min_cp + bp * (max_cp - min_cp) / 10000`.
+
 ### Tareas y etiquetas
 
 | Tabla | Propósito |
@@ -101,7 +103,7 @@ Reglas:
 | `saved_filter` | filtro guardado por pantalla |
 | `undo_journal` | journal de deshacer con expiración |
 
-`task` valida `start_date <= due_date`, padre distinto de sí misma y estados `pending`, `in_progress`, `done`.
+`task` valida `start_date <= due_date`, padre distinto de sí misma y estados `pending`, `in_progress`, `done`. `recurrence_json` guarda `kind` (`daily`, `weekly`, `monthly`), `interval` y `until` opcional; en mensual el día se ajusta al último día del mes cuando no existe. El borrado de tareas registra una entrada en `undo_journal` con expiración de 5 minutos; restaurar reactiva la tarea y sus vínculos activos.
 
 ### Estudio y repaso
 
