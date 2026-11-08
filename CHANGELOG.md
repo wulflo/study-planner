@@ -24,6 +24,7 @@ Todos los cambios relevantes de Omega se registran acá. El formato sigue [Keep 
 - Documentación persistente: checklist, arquitectura, modelo de datos, formato de exportación, updater, claves, decisiones, modo offline y licencias.
 - Scripts `scripts/check.sh` y `scripts/audit-network.sh`.
 - CI sin secretos en `.github/workflows/ci.yml`.
+- Repositorio remoto configurado en [`wulflo/study-planner`](https://github.com/wulflo/study-planner); `main` con commit inicial.
 - `.gitignore` endurecido para claves, bases, secretos y backups.
 
 ### Cambiado
@@ -44,7 +45,7 @@ Todos los cambios relevantes de Omega se registran acá. El formato sigue [Keep 
 - Revisión de la licencia transitiva MPL-2.0 de Tauri (`option-ext` en runtime; `cssparser`, `selectors`, `dtoa-short` solo en build). Ver `THIRD_PARTY_LICENSES.md`.
 - La exportación `.txt` está especificada pero se implementa en Fase 1.
 - El updater se implementa en Fase 5.
-- El repositorio es local; no hay remoto, push ni releases.
+- El repositorio es local y remoto: [`wulflo/study-planner`](https://github.com/wulflo/study-planner) es público; no hay releases todavía.
 - La demo de Fase 0 y la confirmación del usuario están pendientes.
 
 ## [0.0.0] — 2026-11-08

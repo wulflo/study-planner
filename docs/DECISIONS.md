@@ -197,7 +197,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 ## ADR-013 — Repositorio local, sin remoto por ahora
 
-**Estado:** aceptada (2026-11-08).
+**Estado:** reemplazada por ADR-014 (2026-11-08).
 
 **Contexto:** el usuario todavía no creó el repositorio en GitHub.
 
@@ -208,3 +208,20 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 - Los commits son locales.
 - La URL del updater y los secrets de GitHub quedan pendientes.
 - Cuando el usuario decida publicar, se revisa `.gitignore`, se audita el historial y recién entonces se agrega el remoto.
+
+---
+
+## ADR-014 — Remoto público en GitHub
+
+**Estado:** aceptada (2026-11-08). Reemplaza ADR-013.
+
+**Contexto:** el usuario creó el repositorio público `https://github.com/wulflo/study-planner` y pidió configurarlo.
+
+**Decisión:** `main` se publica en GitHub como repositorio público. El código y la documentación son públicos; la bóveda, los backups, las claves y los secretos **nunca** se publican. El CI se ejecuta en GitHub Actions sin secretos. La URL del updater queda tentativamente en ese repositorio, pero se fija recién en Fase 5.
+
+**Consecuencias:**
+
+- Cualquiera puede leer el código y reportar problemas.
+- El historial debe auditarse antes de cada push para no filtrar datos.
+- Los secretos de firma se configuran en Fase 5, nunca en el YAML.
+- Si el repositorio cambia de nombre o de visibilidad, hay que actualizar la URL fija del updater y este documento.

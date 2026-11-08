@@ -81,8 +81,9 @@ Placeholder hasta que el usuario decida el repositorio:
 
 ```rust
 // Fase 5: constante inmutable, fijada al compilar.
+// Repositorio tentativo; confirmar antes de la primera release.
 const UPDATE_URL: &str =
-    "https://github.com/<owner>/<repo>/releases/latest/download/latest.json";
+    "https://github.com/wulflo/study-planner/releases/latest/download/latest.json";
 ```
 
 Reglas:

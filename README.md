@@ -2,6 +2,8 @@
 
 Organización académica personal, **estrictamente local**. Horarios, materias, exámenes, notas, tareas, apuntes y repaso espaciado en una sola bóveda SQLite, sin cuentas, sin nube y sin telemetría.
 
+**Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
+
 > **Estado:** Fase 0 (base técnica) en cierre. Todavía no hay funcionalidad de dominio; la app muestra el contrato técnico y un autodiagnóstico del esquema.
 
 ## Principios

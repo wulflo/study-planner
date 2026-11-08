@@ -95,7 +95,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
 
 ## GitHub Actions
 
-> El repositorio aún no existe en GitHub. Estos pasos son para cuando el usuario decida publicarlo.
+> El repositorio es público: [`wulflo/study-planner`](https://github.com/wulflo/study-planner). Estos pasos son para la Fase 5, cuando exista la clave.
 
 Recomendación: **firmar offline** y subir el artefacto ya firmado. Si se acepta el riesgo de firmar en CI:
 

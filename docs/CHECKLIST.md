@@ -34,7 +34,8 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Updater | Desactivado (`UPDATER_IMPLEMENTED = false`) |
 | Bóveda real | Aún no creada; `/omega` y `/loglife` no fueron tocados |
 | Secretos | Ninguno generado, ninguno en el repo |
-| Git | Repositorio local inicializado; sin remoto ni push |
+| Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
+| CI | GitHub Actions verde en `main`; check requerido «Tests y verificación» |
 
 ### Verificación vigente
 
@@ -112,7 +113,8 @@ cargo check -p omega                                        ✅
 - [x] Scripts `scripts/check.sh` y `scripts/audit-network.sh`.
 - [x] `.gitignore` endurecido (claves, bases, secretos, backups).
 - [x] CI sin secretos en `.github/workflows/ci.yml`.
-- [x] Repositorio git inicializado y commit inicial local.
+- [x] Repositorio git inicializado, commit inicial local y remoto GitHub configurado (`main`).
+- [x] CI verde en GitHub y rama `main` protegida con el check «Tests y verificación».
 
 ### Pendiente para cerrar Fase 0
 
@@ -240,10 +242,10 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 ## Pendientes de decisión del usuario
 
 - [ ] ¿Se acepta la dependencia transitiva **MPL-2.0** de Tauri o se busca una alternativa? (ver licencias).
-- [ ] URL HTTPS fija del updater y repositorio GitHub de releases.
+- [ ] Confirmar URL HTTPS fija del updater. Tentativa: `https://github.com/wulflo/study-planner/releases/latest/download/latest.json`.
 - [ ] ¿Firma de releases en CI o firma offline? Recomendado: offline.
 - [ ] Custodia final de la clave y su passphrase (VeraCrypt, copia offline, Drive cifrado).
-- [ ] ¿Se publica el repo en GitHub o queda solo local por ahora?
+- [x] Repositorio publicado en GitHub: [`wulflo/study-planner`](https://github.com/wulflo/study-planner), público, sin datos ni secretos.
 - [ ] Confirmar rutas definitivas `/omega` y `/loglife` o elegir otras.
 
 ---
@@ -325,13 +327,15 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - Se configuraron CSP, permisos mínimos, UI shell y tests.
 - Se documentó la arquitectura, el modelo de datos, el formato de exportación, el updater, las claves y el modo offline.
 - Se endureció `.gitignore`, se agregaron scripts de verificación/auditoría y CI sin secretos.
+- Se publicó el repositorio público [`wulflo/study-planner`](https://github.com/wulflo/study-planner) y se subió `main`.
+- Se configuraron descripción, temas, issues, auto-merge, borrado de rama al mergear, alertas de vulnerabilidades y protección de `main` con CI requerido.
 - Pendiente: revisión MPL, demo y confirmación para Fase 1.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Ejecutar `./scripts/check.sh` y `./scripts/audit-network.sh`.
+1. Verificar el CI en GitHub (`main`) y la configuración del repositorio.
 2. Hacer la demo de Fase 0 con `npm run tauri dev`.
 3. Resolver la decisión sobre MPL-2.0 y las rutas `/omega` y `/loglife`.
 4. Confirmar el cierre de Fase 0.
