@@ -6,6 +6,12 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 
 ### Agregado
 
+- Updater aislado en `study-planner-updater`: manifiesto JSON, versión semver, SHA-256, firma minisign obligatoria con `version:<versión>` en el trusted comment, hosts HTTPS permitidos y redirects limitados.
+- Descarga con `reqwest` bloqueante y rustls solo dentro del crate del updater; verificación antes de instalar, reemplazo atómico del AppImage, backup `.old` y rollback con el binario fallido en `.failed`.
+- Comandos Tauri del updater sin parámetros de red: estado, ajuste opt-in, comprobación, instalación, rollback y listado de eventos. La webview nunca recibe URL, firma ni ruta configurable.
+- Vista «Ajustes» con estado del updater, clave pública, activación opt-in, búsqueda e instalación de actualizaciones, rollback y auditoría de eventos de red.
+- Registro `network_event` con tipo, host, bytes, resultado y detalle técnico acotado; sin datos de la bóveda ni identificadores de usuario.
+- Ajustes portables `get_setting` / `set_setting` en el store y persistencia de `updater.auto_check`.
 - Bóveda local elegible desde la app: el selector nativo se abre solo desde Rust, la raíz se guarda en la configuración de la app y se crean `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`.
 - Validación de la raíz de la bóveda: debe existir, ser una carpeta escribible, no ser la raíz del sistema de archivos y no estar dentro del repositorio.
 - Lock de instancia en `<bóveda>/omega/.study-planner.lock`: una segunda instancia no puede abrir la misma bóveda y recibe un error explícito.
@@ -56,7 +62,7 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - La app se renombró de `Omega` a `Study Planner`; los crates pasan a `study-planner-*`, el paquete a `study-planner` y el identificador a `app.studyplanner.desktop`.
 - Al elegir la bóveda se crean automáticamente `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`; la snapshot del día se crea al abrir la bóveda y se poda a 7 días.
 - La sección «Bóveda» dejó de ser un placeholder: muestra el diagnóstico real, los respaldos y permite cambiar de carpeta. La sección «Tareas» pasó a ser funcional.
-- Las secciones «Materias», «Horario», «Calendario», «Tareas», «Exámenes», «Notas», «Estudio», «Fortalezas», «Estadísticas» y «Hoy» usan datos reales de la bóveda; el único placeholder que queda es «Ajustes» (Fase 5).
+- Las secciones «Materias», «Horario», «Calendario», «Tareas», «Exámenes», «Notas», «Estudio», «Fortalezas», «Estadísticas», «Ajustes» y «Hoy» usan datos reales de la bóveda; ya no queda ningún placeholder de navegación.
 - La vista «Hoy» ganó el bloque de horario y asistencia por encima de los pendientes, sin agregar dependencias nuevas ni permisos de red.
 - El esquema v1 ya contenía las tablas de las fases 2, 3 y 4; no hubo migración nueva y `export_format_version` sigue en 1.
 - `rusqlite` se compila con la feature `backup`; la bóveda y los backups viven exclusivamente en Rust.

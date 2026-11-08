@@ -102,7 +102,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 ## ADR-007 — Updater aislado, Linux AppImage
 
-**Estado:** aceptada; implementación en Fase 5.
+**Estado:** aceptada; implementada en Fase 5. Queda pendiente la clave pública de producción y la firma de una release real.
 
 **Contexto:** se necesita actualizar sin abrir la app a la red y sin confiar en un manifiesto sin firma.
 

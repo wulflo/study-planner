@@ -1,41 +1,50 @@
 # Updater aislado
 
-> **Estado:** diseño. No implementado. `crates/study-planner-updater` solo contiene `UPDATER_IMPLEMENTED = false` y no tiene dependencias de red.
+> **Estado:** implementado en `crates/study-planner-updater` y conectado a la vista «Ajustes».
+> La comprobación es opt-in, la URL HTTPS es fija y la firma minisign es obligatoria.
+> **Pendiente:** reemplazar `crates/study-planner-updater/updater.pub` por la clave pública de
+> producción. Mientras siga el placeholder, el updater responde «clave pública no configurada»
+> y no descarga nada.
 
 El updater es la **única** excepción a la regla de «Study Planner no usa red». Debe ser pequeño, auditable, opt-in y separado del resto del código.
 
 ## Principios
 
-1. **Sin bindings JS.** El frontend no puede iniciar, configurar ni consultar el updater. No se registra `tauri-plugin-updater` en la webview ni se concede permiso `updater:*`.
+1. **Sin bindings JS de red.** No se registra `tauri-plugin-updater` en la webview ni se concede permiso `updater:*`. La UI solo invoca comandos Tauri sin parámetros de red: no puede pasar URL, firma, hash ni ruta.
 2. **URL fija en compilación.** El endpoint HTTPS es una constante de Rust. No se lee de settings, base de datos, variables de entorno ni argumentos.
-3. **Firma obligatoria.** Un manifiesto sin firma válida se rechaza. No hay modo «skip signature».
+3. **Firma obligatoria.** Un manifiesto o artefacto sin firma válida se rechaza. No hay modo «skip signature».
 4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Study Planner. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
 6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial.
-7. **Toda la red se registra** en `network_event` (host, bytes, resultado, error), sin contenido de datos.
+7. **Toda la red se registra** en `network_event` (tipo, host, bytes, resultado y detalle técnico acotado), sin contenido de datos.
 
-## Diseño propuesto
+## Diseño implementado
 
 ```text
-botón «Buscar actualización» (UI)
-  → comando Rust `check_for_update`
-  → study-planner-updater::check()
-       GET <URL fija> (HTTPS, timeout, tamaño máximo)
+vista «Ajustes»
+  → comando Rust `get_updater_status`  (clave configurada, versión, AppImage, rollback)
+  → comando Rust `set_updater_auto_check`  (opt-in persistido en `setting`)
+  → comando Rust `check_updates`
+       study-planner-updater::check_for_update_with_size()
+       GET <URL fija> (HTTPS, timeout, host permitido, tamaño máximo)
        parsear manifiesto
-       verificar firma minisign con clave pública embebida
        comparar versión (semver)
-       devolver UpdateInfo a la UI (sin ejecutar nada)
+       devolver UpdateInfo a la UI (versión, fecha, notas)
+       registrar network_event
   → usuario confirma
-  → comando Rust `install_update`
-       descargar AppImage a temp
-       verificar SHA-256 y firma del artefacto
+  → comando Rust `install_update`  (sin argumentos)
+       volver a consultar el manifiesto fijo
+       descargar AppImage con verificación de host y tamaño
+       verificar SHA-256, firma minisign y `version:<versión>` firmada
        reemplazar el AppImage actual de forma atómica
-       conservar el anterior como respaldo
+       conservar el anterior como `.old`
        registrar network_event
        pedir reinicio
+  → comando Rust `rollback_update`  (restaura `.old` y conserva el fallido como `.failed`)
+  → comando Rust `list_network_events`  (auditoría de solo metadatos)
 ```
 
-La UI solo ve `UpdateInfo` (versión, fecha, notas) y un estado. No ve URLs internas ni rutas temporales.
+La UI solo ve `UpdateInfo` (versión, fecha, notas) y un estado. No ve URLs internas, firmas ni rutas temporales.
 
 ## Manifiesto
 
@@ -59,12 +68,13 @@ Formato compatible con la convención de Tauri, pero verificado por nuestro cód
 Reglas:
 
 - `version` debe ser semver mayor que la actual; no se instalan downgrades salvo modo explícito de recuperación.
-- `url` debe ser HTTPS y pertenecer al host permitido en compilación.
+- `url` debe ser HTTPS y pertenecer a `github.com`, `objects.githubusercontent.com` o `release-assets.githubusercontent.com`.
 - `pub_date` y `notes` son informativos.
 - La firma se verifica con la clave pública embebida en el binario.
 - El artefacto se verifica por SHA-256 **y** firma; el hash solo no alcanza.
+- El trusted comment de la firma debe incluir `version:<versión>` y coincidir con el manifiesto.
 
-La decisión exacta entre firmar el manifiesto, el artefacto o ambos se cierra en Fase 5. Mínimo aceptable: firma del artefacto + hash del manifiesto dentro de un documento firmado.
+Decisión cerrada: se firma el **artefacto** con minisign y el manifiesto incluye su SHA-256. La firma debe declarar la versión publicada; si falta o no coincide, la instalación se rechaza. El manifiesto en sí no se firma por separado: un manifiesto manipulado no puede producir un artefacto que pase la verificación.
 
 ## Custodia de claves
 
@@ -77,21 +87,25 @@ Ver `docs/KEYS.md`. Resumen:
 
 ## Endpoint
 
-Placeholder hasta que el usuario decida el repositorio:
+Constante inmutable, fijada al compilar:
 
 ```rust
-// Fase 5: constante inmutable, fijada al compilar.
-// Repositorio tentativo; confirmar antes de la primera release.
-const UPDATE_URL: &str =
+pub const UPDATE_URL: &str =
     "https://github.com/wulflo/study-planner/releases/latest/download/latest.json";
+pub const ALLOWED_HOSTS: [&str; 3] = [
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+];
 ```
 
 Reglas:
 
 - No se permite `http://`.
-- No se permite redirect a otro host.
+- No se permite redirect a otro host (máximo 5 redirecciones).
 - No se permite URL configurable en runtime.
 - El host se valida antes de descargar el artefacto.
+- La clave pública se embebe desde `crates/study-planner-updater/updater.pub`.
 
 ## Manejo de fallos
 
@@ -110,20 +124,23 @@ Nunca se ejecuta un instalador descargado sin verificar. Nunca se borra el binar
 
 ## Rollback
 
-- Guardar el AppImage anterior como `Study Planner.AppImage.old` (o en el directorio de datos).
-- Si el nuevo no arranca, el usuario puede restaurar el anterior desde la UI de recuperación o manualmente.
+- El AppImage anterior se guarda como `Study Planner.AppImage.old` junto al actual.
+- `rollback_update` mueve el binario fallido a `.failed`, restaura `.old` y lo marca ejecutable.
+- Si el nuevo no arranca, el usuario puede restaurar el anterior desde «Ajustes» o manualmente.
 - El updater no intenta «auto-repararse» descargando otra cosa.
 
 ## Tests de Fase 5
 
-- [ ] Manifiesto válido y firmado: detecta versión nueva.
-- [ ] Firma inválida: rechazo.
-- [ ] Hash inválido: rechazo y limpieza.
-- [ ] Versión menor: no instala.
-- [ ] Timeout y sin red: error controlado.
-- [ ] Redirección a otro host: rechazo.
-- [ ] `network_event` registra el intento sin datos de usuario.
-- [ ] El binario actual queda intacto ante cualquier fallo.
+- [x] Manifiesto válido y firmado: detecta versión nueva.
+- [x] Firma inválida: rechazo.
+- [x] Hash inválido: rechazo sin instalar.
+- [x] Versión menor o igual: no instala.
+- [x] URL `http://`, host ajeno, credenciales embebidas y fragmentos: rechazo.
+- [x] Redirección a otro host: rechazo.
+- [x] `network_event` registra el intento sin datos de usuario.
+- [x] El binario actual queda intacto ante cualquier fallo.
+- [x] Instalación atómica y rollback con tests de sistema de archivos.
+- [ ] Simulación con una release real firmada (requiere clave de producción y publicación).
 
 ## Amenazas y mitigaciones
 

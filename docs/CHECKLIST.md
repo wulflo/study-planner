@@ -31,7 +31,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
-| Updater | Desactivado (`UPDATER_IMPLEMENTED = false`) |
+| Updater | Implementado en `study-planner-updater`; sin clave pública de producción todavía (placeholder), opt-in y firma obligatoria |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
@@ -40,10 +40,11 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 ### Verificación vigente
 
 ```text
-npm run check       ✅  29 tests de UI
-cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  97 tests (42 core, 39 store, 16 transfer)
-cargo test -p study-planner                                 ✅  11 tests de bóveda
-cargo clippy (core/store/transfer) -- -D warnings           ✅
+npm run check       ✅  32 tests de UI
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater
+                    ✅  113 tests (42 core, 42 store, 16 transfer, 13 updater)
+cargo test -p study-planner                                 ✅  13 tests de bóveda y host
+cargo clippy (core/store/transfer/updater) -- -D warnings    ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
 cargo check -p study-planner                                 ✅
 ./scripts/audit-network.sh                                   ✅
@@ -217,10 +218,10 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 - [ ] Generar clave minisign y passphrase localmente (protocolo en `docs/KEYS.md`).
 - [ ] Custodia en VeraCrypt + copia offline + Drive cifrado; passphrase en Bitwarden + papel.
 - [ ] Configurar secrets de GitHub con `gh secret set` desde archivos, nunca en YAML.
-- [ ] Implementar `study-planner-updater` con URL HTTPS fija en compilación.
-- [ ] Verificación de firma obligatoria; rechazar manifiestos sin firma válida.
-- [ ] Descarga, verificación, instalación y rollback en Linux AppImage.
-- [ ] Sin bindings JS; sin datos de usuario en la petición.
+- [x] Implementar `study-planner-updater` con URL HTTPS fija en compilación.
+- [x] Verificación de firma obligatoria; rechazar manifiestos sin firma válida.
+- [x] Descarga, verificación, instalación y rollback en Linux AppImage.
+- [x] Sin bindings JS; sin datos de usuario en la petición.
 - [ ] Notificaciones locales (clases, tareas, exámenes, repasos) con permisos solo en Rust.
 - [ ] Empaquetado AppImage; `.deb` opcional.
 - [ ] Auditoría final de red, licencias, CSP, permisos y backups.
@@ -461,7 +462,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 0 — Línea base y corrección visual:** `./scripts/check.sh` verde antes de tocar nada. Se normalizaron los controles en toda la interfaz: selects con padding derecho y chevron propio, botones con menos padding y radio de 12 px, y separación mínima entre botones contiguos.
 - [x] **Paso 1 — Núcleo del updater:** manifiesto, validación de URL/host, comparación de versión, firma minisign y SHA-256 con tests. 9 tests de `study-planner-updater`; la firma debe declarar la misma versión que el manifiesto.
 - [x] **Paso 2 — Descarga e instalación:** cliente HTTP aislado con timeout y hosts permitidos, descarga temporal, verificación SHA-256 + firma + versión, reemplazo atómico, backup y rollback. 13 tests del updater (4 nuevos; sin red real en tests).
-- [ ] **Paso 3 — Integración Tauri y UI:** comandos Rust, ajuste opt-in, registro en `network_event` y vista «Ajustes».
+- [x] **Paso 3 — Integración Tauri y UI:** comandos Rust `get_updater_status`, `set_updater_auto_check`, `check_updates`, `install_update`, `rollback_update` y `list_network_events`; ajuste opt-in persistido en `setting`; registro en `network_event`; vista «Ajustes» con estado, búsqueda, instalación, rollback y auditoría. La webview nunca recibe URL, firma ni ruta configurable. 32 tests de UI y 13 del host.
 - [ ] **Paso 4 — Notificaciones locales:** avisos de clases, tareas, exámenes y repasos calculados y entregados desde Rust.
 - [ ] **Paso 5 — Empaquetado y cierre:** AppImage, auditoría final, documentación y verificación completa.
 
