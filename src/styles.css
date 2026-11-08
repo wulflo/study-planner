@@ -26,6 +26,7 @@
   --md-radius-md: 16px;
   --md-radius-lg: 24px;
   --md-radius-xl: 28px;
+  --titlebar-height: 58px;
 
   font-family:
     "Roboto Flex", Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -115,7 +116,8 @@ code,
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 12px 24px;
+  height: var(--titlebar-height);
+  padding: 0 10px 0 24px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   background: color-mix(
     in srgb,
@@ -126,6 +128,7 @@ code,
   position: sticky;
   top: 0;
   z-index: 10;
+  user-select: none;
 }
 
 .brand {
@@ -165,6 +168,12 @@ code,
   font-size: 0.82rem;
 }
 
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .quiet {
   color: var(--md-sys-color-on-surface-variant);
 }
@@ -173,6 +182,60 @@ code,
   font-variant-numeric: tabular-nums;
   color: var(--md-sys-color-primary);
   font-weight: 700;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.window-control svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.window-control:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 9%,
+    transparent
+  );
+  color: var(--md-sys-color-on-surface);
+}
+
+.window-control:active {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 14%,
+    transparent
+  );
+}
+
+.window-control.close:hover {
+  background: var(--md-sys-color-error);
+  color: var(--md-sys-color-on-primary);
 }
 
 .shell {
@@ -191,9 +254,9 @@ code,
   padding: 20px 12px;
   border-right: 1px solid var(--md-sys-color-outline-variant);
   position: sticky;
-  top: 55px;
+  top: var(--titlebar-height);
   align-self: start;
-  height: calc(100vh - 55px);
+  height: calc(100vh - var(--titlebar-height));
   overflow-y: auto;
 }
 
@@ -482,6 +545,80 @@ code,
   font-size: 0.78rem;
 }
 
+/* Bordes invisibles de redimensionado para la ventana sin decoración. */
+.resize-handle {
+  position: fixed;
+  z-index: 40;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.resize-n {
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 4px;
+  cursor: ns-resize;
+}
+
+.resize-s {
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 4px;
+  cursor: ns-resize;
+}
+
+.resize-e {
+  top: 12px;
+  bottom: 12px;
+  right: 0;
+  width: 4px;
+  cursor: ew-resize;
+}
+
+.resize-w {
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 4px;
+  cursor: ew-resize;
+}
+
+.resize-ne {
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.resize-nw {
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.resize-se {
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.resize-sw {
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
 :focus-visible {
   outline: 3px solid
     color-mix(in srgb, var(--md-sys-color-primary) 65%, transparent);
@@ -530,18 +667,11 @@ code,
 
 @media (max-width: 620px) {
   .topbar {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 0 6px 0 16px;
   }
 
   .topbar-meta {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .quiet {
     display: none;
   }
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { ResizeHandles } from "./components/ResizeHandles";
+import { WindowControls } from "./components/WindowControls";
 import {
   type AppInfo,
   getAppInfo,
@@ -83,17 +85,21 @@ function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <ResizeHandles />
+      <header className="topbar" data-tauri-drag-region="deep">
         <div className="brand">
           <img src="/omega.svg" alt="" className="brand-mark" />
           <span className="brand-name">Omega</span>
           <span className="phase-chip">Fase 0</span>
         </div>
-        <div className="topbar-meta">
-          <span className="quiet">Local · sin cuentas · sin telemetría</span>
-          <span className="version">
-            {info ? `v${info.version}` : "v0.1.0"}
-          </span>
+        <div className="topbar-end">
+          <div className="topbar-meta">
+            <span className="quiet">Local · sin cuentas · sin telemetría</span>
+            <span className="version">
+              {info ? `v${info.version}` : "v0.1.0"}
+            </span>
+          </div>
+          <WindowControls />
         </div>
       </header>
 

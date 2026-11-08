@@ -142,7 +142,7 @@ base-uri 'none'; form-action 'none'
 
 ### Capacidades
 
-`src-tauri/capabilities/default.json` contiene solo `core:default`. Cualquier permiso nuevo debe justificarse, documentarse y auditarse con `scripts/audit-network.sh`.
+`src-tauri/capabilities/default.json` contiene `core:default` más los permisos explícitos de ventana que necesita la barra de título propia: `allow-minimize`, `allow-toggle-maximize`, `allow-close`, `allow-start-dragging` y `allow-start-resize-dragging`. No hay permisos de archivos, SQL, shell ni red. Cualquier permiso nuevo debe justificarse, documentarse y auditarse con `scripts/audit-network.sh`.
 
 ### Webview
 

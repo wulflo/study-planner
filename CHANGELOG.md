@@ -6,7 +6,14 @@ Todos los cambios relevantes de Omega se registran acá. El formato sigue [Keep 
 
 ### Agregado
 
-- Nada todavía.
+- Barra de título propia con controles integrados de minimizar, maximizar/restaurar y cerrar, con estado sincronizado al redimensionar la ventana.
+- Arrastre de la ventana desde la barra de título y bordes invisibles de redimensionado para la ventana sin decoración nativa.
+- Permisos mínimos de ventana en `capabilities/default.json`: `minimize`, `toggle-maximize`, `close`, `start-dragging` y `start-resize-dragging`.
+
+### Cambiado
+
+- La ventana principal usa `decorations: false`; la barra de título de la app reemplaza la decoración del sistema.
+- La barra de título reserva una altura fija y agrupa metadatos y controles para mantener estable el layout.
 
 ## [0.1.0] — 2026-11-08 — Fase 0: base técnica
 

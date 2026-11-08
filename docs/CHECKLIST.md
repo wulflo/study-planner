@@ -74,7 +74,7 @@ cargo check -p omega                                        ✅
 ## Reglas para no romper el proyecto (no negociables)
 
 1. **Sin red en la app.** La webview no usa `http`, `fetch`, CDNs, fuentes remotas ni íconos remotos. La única excepción futura es el crate `omega-updater`, aislado y sin bindings JS.
-2. **Sin permisos nuevos sin justificación.** `src-tauri/capabilities/default.json` solo contiene `core:default`. Prohibido agregar `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` o `updater` al frontend.
+2. **Sin permisos nuevos sin justificación.** `src-tauri/capabilities/default.json` contiene `core:default` más los permisos explícitos de ventana necesarios para la barra de título propia (`minimize`, `toggle-maximize`, `close`, `start-dragging`, `start-resize-dragging`). Prohibido agregar `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` o `updater` al frontend.
 3. **Los archivos y la base los escribe Rust.** El frontend nunca recibe rutas ni handles de archivos.
 4. **Nada de `flutter_secure_storage`, cuentas, telemetría ni nube.** Omega es estrictamente local.
 5. **La bóveda no se cifra.** Decisión explícita del usuario. No reintroducir contraseña de bóveda, Argon2id, AES-GCM ni recovery key.
@@ -104,8 +104,9 @@ cargo check -p omega                                        ✅
 - [x] `vault_id`, `schema_version`, `integrity_check`, `foreign_key_check`.
 - [x] Comandos Tauri `get_app_info` y `schema_self_check` (base en memoria).
 - [x] CSP de producción y desarrollo; `freezePrototype`; `withGlobalTauri: false`.
-- [x] Capacidad mínima `core:default`; sin plugin `opener`.
+- [x] Capacidad mínima: `core:default` + permisos de ventana para la barra de título; sin plugin `opener`.
 - [x] UI shell con navegación, estado técnico, marca e ícono SVG local.
+- [x] Ventana sin decoración nativa con barra de título propia: minimizar, maximizar/restaurar, cerrar, arrastre y bordes de redimensionado.
 - [x] Tests de UI y de Rust; `typecheck`, `lint`, `test`, `build` verdes.
 - [x] `docs/CHECKLIST.md` (este archivo).
 - [x] Documentación base: `README.md`, arquitectura, modelo de datos, exportación, updater, claves, decisiones y modo offline.
@@ -299,6 +300,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 .
 ├── src/                         UI React
 │   ├── App.tsx                  shell y autodiagnóstico
+│   ├── components/              barra de título y bordes de ventana
 │   ├── lib/ipc.ts               contrato IPC tipado
 │   └── styles.css               tokens Material 3
 ├── src-tauri/                   host Tauri
@@ -329,6 +331,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - Se endureció `.gitignore`, se agregaron scripts de verificación/auditoría y CI sin secretos.
 - Se publicó el repositorio público [`wulflo/study-planner`](https://github.com/wulflo/study-planner) y se subió `main`.
 - Se configuraron descripción, temas, issues, auto-merge, borrado de rama al mergear, alertas de vulnerabilidades y protección de `main` con CI requerido.
+- Se integró una barra de título propia con minimizar, maximizar/restaurar y cerrar, más arrastre y bordes de redimensionado.
 - Pendiente: revisión MPL, demo y confirmación para Fase 1.
 
 ---

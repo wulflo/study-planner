@@ -90,7 +90,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 **Contexto:** la webview es la superficie de ataque más expuesta.
 
-**Decisión:** `capabilities/default.json` solo tiene `core:default`. Sin `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` ni `updater`. CSP de producción sin `unsafe-eval`, sin CDNs, `connect-src` solo IPC. `withGlobalTauri: false` y `freezePrototype: true`.
+**Decisión:** `capabilities/default.json` tiene `core:default` más los permisos explícitos de ventana para la barra de título propia (`minimize`, `toggle-maximize`, `close`, `start-dragging`, `start-resize-dragging`). Sin `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` ni `updater`. CSP de producción sin `unsafe-eval`, sin CDNs, `connect-src` solo IPC. `withGlobalTauri: false` y `freezePrototype: true`.
 
 **Consecuencias:**
 
@@ -225,3 +225,22 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 - El historial debe auditarse antes de cada push para no filtrar datos.
 - Los secretos de firma se configuran en Fase 5, nunca en el YAML.
 - Si el repositorio cambia de nombre o de visibilidad, hay que actualizar la URL fija del updater y este documento.
+
+---
+
+## ADR-015 — Ventana sin decoración nativa con controles propios
+
+**Estado:** aceptada (2026-11-08).
+
+**Contexto:** el usuario pidió que minimizar, maximizar y cerrar estén integrados en la interfaz, en lugar de depender de la decoración del sistema.
+
+**Decisión:** la ventana principal usa `decorations: false` y la app dibuja su propia barra de título con controles de minimizar, maximizar/restaurar y cerrar. La barra es una región de arrastre de Tauri; los controles y los elementos interactivos quedan excluidos. Como Linux sin decoración pierde el borde nativo de redimensionado, se agregan ocho bordes invisibles que delegan en `startResizeDragging`. Los permisos se limitan a las cinco acciones de ventana necesarias.
+
+**Consecuencias:**
+
+- La UI debe reservar una altura fija para la barra de título y respetar el área de arrastre.
+- El doble clic en la barra maximiza/restaura mediante Tauri; no se agrega un manejador propio para evitar un doble toggle.
+- Cualquier elemento interactivo nuevo en la barra debe ser un control real (botón, enlace) para no romper el arrastre.
+- El redimensionado depende de los bordes propios; si se elimina un borde, esa dirección deja de funcionar.
+- En Linux, GTK puede emitir el aviso `gtk_window_set_titlebar() called on a realized window` al iniciar; es inocuo y no afecta el render.
+- No se agregan permisos de archivos, SQL, shell ni red: solo acciones de ventana.
