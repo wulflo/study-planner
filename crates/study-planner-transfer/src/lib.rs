@@ -1188,14 +1188,14 @@ mod tests {
               VALUES ('task-tag-1', 'task-1', 'tag-1');
             INSERT INTO saved_filter(id, screen, name, query_json)
               VALUES ('filter-1', 'tasks', 'Pendientes', '{{"text":"matrices","status":"open"}}');
-            INSERT INTO self_assessment(id, topic_id, score)
-              VALUES ('assessment-1', 'topic-1', 4);
-            INSERT INTO strength_override(id, topic_id, classification)
-              VALUES ('strength-1', 'topic-1', 'strength');
-            INSERT INTO review_item(id, topic_id, due_date)
-              VALUES ('review-1', 'topic-2', '2026-05-25');
-            INSERT INTO study_session(id, subject_id, topic_id, started_at)
-              VALUES ('session-1', 'subject-1', 'topic-1', '2026-05-10T10:00:00.000Z');
+            INSERT INTO self_assessment(id, topic_id, score, note, source, assessed_at)
+              VALUES ('assessment-1', 'topic-1', 4, 'Repaso sólido', 'review', '2026-05-09T10:00:00.000Z');
+            INSERT INTO strength_override(id, topic_id, classification, reason)
+              VALUES ('strength-1', 'topic-1', 'strength', 'Práctica sostenida');
+            INSERT INTO review_item(id, topic_id, algorithm, algorithm_version, ease_factor_cp, interval_days, repetitions, lapses, due_date, last_reviewed_at)
+              VALUES ('review-1', 'topic-2', 'sm2', '1', 240, 6, 2, 1, '2026-05-25', '2026-05-19T10:00:00.000Z');
+            INSERT INTO study_session(id, subject_id, topic_id, started_at, ended_at, planned_minutes, actual_minutes, mode, interruptions, notes)
+              VALUES ('session-1', 'subject-1', 'topic-1', '2026-05-10T10:00:00.000Z', '2026-05-10T10:25:00.000Z', 25, 22, 'pomodoro', 1, 'Sesión de prueba');
             INSERT INTO note(id, subject_id, topic_id, title, body)
               VALUES ('note-1', 'subject-1', 'topic-1', 'Apunte', 'Contenido');
             INSERT INTO attachment(id, owner_type, owner_id, filename, mime, size_bytes, sha256)
@@ -1477,6 +1477,149 @@ mod tests {
             .expect("categoría de parciales");
         assert_eq!(parciales.dropped, 1);
         assert_eq!(parciales.percent_bp, Some(10000));
+
+        let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
+        assert_eq!(text, round_trip);
+
+        fs::remove_dir_all(source_attachments).unwrap();
+        fs::remove_dir_all(target_attachments).unwrap();
+    }
+
+    #[test]
+    fn phase_four_entities_round_trip_with_semantics() {
+        let (source, source_attachments, _) = fixture_with_all_tables();
+        let text = export_to_text(&source, &source_attachments).expect("exportar fixture");
+
+        for table in [
+            "self_assessment",
+            "strength_override",
+            "review_item",
+            "study_session",
+        ] {
+            assert!(
+                text.contains(&format!("\"table\":\"{table}\"")),
+                "falta la tabla {table} en la exportación"
+            );
+        }
+
+        let target = migrated_store();
+        let target_attachments = temp_dir("phase-four-attachments");
+        import_from_text(&target, &target_attachments, &text, ImportMode::EmptyOnly)
+            .expect("importar fixture");
+
+        let conn = target.connection();
+        for (table, expected) in [
+            ("self_assessment", 1),
+            ("strength_override", 1),
+            ("review_item", 1),
+            ("study_session", 1),
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("contar filas");
+            assert_eq!(count, expected, "filas de {table}");
+        }
+
+        let assessment: (i64, String, String) = conn
+            .query_row(
+                "SELECT score, source, note FROM self_assessment WHERE id = 'assessment-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("leer autoevaluación");
+        assert_eq!(
+            assessment,
+            (4, "review".to_string(), "Repaso sólido".to_string())
+        );
+
+        let override_row: (String, String) = conn
+            .query_row(
+                "SELECT classification, reason FROM strength_override WHERE id = 'strength-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("leer override");
+        assert_eq!(
+            override_row,
+            ("strength".to_string(), "Práctica sostenida".to_string())
+        );
+
+        let review: (String, String, i64, i64, i64, i64, String) = conn
+            .query_row(
+                "SELECT algorithm, algorithm_version, ease_factor_cp, interval_days,
+                        repetitions, lapses, due_date
+                 FROM review_item WHERE id = 'review-1'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                    ))
+                },
+            )
+            .expect("leer repaso");
+        assert_eq!(
+            review,
+            (
+                "sm2".to_string(),
+                "1".to_string(),
+                240,
+                6,
+                2,
+                1,
+                "2026-05-25".to_string()
+            )
+        );
+
+        let session: (i64, i64, String, i64, String) = conn
+            .query_row(
+                "SELECT planned_minutes, actual_minutes, mode, interruptions, notes
+                 FROM study_session WHERE id = 'session-1'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .expect("leer sesión");
+        assert_eq!(
+            session,
+            (
+                25,
+                22,
+                "pomodoro".to_string(),
+                1,
+                "Sesión de prueba".to_string()
+            )
+        );
+
+        let studies = target
+            .list_topic_studies(None, "2026-05-10")
+            .expect("listar estudios importados");
+        let matrices = studies
+            .iter()
+            .find(|study| study.topic_id == "topic-1")
+            .expect("tema importado");
+        assert_eq!(
+            matrices.classification,
+            study_planner_core::StrengthClassification::Strength
+        );
+        assert_eq!(
+            matrices.latest_assessment.as_ref().map(|item| item.score),
+            Some(4)
+        );
 
         let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
         assert_eq!(text, round_trip);
