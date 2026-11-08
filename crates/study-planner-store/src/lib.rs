@@ -1,4 +1,4 @@
-//! Persistencia SQLite de Omega.
+//! Persistencia SQLite de Study Planner.
 //!
 //! La base se abre con WAL, claves foráneas activas y sincronización completa.
 //! Las migraciones son hacia adelante y se registran con checksum. El respaldo
@@ -7,10 +7,17 @@
 use std::path::Path;
 use std::time::Duration;
 
-use omega_core::{SCHEMA_VERSION, new_id};
 use rusqlite::{Connection, params};
 use sha2::{Digest, Sha256};
+use study_planner_core::{SCHEMA_VERSION, new_id};
 use thiserror::Error;
+
+mod academic;
+mod backup;
+mod tasks;
+
+pub use academic::{SubjectInput, TermInput};
+pub use backup::BackupReport;
 
 const INITIAL_NAME: &str = "0001_initial";
 const INITIAL_SQL: &str = include_str!("../migrations/0001_initial.sql");
@@ -19,13 +26,33 @@ const INITIAL_SQL: &str = include_str!("../migrations/0001_initial.sql");
 pub enum StoreError {
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
-    #[error("el esquema {found} es más nuevo que el soportado ({supported}); actualizá Omega")]
+    #[error(
+        "el esquema {found} es más nuevo que el soportado ({supported}); actualizá Study Planner"
+    )]
     SchemaTooNew { found: i64, supported: i64 },
     #[error("metadato requerido ausente: {0}")]
     MissingMeta(&'static str),
+    #[error("tarea inválida: {0}")]
+    InvalidTask(&'static str),
+    #[error("dato académico inválido: {0}")]
+    InvalidAcademic(&'static str),
+    #[error("tarea no encontrada")]
+    TaskNotFound,
+    #[error("año académico no encontrado")]
+    AcademicYearNotFound,
+    #[error("término no encontrado")]
+    TermNotFound,
+    #[error("materia no encontrada")]
+    SubjectNotFound,
+    #[error("{0}")]
+    Conflict(&'static str),
+    #[error("error de archivo: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("backup inválido: {0}")]
+    InvalidBackup(String),
 }
 
-/// Conexión a la base de Omega.
+/// Conexión a la base de Study Planner.
 pub struct Store {
     conn: Connection,
 }
@@ -132,6 +159,26 @@ impl Store {
             .conn
             .query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
         Ok(result)
+    }
+
+    /// Fecha civil local en formato `AAAA-MM-DD`. Se usa para las snapshots.
+    pub fn local_date(&self) -> Result<String, StoreError> {
+        let value = self.conn.query_row(
+            "SELECT strftime('%Y-%m-%d', 'now', 'localtime')",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(value)
+    }
+
+    /// Instante UTC en RFC3339 con milisegundos, coherente con el esquema.
+    pub fn utc_now(&self) -> Result<String, StoreError> {
+        let value =
+            self.conn
+                .query_row("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')", [], |row| {
+                    row.get(0)
+                })?;
+        Ok(value)
     }
 
     /// Cantidad de violaciones de claves foráneas.
