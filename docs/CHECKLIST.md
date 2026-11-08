@@ -1,7 +1,7 @@
 # Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 4 — Estudio, repaso espaciado y estadísticas (implementada; pendiente demo y confirmación)
+> **Fase actual:** 5 — Updater, notificaciones y empaquetado (en curso)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,7 +24,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 4 — Estudio, repaso espaciado y estadísticas (implementada; pendiente demo y confirmación) |
+| Fase | 5 — Updater, notificaciones y empaquetado (en curso) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
@@ -451,14 +451,28 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 6 — UI de estadísticas:** tiempo, constancia, materias débiles y próximos repasos. 29 tests de UI.
 - [x] **Paso 7 — Transferencia y cierre:** fixture de Fase 4 con semántica y round-trip. `self_assessment`, `strength_override`, `review_item` y `study_session` viajan en la exportación canónica v1; el test reimporta, verifica SM-2, override y minutos reales, y compara bytes. 16 tests de transfer.
 
-**Estado Fase 4:** 29 tests de UI y 108 tests de Rust en verde (42 core, 39 store, 16 transfer, 11 host). Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto. La aceptación se verifica con la cola de prioridad explicable en «Estudio»: cada tema muestra sus motivos puntuados y el orden es determinista. Queda pendiente la demo y la confirmación explícita del usuario para cerrar formalmente la fase.
+**Estado Fase 4:** 29 tests de UI y 108 tests de Rust en verde (42 core, 39 store, 16 transfer, 11 host). Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto. La aceptación se verifica con la cola de prioridad explicable en «Estudio»: cada tema muestra sus motivos puntuados y el orden es determinista. **Fase cerrada** al continuar con la Fase 5 a pedido del usuario.
+
+### 2026-11-08 — Fase 5 en curso (bitácora por pasos)
+
+> Misma regla que las fases anteriores: cada paso termina con `./scripts/check.sh` en
+> verde y un commit local pequeño. La bitácora se actualiza **antes** de seguir.
+
+- [x] **Paso 0 — Línea base y corrección visual:** `./scripts/check.sh` verde antes de tocar nada. Se normalizaron los controles en toda la interfaz: selects con padding derecho y chevron propio, botones con menos padding y radio de 12 px, y separación mínima entre botones contiguos.
+- [ ] **Paso 1 — Núcleo del updater:** manifiesto, validación de URL/host, comparación de versión, firma minisign y SHA-256 con tests.
+- [ ] **Paso 2 — Descarga e instalación:** cliente HTTP aislado, descarga temporal, reemplazo atómico, backup y rollback con tests locales.
+- [ ] **Paso 3 — Integración Tauri y UI:** comandos Rust, ajuste opt-in, registro en `network_event` y vista «Ajustes».
+- [ ] **Paso 4 — Notificaciones locales:** avisos de clases, tareas, exámenes y repasos calculados y entregados desde Rust.
+- [ ] **Paso 5 — Empaquetado y cierre:** AppImage, auditoría final, documentación y verificación completa.
+
+> **Bloqueado por el usuario:** la generación real de la clave minisign, su custodia en VeraCrypt/Drive y los secrets de GitHub requieren passphrase y acceso físico. El código se implementa y prueba con una clave pública de test; la clave de producción queda pendiente de confirmación explícita.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Demo de Fase 4 con el usuario: autoevaluar un tema, aplicar un override y registrar un repaso SM-2.
-2. Mostrar la cola de prioridad explicable y cerrar una sesión Pomodoro para ver estadísticas.
-3. Confirmar el cierre de Fase 4 y registrar la decisión en `docs/DECISIONS.md` si corresponde.
-4. Abrir Fase 5 con la generación y custodia de la clave de firma.
-5. Mantener `./scripts/check.sh` y `./scripts/audit-network.sh` verdes en cada paso.
+1. Implementar el núcleo del updater con firma obligatoria y tests.
+2. Agregar descarga, reemplazo atómico y rollback locales.
+3. Integrar los comandos Tauri, el ajuste opt-in y la vista «Ajustes».
+4. Implementar notificaciones locales calculadas en Rust.
+5. Empaquetar el AppImage, correr la auditoría final y cerrar la Fase 5.
