@@ -14,10 +14,12 @@ use thiserror::Error;
 
 mod academic;
 mod backup;
+mod schedule;
 mod tasks;
 
 pub use academic::{SubjectInput, TermInput};
 pub use backup::BackupReport;
+pub use schedule::{ClassSlotInput, RotationInput, WeekHoliday, WeekSchedule};
 
 const INITIAL_NAME: &str = "0001_initial";
 const INITIAL_SQL: &str = include_str!("../migrations/0001_initial.sql");
@@ -36,6 +38,8 @@ pub enum StoreError {
     InvalidTask(&'static str),
     #[error("dato académico inválido: {0}")]
     InvalidAcademic(&'static str),
+    #[error("horario inválido: {0}")]
+    InvalidSchedule(&'static str),
     #[error("tarea no encontrada")]
     TaskNotFound,
     #[error("año académico no encontrado")]
@@ -44,6 +48,16 @@ pub enum StoreError {
     TermNotFound,
     #[error("materia no encontrada")]
     SubjectNotFound,
+    #[error("franja horaria no encontrada")]
+    ClassSlotNotFound,
+    #[error("rotación no encontrada")]
+    RotationNotFound,
+    #[error("feriado no encontrado")]
+    HolidayNotFound,
+    #[error("excepción de clase no encontrada")]
+    ExceptionNotFound,
+    #[error("registro de asistencia no encontrado")]
+    AttendanceNotFound,
     #[error("{0}")]
     Conflict(&'static str),
     #[error("error de archivo: {0}")]

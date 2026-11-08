@@ -407,7 +407,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (17 tests de UI y 41 de Rust) antes de tocar nada.
 - [x] **Paso 1 — Modelos puros:** año académico, término, materia, franja horaria, feriado, excepción, asistencia y rotación con validaciones y matemática de fechas propia (sin dependencias nuevas). 15 tests de `study-planner-core`.
 - [x] **Paso 2 — Persistencia académica:** repositorios CRUD con borrado lógico para año, término y materia; tests de validación y FK. 14 tests de `study-planner-store`.
-- [ ] **Paso 3 — Persistencia de horario:** franjas, rotaciones, feriados, excepciones y asistencia; tests.
+- [x] **Paso 3 — Persistencia de horario:** franjas, rotaciones, feriados, excepciones y asistencia; vista semanal compuesta y próxima clase. 20 tests de `study-planner-store`.
 - [ ] **Paso 4 — Cálculo semanal:** ocurrencias efectivas, rotaciones, feriados, excepciones, próxima clase, solapamientos y porcentaje de asistencia; tests puros.
 - [ ] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado en `src/lib/ipc.ts`.
 - [ ] **Paso 6 — UI académica:** sección «Materias» con año, término y materias.

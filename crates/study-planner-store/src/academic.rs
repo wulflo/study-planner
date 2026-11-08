@@ -356,7 +356,7 @@ impl Store {
         Ok(())
     }
 
-    fn get_term(&self, id: &str) -> Result<Option<Term>, StoreError> {
+    pub(crate) fn get_term(&self, id: &str) -> Result<Option<Term>, StoreError> {
         let term = self
             .connection()
             .query_row(
@@ -372,7 +372,7 @@ impl Store {
         Ok(term)
     }
 
-    fn get_subject(&self, id: &str) -> Result<Option<Subject>, StoreError> {
+    pub(crate) fn get_subject(&self, id: &str) -> Result<Option<Subject>, StoreError> {
         let subject = self
             .connection()
             .query_row(
