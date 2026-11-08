@@ -1,7 +1,7 @@
 # Study Planner — Checklist persistente
 
 > **Última actualización:** 2026-11-08
-> **Fase actual:** 4 — Estudio, repaso espaciado y estadísticas (en curso)
+> **Fase actual:** 4 — Estudio, repaso espaciado y estadísticas (implementada; pendiente demo y confirmación)
 > **Versión:** 0.1.0 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
@@ -24,7 +24,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 
 | Campo | Valor |
 |---|---|
-| Fase | 4 — Estudio, repaso espaciado y estadísticas (en curso) |
+| Fase | 4 — Estudio, repaso espaciado y estadísticas (implementada; pendiente demo y confirmación) |
 | Versión de app | 0.1.0 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
@@ -40,8 +40,8 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 ### Verificación vigente
 
 ```text
-npm run check       ✅  25 tests de UI
-cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  78 tests (31 core, 32 store, 15 transfer)
+npm run check       ✅  29 tests de UI
+cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer   ✅  97 tests (42 core, 39 store, 16 transfer)
 cargo test -p study-planner                                 ✅  11 tests de bóveda
 cargo clippy (core/store/transfer) -- -D warnings           ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
@@ -199,14 +199,14 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 ## Fase 4 — Estudio, repaso espaciado y estadísticas
 
-- [ ] Temas jerárquicos y autoevaluación (1–5).
-- [ ] Clasificación fortaleza/neutral/debilidad con override manual.
-- [ ] Repaso espaciado SM-2 con versión de algoritmo.
-- [ ] Sesiones de estudio y Pomodoro.
-- [ ] Prioridad de estudio determinista y explicable.
-- [ ] Estadísticas: tiempo, constancia, materias débiles, próximos repasos.
-- [ ] Tests de SM-2, prioridad y agregaciones.
-- [ ] Exportación/importación de las nuevas entidades sin romper v1.
+- [x] Temas jerárquicos y autoevaluación (1–5).
+- [x] Clasificación fortaleza/neutral/debilidad con override manual.
+- [x] Repaso espaciado SM-2 con versión de algoritmo.
+- [x] Sesiones de estudio y Pomodoro.
+- [x] Prioridad de estudio determinista y explicable.
+- [x] Estadísticas: tiempo, constancia, materias débiles, próximos repasos.
+- [x] Tests de SM-2, prioridad y agregaciones.
+- [x] Exportación/importación de las nuevas entidades sin romper v1.
 
 **Aceptación:** generar una cola de repaso reproducible y explicar por qué un tema aparece primero.
 
@@ -449,14 +449,16 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 4 — UI de fortalezas:** temas, autoevaluación, clasificación, override y repaso desde la sección «Fortalezas».
 - [x] **Paso 5 — UI de estudio:** cola de prioridad explicable, Pomodoro y registro de sesiones desde la sección «Estudio».
 - [x] **Paso 6 — UI de estadísticas:** tiempo, constancia, materias débiles y próximos repasos. 29 tests de UI.
-- [ ] **Paso 7 — Transferencia y cierre:** fixture de Fase 4 con semántica y round-trip, documentación, changelog y verificación final.
+- [x] **Paso 7 — Transferencia y cierre:** fixture de Fase 4 con semántica y round-trip. `self_assessment`, `strength_override`, `review_item` y `study_session` viajan en la exportación canónica v1; el test reimporta, verifica SM-2, override y minutos reales, y compara bytes. 16 tests de transfer.
+
+**Estado Fase 4:** 29 tests de UI y 108 tests de Rust en verde (42 core, 39 store, 16 transfer, 11 host). Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto. La aceptación se verifica con la cola de prioridad explicable en «Estudio»: cada tema muestra sus motivos puntuados y el orden es determinista. Queda pendiente la demo y la confirmación explícita del usuario para cerrar formalmente la fase.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Abrir Fase 4: temas jerárquicos, autoevaluación y repaso espaciado.
-2. Implementar SM-2 y la cola de prioridad explicable.
-3. Estadísticas de estudio, constancia y materias débiles.
-4. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.
-5. Cerrar la Fase 4 con demo, tests verdes, changelog y confirmación del usuario.
+1. Demo de Fase 4 con el usuario: autoevaluar un tema, aplicar un override y registrar un repaso SM-2.
+2. Mostrar la cola de prioridad explicable y cerrar una sesión Pomodoro para ver estadísticas.
+3. Confirmar el cierre de Fase 4 y registrar la decisión en `docs/DECISIONS.md` si corresponde.
+4. Abrir Fase 5 con la generación y custodia de la clave de firma.
+5. Mantener `./scripts/check.sh` y `./scripts/audit-network.sh` verdes en cada paso.

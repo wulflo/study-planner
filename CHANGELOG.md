@@ -34,6 +34,12 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Journal de undo para eliminación de tareas con expiración de 5 minutos y restauración desde la UI.
 - Vista «Calendario» mensual con exámenes y vencimientos de tareas, navegación por mes y vuelta a «Hoy».
 - Las entidades de Fase 3 viajan en la exportación canónica v1; un fixture verifica tablas, valores, cálculo de promedio importado y round-trip byte a byte.
+- Autoevaluación de temas de 1 a 5, clasificación automática fortaleza/neutral/debilidad por umbrales configurables y override manual con motivo.
+- Repaso espaciado SM-2 versionado: factor de facilidad en centésimas con mínimo 1.30, intervalos de 1, 6 y `round(intervalo × EF / 100)` días, reinicio y conteo de lapsos cuando la calidad es menor que 3.
+- Cola de prioridad determinista y explicable: puntaje por clasificación, repaso vencido o próximo y examen próximo, con motivos visibles y desempate por tema.
+- Sesiones de estudio Pomodoro, libres y de repaso con minutos planificados, minutos reales e interrupciones; la sesión puede asociarse a materia y tema.
+- Vista «Estudio» con Pomodoro, cola de prioridad explicable e historial de sesiones; vista «Fortalezas» con autoevaluación, override y programación del repaso; vista «Estadísticas» con tiempo total, rachas, minutos por materia, materias débiles y próximos repasos.
+- Las entidades de Fase 4 (`self_assessment`, `strength_override`, `review_item`, `study_session`) viajan en la exportación canónica v1; un fixture verifica su semántica y el round-trip byte a byte.
 - La vista «Bóveda» muestra si hay datos y habilita exportar, importar (solo vacía) y restaurar.
 - Apertura y migración de SQLite en `<bóveda>/omega/study-planner.db`, con esquema, integridad y claves foráneas visibles en la UI sin exponer rutas.
 - Tareas persistentes con crear, completar, reabrir y eliminar (borrado lógico), con estados `pending`, `in_progress` y `done`.
@@ -50,9 +56,9 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - La app se renombró de `Omega` a `Study Planner`; los crates pasan a `study-planner-*`, el paquete a `study-planner` y el identificador a `app.studyplanner.desktop`.
 - Al elegir la bóveda se crean automáticamente `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`; la snapshot del día se crea al abrir la bóveda y se poda a 7 días.
 - La sección «Bóveda» dejó de ser un placeholder: muestra el diagnóstico real, los respaldos y permite cambiar de carpeta. La sección «Tareas» pasó a ser funcional.
-- Las secciones «Materias», «Horario», «Calendario», «Tareas», «Exámenes», «Notas» y «Hoy» usan datos reales de la bóveda; los placeholders quedan solo para las fases 4–5.
+- Las secciones «Materias», «Horario», «Calendario», «Tareas», «Exámenes», «Notas», «Estudio», «Fortalezas», «Estadísticas» y «Hoy» usan datos reales de la bóveda; el único placeholder que queda es «Ajustes» (Fase 5).
 - La vista «Hoy» ganó el bloque de horario y asistencia por encima de los pendientes, sin agregar dependencias nuevas ni permisos de red.
-- El esquema v1 ya contenía las tablas de la Fase 2 y de la Fase 3; no hubo migración nueva y `export_format_version` sigue en 1.
+- El esquema v1 ya contenía las tablas de las fases 2, 3 y 4; no hubo migración nueva y `export_format_version` sigue en 1.
 - `rusqlite` se compila con la feature `backup`; la bóveda y los backups viven exclusivamente en Rust.
 - El magic de exportación pasa a `STUDY-PLANNER-EXPORT` / `STUDY-PLANNER-END`.
 - La ventana principal usa `decorations: false`; la barra de título de la app reemplaza la decoración del sistema.

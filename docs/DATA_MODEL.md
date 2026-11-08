@@ -114,7 +114,18 @@ El porcentaje de una entrada es `score_cp * 10000 / max_cp` (basis points). El p
 | `review_item` | estado SM-2 por tema: ease, intervalo, repeticiones, lapsos, vencimiento |
 | `study_session` | sesión Pomodoro/libre/repaso con tiempos y pausas |
 
-`review_item` usa `ease_factor_cp >= 130` y algoritmo `sm2` versionado para permitir migraciones futuras.
+`self_assessment.score` va de 1 a 5. La clasificación automática proyecta el puntaje a basis points (`score * 2000`) y lo compara con `study.weak_threshold` y `study.strong_threshold`; `strength_override` gana sobre la clasificación automática y exige un motivo opcional.
+
+`review_item` usa `ease_factor_cp >= 130` y el algoritmo `sm2` con `algorithm_version = 1`. SM-2 se aplica con calidad 1–5:
+
+- factor de facilidad: `EF' = max(130, EF + 10 - (5 - q) * (8 + (5 - q) * 2))`, en centésimas;
+- con `q < 3` se reinician las repeticiones, se suma un lapso y el intervalo pasa a 1 día;
+- con `q >= 3` los intervalos son 1, 6 y luego `round(intervalo * EF' / 100)` días;
+- `due_date` se calcula sumando el intervalo a la fecha del repaso (`today`), y cada repaso inserta una autoevaluación con `source = 'review'`.
+
+La prioridad de estudio es determinista y explicable. Suma puntos por clasificación (débil 4000, neutral 2000, fortaleza 500), por repaso vencido o dentro de `study.priority_decay_days` y por examen próximo. Cada componente queda en la lista de motivos que muestra la UI; el orden final es puntaje descendente y, a igualdad, identificador del tema.
+
+`study_session.actual_minutes` es la fuente de los totales. Las rachas de constancia usan la fecha local de `started_at`: la racha actual cuenta desde hoy o, si hoy no hubo sesión, desde ayer; la racha máxima se calcula sobre todo el historial. Los minutos por materia y las materias débiles se agregan con las últimas autoevaluaciones, sin usar `REAL` en ningún cálculo.
 
 ### Apuntes y adjuntos
 
