@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Compilar snap (sin publicar)
+    name: Compilar snap
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -40,5 +40,13 @@ jobs:
           path: ${{ steps.build.outputs.snap }}
           if-no-files-found: error
 
-# La publicación a la Snap Store se agrega cuando el usuario lo pida.
-# Requiere el secreto SNAPCRAFT_STORE_CREDENTIALS y elegir el canal.
+      # Solo se publica al lanzar el workflow a mano. Los builds de pull_request
+      # (incluidos los de forks, sin acceso a secretos) nunca suben a la tienda.
+      - name: Publicar en la Snap Store (edge)
+        if: github.event_name == 'workflow_dispatch'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge

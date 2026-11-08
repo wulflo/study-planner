@@ -1,11 +1,11 @@
 # Empaquetado Snap
 
-> **Estado:** empaquetado y workflow de build implementados (2026-11-09).
-> El nombre `study-planner` está registrado a la cuenta `wulflo` y el secreto
-> `SNAPCRAFT_STORE_CREDENTIALS` está cargado (token restringido a `edge`).
-> La publicación a la Snap Store todavía **no** está habilitada: el workflow solo
-> compila el `.snap` y lo deja como artefacto. Falta probarlo en Ubuntu 24.04
-> limpio y agregar el paso de publicación cuando se pida.
+> **Estado:** empaquetado y publicación manual a la Snap Store implementados
+> (2026-11-09). El nombre `study-planner` está registrado a la cuenta `wulflo` y
+> el secreto `SNAPCRAFT_STORE_CREDENTIALS` está cargado (token restringido a
+> `edge`). El workflow compila el `.snap`, lo deja como artefacto y, al lanzarlo
+> a mano, lo publica en el canal `edge`. Los builds de `pull_request` solo
+> compilan. Falta probar la instalación desde la tienda en Ubuntu 24.04 limpio.
 
 ## Decisión
 
@@ -47,7 +47,7 @@ inactiva.
 - `.snapcraftignore` — excluye artefactos de build, `node_modules`, `target` y
   binarios ya empaquetados.
 - `snap/gui/study-planner.png` — ícono de la ficha de la Snap Store.
-- `.github/workflows/snap.yml` — compilación en CI, sin publicación.
+- `.github/workflows/snap.yml` — compilación en CI y publicación manual a `edge`.
 - `scripts/check-snap-version.sh` — exige que la versión del snap coincida con
   `src-tauri/tauri.conf.json`.
 
@@ -72,7 +72,7 @@ en el host, alcanza con `snapcraft pack` desde la raíz.
 > No uses `snapcore/snapcraft:stable`: esa imagen trae Snapcraft 4.4.4 (2020) y no
 > es compatible con `core24` ni con las credenciales actuales.
 
-## CI: solo build
+## CI: build y publicación manual
 
 `.github/workflows/snap.yml` se dispara a mano (`workflow_dispatch`) o con cambios
 en `snap/**`. Pasos:
@@ -81,9 +81,11 @@ en `snap/**`. Pasos:
 2. `bash scripts/check-snap-version.sh`.
 3. `snapcore/action-build@v1`.
 4. Subida del `.snap` como artefacto `study-planner-snap`.
+5. `snapcore/action-publish@v1` al canal `edge`, **solo** en `workflow_dispatch`.
 
-No hay `snapcore/action-publish` ni ningún paso que use credenciales. Publicar es
-una decisión explícita y se agrega después.
+Los builds de `pull_request` nunca publican: no reciben secretos y el paso de
+publicación está condicionado al disparo manual. Para publicar una revisión hay
+que lanzar el workflow «Snap» a mano desde la pestaña Actions.
 
 ## Credenciales de Snapcraft
 
@@ -92,9 +94,10 @@ una decisión explícita y se agrega después.
 > `study-planner`, al canal `edge`, a los ACLs de paquete y expira el 2027-11-08.
 > Los comandos de abajo quedan como referencia para rotar el token.
 
-La publicación futura usa un token restringido. El registro del nombre y el login
-con contraseña + 2FA los hace el usuario; el token se exporta a un archivo
-temporal y se guarda como secreto de GitHub sin imprimirlo.
+La publicación usa un token restringido limitado a `study-planner`, al canal
+`edge` y a los ACLs de paquete. El registro del nombre y el login con contraseña
++ 2FA los hace el usuario; el token se exporta a un archivo temporal y se guarda
+como secreto de GitHub sin imprimirlo.
 
 ```bash
 mkdir -p /tmp/opencode/snap
