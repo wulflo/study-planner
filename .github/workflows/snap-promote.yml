@@ -1,0 +1,44 @@
+name: Snap promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revisión de study-planner a promover"
+        required: true
+        type: string
+      channel:
+        description: "Canal destino"
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - beta
+          - edge
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promover revisión
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Promover en la Snap Store
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          REVISION: ${{ inputs.revision }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          docker run --rm \
+            -e SNAPCRAFT_STORE_CREDENTIALS \
+            -e REVISION \
+            -e CHANNEL \
+            docker.io/snapcore/snapcraft:stable \
+            bash -lc 'snapcraft release study-planner "$REVISION" "$CHANNEL"'
+
+# Promueve una revisión ya subida, sin recompilar. Se usa después de validar
+# una revisión en edge/beta antes de pasarla a stable.

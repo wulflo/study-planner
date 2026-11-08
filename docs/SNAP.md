@@ -49,6 +49,7 @@ inactiva.
   binarios ya empaquetados.
 - `snap/gui/study-planner.png` — ícono de la ficha de la Snap Store.
 - `.github/workflows/snap.yml` — compilación en CI y publicación manual a `stable`, `beta` o `edge`.
+- `.github/workflows/snap-promote.yml` — promoción de una revisión existente a otro canal, sin recompilar.
 - `scripts/check-snap-version.sh` — exige que la versión del snap coincida con
   `src-tauri/tauri.conf.json`.
 
@@ -88,6 +89,18 @@ en `snap/**`. Pasos:
 Los builds de `pull_request` nunca publican: no reciben secretos y el paso de
 publicación está condicionado al disparo manual. Para publicar una revisión hay
 que lanzar el workflow «Snap» a mano desde la pestaña Actions y elegir el canal.
+
+## Promover una revisión
+
+Después de validar una revisión en `edge` o `beta`, se promueve sin recompilar:
+**Actions → Snap promote → Run workflow**, con el número de revisión y el canal
+destino (`stable` por defecto). El workflow ejecuta:
+
+```bash
+snapcraft release study-planner <revisión> <canal>
+```
+
+usando `SNAPCRAFT_STORE_CREDENTIALS`; no sube un paquete nuevo ni vuelve a firmar.
 
 ## Credenciales de Snapcraft
 

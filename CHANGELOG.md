@@ -67,6 +67,7 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Permisos mínimos de ventana en `capabilities/default.json`: `minimize`, `toggle-maximize`, `close`, `start-dragging` y `start-resize-dragging`.
 - Empaquetado Snap `study-planner` sobre `core24` con confinamiento `strict`, extensión `gnome` y plugs `home`/`removable-media`; sin plugs de red.
 - Workflow `.github/workflows/snap.yml` que compila el `.snap` en GitHub Actions, lo sube como artefacto y, al lanzarlo a mano, lo publica en el canal elegido (`stable` por defecto).
+- Workflow `.github/workflows/snap-promote.yml` para promover una revisión ya subida a `stable`, `beta` o `edge` sin recompilar.
 - `scripts/check-snap-version.sh` para exigir que la versión del snap coincida con la de la app; `scripts/check.sh` y `scripts/audit-network.sh` validan confinamiento, plugs y ausencia de red.
 - Guía `docs/SNAP.md` con build, credenciales restringidas a `stable`, `beta` y `edge`, instalación local, conexión de `removable-media` y pasos de publicación.
 
