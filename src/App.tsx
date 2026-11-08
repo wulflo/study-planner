@@ -20,10 +20,12 @@ import {
   type Task,
   type VaultStatus,
 } from "./lib/ipc";
+import { AcademicView } from "./views/AcademicView";
 import "./styles.css";
 
 const navItems = [
   { id: "today", label: "Hoy", icon: "today" },
+  { id: "subjects", label: "Materias", icon: "subjects" },
   { id: "schedule", label: "Horario", icon: "schedule" },
   { id: "calendar", label: "Calendario", icon: "calendar" },
   { id: "tasks", label: "Tareas", icon: "tasks" },
@@ -36,7 +38,10 @@ const navItems = [
 ] as const;
 
 type SectionId = (typeof navItems)[number]["id"];
-type PlaceholderId = Exclude<SectionId, "today" | "tasks" | "vault">;
+type PlaceholderId = Exclude<
+  SectionId,
+  "today" | "tasks" | "vault" | "subjects"
+>;
 
 interface SectionInfo {
   phase: string;
@@ -137,6 +142,8 @@ const projectChecklist = [
 const iconPaths: Record<string, string> = {
   today:
     "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm2 3v2h10V7H7Zm0 4v2h4v-2H7Zm6 0v2h4v-2h-4Zm-6 4v2h4v-2H7Z",
+  subjects:
+    "M6 3h11a1 1 0 0 1 1 1v16l-6.5-3.5L5 20V4a1 1 0 0 1 1-1Zm1 2v12.5l4.5-2.4 4.5 2.4V5H7Z",
   schedule: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm1 4v5l3 2-1 1.7-4-2.7V7h2Z",
   calendar:
     "M7 3h2v2h6V3h2v2h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V3Zm12 7H5v9h14v-9ZM6 11h3v3H6v-3Z",
@@ -1215,7 +1222,10 @@ function App() {
   const activeLabel =
     navItems.find((item) => item.id === active)?.label ?? "Hoy";
   const placeholder =
-    active !== "today" && active !== "tasks" && active !== "vault"
+    active !== "today" &&
+    active !== "tasks" &&
+    active !== "vault" &&
+    active !== "subjects"
       ? sectionInfo[active]
       : null;
 
@@ -1287,6 +1297,10 @@ function App() {
               onToggle={handleToggleTask}
               onDelete={handleDeleteTask}
             />
+          ) : null}
+
+          {active === "subjects" ? (
+            <AcademicView vault={vault} onGoVault={() => setActive("vault")} />
           ) : null}
 
           {active === "vault" ? (

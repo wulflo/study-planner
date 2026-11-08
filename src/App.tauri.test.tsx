@@ -16,6 +16,18 @@ const api = vi.hoisted(() => ({
   createTask: vi.fn(),
   setTaskDone: vi.fn(),
   deleteTask: vi.fn(),
+  listAcademicYears: vi.fn(),
+  createAcademicYear: vi.fn(),
+  updateAcademicYear: vi.fn(),
+  deleteAcademicYear: vi.fn(),
+  listTerms: vi.fn(),
+  createTerm: vi.fn(),
+  updateTerm: vi.fn(),
+  deleteTerm: vi.fn(),
+  listSubjects: vi.fn(),
+  createSubject: vi.fn(),
+  updateSubject: vi.fn(),
+  deleteSubject: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -105,6 +117,41 @@ const doneTask = {
   completedAt: "2026-11-08T09:00:00.000Z",
 };
 
+const academicYear = {
+  id: "year-1",
+  name: "2026",
+  startDate: "2026-03-01",
+  endDate: "2026-12-20",
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const academicTerm = {
+  id: "term-1",
+  yearId: "year-1",
+  name: "Primer semestre",
+  kind: "semester",
+  startDate: "2026-03-02",
+  endDate: "2026-07-10",
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const algebra = {
+  id: "subject-1",
+  termId: "term-1",
+  name: "Álgebra lineal",
+  code: "MAT-101",
+  color: "#6750A4",
+  teacher: "Docente",
+  room: "Aula 3",
+  credits: 6,
+  goalScoreCp: null,
+  attendanceMinBp: 7500,
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAppInfo.mockResolvedValue({
@@ -150,6 +197,18 @@ beforeEach(() => {
     snapshotAt: "2026-11-08T10:00:00.000Z",
   });
   api.restoreMainBackup.mockResolvedValue(vaultReady);
+  api.listAcademicYears.mockResolvedValue([academicYear]);
+  api.listTerms.mockResolvedValue([academicTerm]);
+  api.listSubjects.mockResolvedValue([algebra]);
+  api.createAcademicYear.mockResolvedValue(academicYear);
+  api.updateAcademicYear.mockResolvedValue(academicYear);
+  api.deleteAcademicYear.mockResolvedValue(undefined);
+  api.createTerm.mockResolvedValue(academicTerm);
+  api.updateTerm.mockResolvedValue(academicTerm);
+  api.deleteTerm.mockResolvedValue(undefined);
+  api.createSubject.mockResolvedValue(algebra);
+  api.updateSubject.mockResolvedValue(algebra);
+  api.deleteSubject.mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
@@ -350,5 +409,48 @@ describe("App con IPC de Tauri", () => {
     expect(
       await screen.findByText(/backup principal restaurado/i),
     ).toBeInTheDocument();
+  });
+
+  it("carga la estructura académica y crea una materia", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Materias" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Estructura académica",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("2026")).toBeInTheDocument();
+    expect(await screen.findByText("Primer semestre")).toBeInTheDocument();
+    expect(await screen.findByText("Álgebra lineal")).toBeInTheDocument();
+
+    const input = screen.getByLabelText("Materia");
+    await user.type(input, "Física I");
+
+    const physics = {
+      ...algebra,
+      id: "subject-2",
+      name: "Física I",
+      code: null,
+      teacher: null,
+      room: null,
+      credits: null,
+      attendanceMinBp: null,
+    };
+    api.createSubject.mockResolvedValue(physics);
+    api.listSubjects.mockResolvedValue([algebra, physics]);
+
+    await user.click(screen.getByRole("button", { name: "Agregar materia" }));
+
+    await waitFor(() =>
+      expect(api.createSubject).toHaveBeenCalledWith(
+        "term-1",
+        expect.objectContaining({ name: "Física I" }),
+      ),
+    );
+    expect(await screen.findByText("Física I")).toBeInTheDocument();
   });
 });
