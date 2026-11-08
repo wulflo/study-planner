@@ -59,6 +59,18 @@ Reglas:
 
 `class_slot` exige `start_time < end_time`. Una excepción única por `(class_slot_id, date, kind)` mientras no esté borrada. La asistencia es única por `(class_slot_id, date)`.
 
+#### Semántica de rotaciones, excepciones y asistencia
+
+- `weekly_ab` avanza por semana ISO desde `anchor_date`: el índice es la cantidad de semanas desde el lunes del ancla, módulo `cycle_length`.
+- `parity` usa la misma aritmética de semanas ISO, pero con etiquetas `Par`/`Impar` por defecto (`cycle_length = 2`).
+- `day_cycle` avanza un paso por día hábil (lunes a viernes) desde `anchor_date`; los fines de semana no consumen paso.
+- Una franja `biweekly` se dicta solo en semanas pares contadas desde el ancla de la rotación o, si no hay rotación, desde `valid_from`.
+- `valid_from` y `valid_to` acotan la vigencia de la franja; fuera de ese rango no genera ocurrencias.
+- Un feriado cancela las ocurrencias de esa fecha. Una excepción `cancelled` elimina la clase, `moved` reemplaza hora y/o aula, y `extra` agrega una ocurrencia aunque no haya franja base.
+- `attendance_record` es único por franja y fecha. `present`, `late` y `justified` cuentan como asistencia; `absent` no. El porcentaje se calcula en puntos básicos `(attended * 10000) / counted` y `justified` no penaliza.
+- `subject.attendance_min_bp = NULL` desactiva el umbral; si está definido, la UI marca la materia cuando el porcentaje cae por debajo.
+- La próxima clase se calcula desde fecha y hora locales, aplicando rotaciones, feriados y excepciones.
+
 ### Exámenes y temas
 
 | Tabla | Propósito |

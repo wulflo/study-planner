@@ -167,15 +167,15 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 ## Fase 2 — Año académico, materias, horario y asistencia
 
-- [ ] CRUD de año académico, términos, materias y horarios.
-- [ ] Rotaciones semanales A/B, paridad y ciclos de días.
-- [ ] Feriados y excepciones de clase (cancelada, movida, extra).
-- [ ] Vista semanal y vista «Hoy».
-- [ ] Registro de asistencia (presente, ausente, tarde, justificado).
-- [ ] Porcentaje de asistencia y umbral mínimo por materia.
-- [ ] Cálculo de próxima clase y clases solapadas.
-- [ ] Tests de recurrencia, feriados, excepciones y cambios de horario.
-- [ ] Exportación/importación de las nuevas entidades sin romper v1.
+- [x] CRUD de año académico, términos, materias y horarios.
+- [x] Rotaciones semanales A/B, paridad y ciclos de días.
+- [x] Feriados y excepciones de clase (cancelada, movida, extra).
+- [x] Vista semanal y vista «Hoy».
+- [x] Registro de asistencia (presente, ausente, tarde, justificado).
+- [x] Porcentaje de asistencia y umbral mínimo por materia.
+- [x] Cálculo de próxima clase y clases solapadas.
+- [x] Tests de recurrencia, feriados, excepciones y cambios de horario.
+- [x] Exportación/importación de las nuevas entidades sin romper v1.
 
 **Aceptación:** cargar un semestre completo, ver la semana correcta, registrar asistencia y detectar solapamientos.
 
@@ -413,15 +413,17 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 6 — UI académica:** sección «Materias» con año, término y materias, edición y borrado lógico con mensajes de conflicto. 18 tests de UI.
 - [x] **Paso 7 — UI de horario:** sección «Horario» con grilla semanal navegable, alta/edición/baja lógica de franjas, configuración de rotación, feriados, excepciones y registro de asistencia por clase, más solapamientos y umbral por materia. 20 tests de UI; `./scripts/check.sh` verde.
 - [x] **Paso 8 — Vista Hoy:** próxima clase y clases del día con datos reales, registro de asistencia y aviso de umbral. 21 tests de UI; `./scripts/check.sh` verde.
-- [x] **Paso 9 — Transferencia:** fixture con las ocho tablas de Fase 2 y test que verifica exportación, importación, semántica (franja, excepción, asistencia, rotación) y round-trip byte a byte; se corrigió la unicidad de directorios temporales en tests concurrentes. 42 tests de Rust; `./scripts/check.sh` verde.
-- [ ] **Paso 10 — Cierre:** tests completos, documentación, changelog y verificación manual.
+- [x] **Paso 9 — Transferencia:** fixture con las ocho tablas de Fase 2 y test que verifica exportación, importación, semántica (franja, excepción, asistencia, rotación) y round-trip byte a byte; se corrigió la unicidad de directorios temporales en tests concurrentes. 61 tests de Rust (16 core, 20 store, 14 transfer, 11 host); `./scripts/check.sh` verde.
+- [x] **Paso 10 — Cierre:** documentación de semántica de rotaciones/asistencia en `docs/DATA_MODEL.md`, changelog actualizado, resumen del proyecto en la UI y verificación final con `./scripts/check.sh` y build de producción. Fase 2 cerrada.
+
+**Estado Fase 2:** 21 tests de UI y 61 tests de Rust en verde. Sin dependencias nuevas, sin permisos nuevos, sin migración (el esquema v1 ya tenía las tablas) y `export_format_version = 1` intacto.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Regenerar los artefactos de F1 y hacer una verificación manual final de exportar/importar/restaurar en una bóveda temporal.
-2. Abrir Fase 2: año académico, términos, materias y horarios.
-3. Rotaciones A/B, feriados, excepciones y asistencia.
-4. Vista semanal y vista «Hoy» con datos reales de horario.
+1. Abrir Fase 3: exámenes, temas y pesos.
+2. Escalas de nota, categorías y promedio ponderado con enteros de punto fijo.
+3. Subtareas, etiquetas y filtros guardados de tareas.
+4. Calendario y búsqueda FTS local.
 5. Mantener la exportación/importación de cada entidad nueva sin romper `export_format_version = 1`.

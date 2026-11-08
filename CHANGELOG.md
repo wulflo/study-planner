@@ -19,6 +19,14 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Restauración del backup principal desde la UI con confirmación explícita, backup previo `pre-restore-*.db` y reapertura de la bóveda.
 - Log local `<bóveda>/omega/study-planner.log` para backup, exportación, importación, restauración y errores, con timestamp UTC y sin rutas absolutas.
 - Adjuntos en `<bóveda>/omega/attachments` identificados por SHA-256, exportados embebidos y verificados al importar.
+- Estructura académica local: años, términos (semestre, trimestre, cuatrimestre, bimestre, anual u otro) y materias con color, docente, aula, créditos y umbral de asistencia, con edición y borrado lógico.
+- Horario semanal con franjas por materia, día y hora, recurrencia semanal o bisemanal, vigencia y clave de rotación.
+- Rotaciones configurables: semanal A/B, paridad de semanas ISO y ciclo de días hábiles, con ancla y etiquetas.
+- Feriados por término y excepciones por clase: cancelada, movida (nueva hora y/o aula) o extra.
+- Registro de asistencia por clase y fecha (presente, tarde, justificado, ausente), porcentaje en puntos básicos y umbral mínimo por materia; justificar no penaliza.
+- Vista «Horario» con grilla semanal navegable, solapamientos detectados y alta/edición de franjas, rotaciones, feriados y excepciones.
+- Vista «Hoy» con la próxima clase y las clases del día, registro directo de asistencia y aviso cuando una materia cae bajo el umbral.
+- Los años, términos, materias, franjas, rotaciones, feriados, excepciones y asistencias ya viajan en la exportación canónica v1; un test verifica su semántica y el round-trip byte a byte.
 - La vista «Bóveda» muestra si hay datos y habilita exportar, importar (solo vacía) y restaurar.
 - Apertura y migración de SQLite en `<bóveda>/omega/study-planner.db`, con esquema, integridad y claves foráneas visibles en la UI sin exponer rutas.
 - Tareas persistentes con crear, completar, reabrir y eliminar (borrado lógico), con estados `pending`, `in_progress` y `done`.
@@ -35,6 +43,9 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - La app se renombró de `Omega` a `Study Planner`; los crates pasan a `study-planner-*`, el paquete a `study-planner` y el identificador a `app.studyplanner.desktop`.
 - Al elegir la bóveda se crean automáticamente `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`; la snapshot del día se crea al abrir la bóveda y se poda a 7 días.
 - La sección «Bóveda» dejó de ser un placeholder: muestra el diagnóstico real, los respaldos y permite cambiar de carpeta. La sección «Tareas» pasó a ser funcional.
+- Las secciones «Materias», «Horario» y «Hoy» usan datos reales de la bóveda; los placeholders quedan solo para las fases 3–5.
+- La vista «Hoy» ganó el bloque de horario y asistencia por encima de los pendientes, sin agregar dependencias nuevas ni permisos de red.
+- El esquema v1 ya contenía las tablas de la Fase 2; no hubo migración nueva y `export_format_version` sigue en 1.
 - `rusqlite` se compila con la feature `backup`; la bóveda y los backups viven exclusivamente en Rust.
 - El magic de exportación pasa a `STUDY-PLANNER-EXPORT` / `STUDY-PLANNER-END`.
 - La ventana principal usa `decorations: false`; la barra de título de la app reemplaza la decoración del sistema.

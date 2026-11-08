@@ -128,6 +128,7 @@ const projectChecklist = [
   { done: true, label: "Contrato de exportación v1" },
   { done: true, label: "Backups verificados y restauración" },
   { done: true, label: "Exportación e importación canónica" },
+  { done: true, label: "Materias, horario, rotaciones y asistencia" },
 ];
 
 const iconPaths: Record<string, string> = {
