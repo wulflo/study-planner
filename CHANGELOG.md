@@ -88,7 +88,7 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 
 - CI: `cargo fetch --locked` antes de las auditorías para que `cargo metadata --offline` tenga también las dependencias de otros targets (fallaba con `hermit-abi`).
 - Release: el job de macOS usa `macos-15`; `macos-14` ya no está disponible en GitHub Actions.
-- Snap: el toolchain de Rust se instala con `rustup-init` oficial porque el snap `rustup/latest` (core26) choca con la libc del SDK gnome-46 (core24).
+- Snap: el toolchain de Rust se instala con `rustup-init` oficial porque el snap `rustup/latest` (core26) choca con la libc del SDK gnome-46 (core24), y el `.deb` se toma del `target/` del workspace (no de `src-tauri/target/`).
 - Dependabot: se ignoran las actualizaciones de `glib < 0.20.0`, imposibles de resolver mientras Tauri use gtk 0.18, para que el workflow no falle.
 
 ### Conocido
