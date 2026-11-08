@@ -3,6 +3,7 @@ use study_planner_core::{AppInfo, app_info};
 use study_planner_store::Store;
 use tauri::Manager;
 
+mod updater;
 mod vault;
 
 #[derive(Debug, Serialize)]
@@ -41,6 +42,8 @@ pub fn run() {
         .setup(|app| {
             let state = vault::load_state(app.handle());
             app.manage(state);
+            let handle = app.handle().clone();
+            std::thread::spawn(move || updater::auto_check_on_startup(&handle));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -142,7 +145,13 @@ pub fn run() {
             vault::delete_study_session,
             vault::list_topic_studies,
             vault::list_study_priorities,
-            vault::get_study_stats
+            vault::get_study_stats,
+            updater::get_updater_status,
+            updater::set_updater_auto_check,
+            updater::check_updates,
+            updater::install_update,
+            updater::rollback_update,
+            updater::list_network_events
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar Study Planner");

@@ -22,3 +22,4 @@ serde_json.workspace = true
 study-planner-core = { path = "../crates/study-planner-core" }
 study-planner-store = { path = "../crates/study-planner-store" }
 study-planner-transfer = { path = "../crates/study-planner-transfer" }
+study-planner-updater = { path = "../crates/study-planner-updater" }

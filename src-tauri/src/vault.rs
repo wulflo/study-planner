@@ -782,16 +782,29 @@ fn no_vault_error() -> String {
     "Primero elegí una carpeta de bóveda en la sección Bóveda.".to_string()
 }
 
+impl AppState {
+    /// Ejecuta una operación sobre el store de la bóveda abierta.
+    ///
+    /// Se usa desde los comandos del host (por ejemplo, el updater) para no
+    /// exponer la conexión SQLite ni el lock fuera de esta capa.
+    pub(crate) fn with_store<T>(
+        &self,
+        operation: impl FnOnce(&Store) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let guard = self
+            .vault
+            .lock()
+            .map_err(|_| "El estado de la bóveda está bloqueado.".to_string())?;
+        let session = guard.as_ref().ok_or_else(no_vault_error)?;
+        operation(&session.store)
+    }
+}
+
 fn with_store<T>(
     state: &State<'_, AppState>,
     operation: impl FnOnce(&Store) -> Result<T, String>,
 ) -> Result<T, String> {
-    let guard = state
-        .vault
-        .lock()
-        .map_err(|_| "El estado de la bóveda está bloqueado.".to_string())?;
-    let session = guard.as_ref().ok_or_else(no_vault_error)?;
-    operation(&session.store)
+    state.with_store(operation)
 }
 
 #[tauri::command]

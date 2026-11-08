@@ -42,12 +42,7 @@ impl Store {
     }
 
     /// Crea o actualiza un ajuste.
-    pub fn set_setting(
-        &self,
-        key: &str,
-        value_json: &str,
-        scope: &str,
-    ) -> Result<(), StoreError> {
+    pub fn set_setting(&self, key: &str, value_json: &str, scope: &str) -> Result<(), StoreError> {
         if !matches!(scope, "portable" | "machine") {
             return Err(StoreError::InvalidSetting(
                 "el alcance del ajuste debe ser portable o machine".to_string(),

@@ -33,6 +33,15 @@ pub const UPDATE_URL: &str =
 /// Plataforma soportada por el updater.
 pub const PLATFORM: &str = "linux-x86_64";
 
+/// Host del endpoint fijo.
+pub const UPDATE_HOST: &str = "github.com";
+
+/// Clave pública minisign embebida al compilar.
+///
+/// Se reemplaza `updater.pub` cuando existe la clave de producción. Mientras
+/// el archivo solo tenga comentarios, el updater está deshabilitado.
+pub const UPDATE_PUBLIC_KEY: &str = include_str!("../updater.pub");
+
 /// Tamaño máximo aceptado para el manifiesto.
 pub const MANIFEST_MAX_BYTES: usize = 256 * 1024;
 
@@ -51,6 +60,12 @@ pub const ALLOWED_HOSTS: [&str; 3] = [
 
 /// Verdadero cuando el módulo está implementado y habilitado.
 pub const UPDATER_IMPLEMENTED: bool = true;
+
+/// Verdadero cuando `updater.pub` contiene una clave real y no solo comentarios.
+pub fn public_key_configured() -> bool {
+    let value = UPDATE_PUBLIC_KEY.trim();
+    !value.is_empty() && !value.starts_with('#')
+}
 
 /// Error del updater.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -89,6 +104,10 @@ pub enum UpdateError {
     ResponseTooLarge,
     #[error("error de instalación: {0}")]
     Install(String),
+    #[error("la clave pública de actualizaciones no está configurada")]
+    PublicKeyNotConfigured,
+    #[error("las actualizaciones solo se instalan desde un AppImage")]
+    NotAppImage,
 }
 
 /// Artefacto de una plataforma dentro del manifiesto.
@@ -357,13 +376,33 @@ impl HttpFetcher for ReqwestFetcher {
     }
 }
 
+/// Resultado de consultar el manifiesto fijo.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateCheck {
+    pub candidate: Option<UpdateCandidate>,
+    /// Bytes recibidos del manifiesto; se registran en `network_event`.
+    pub manifest_bytes: usize,
+}
+
 /// Consulta el manifiesto fijo y devuelve la actualización si es más nueva.
 pub fn check_for_update(
     fetcher: &dyn HttpFetcher,
     current_version: &str,
 ) -> Result<Option<UpdateCandidate>, UpdateError> {
+    Ok(check_for_update_with_size(fetcher, current_version)?.candidate)
+}
+
+/// Igual que [`check_for_update`], pero informa el tamaño del manifiesto.
+pub fn check_for_update_with_size(
+    fetcher: &dyn HttpFetcher,
+    current_version: &str,
+) -> Result<UpdateCheck, UpdateError> {
     let bytes = fetcher.fetch(UPDATE_URL, MANIFEST_MAX_BYTES)?;
-    evaluate_manifest(&bytes, current_version)
+    let manifest_bytes = bytes.len();
+    Ok(UpdateCheck {
+        candidate: evaluate_manifest(&bytes, current_version)?,
+        manifest_bytes,
+    })
 }
 
 /// Descarga el artefacto y lo verifica antes de devolverlo.
@@ -456,6 +495,11 @@ pub fn rollback_appimage(target: &Path) -> Result<PathBuf, UpdateError> {
     fs::rename(&backup, target).map_err(install_error)?;
     set_executable(target)?;
     Ok(target.to_path_buf())
+}
+
+/// Ruta del backup que deja [`install_appimage`] junto al AppImage.
+pub fn appimage_backup_path(target: &Path) -> PathBuf {
+    backup_path(target)
 }
 
 fn backup_path(target: &Path) -> PathBuf {
@@ -733,9 +777,9 @@ mod tests {
             artifact: TEST_ARTIFACT.to_vec(),
         };
 
-        let candidate = check_for_update(&fetcher, "0.1.0")
-            .expect("consulta válida")
-            .expect("actualización disponible");
+        let check = check_for_update_with_size(&fetcher, "0.1.0").expect("consulta válida");
+        assert_eq!(check.manifest_bytes, manifest("0.2.0").len());
+        let candidate = check.candidate.expect("actualización disponible");
         let bytes =
             download_update(&fetcher, &candidate, TEST_PUBLIC_KEY).expect("descarga válida");
         assert_eq!(bytes, TEST_ARTIFACT);
@@ -766,6 +810,7 @@ mod tests {
         let report = install_appimage(b"binario-nuevo", &target).expect("instalar");
         assert_eq!(fs::read(&target).unwrap(), b"binario-nuevo");
         assert_eq!(fs::read(&report.backup).unwrap(), b"binario-anterior");
+        assert_eq!(report.backup, appimage_backup_path(&target));
 
         let restored = rollback_appimage(&target).expect("rollback");
         assert_eq!(restored, target);

@@ -99,14 +99,50 @@ if grep -RInE 'tauri-plugin-dialog' src-tauri/Cargo.toml src-tauri/src >/dev/nul
 fi
 
 # --- Updater aislado ---------------------------------------------------------
-if grep -q 'UPDATER_IMPLEMENTED: bool = false' crates/study-planner-updater/src/lib.rs; then
+if grep -q 'UPDATER_IMPLEMENTED: bool = true' crates/study-planner-updater/src/lib.rs; then
+  if ! grep -Eq 'reqwest' crates/study-planner-updater/Cargo.toml; then
+    fail "el updater está implementado pero no declara su cliente HTTP"
+  else
+    ok "el updater usa reqwest bloqueante y rustls"
+  fi
+
+  # La red vive SOLO en el crate del updater. El host Tauri y los demás
+  # crates no deben declarar clientes HTTP ni el plugin oficial.
+  fuera_updater="$(grep -RInE '(reqwest|ureq|hyper|curl|tauri-plugin-updater)' \
+    src-tauri/Cargo.toml crates/study-planner-core/Cargo.toml \
+    crates/study-planner-store/Cargo.toml crates/study-planner-transfer/Cargo.toml \
+    2>/dev/null || true)"
+  if [[ -n "$fuera_updater" ]]; then
+    printf '%s\n' "$fuera_updater" >&2
+    fail "hay dependencias de red fuera de study-planner-updater"
+  else
+    ok "sin dependencias de red fuera de study-planner-updater"
+  fi
+
+  fuera_codigo="$(grep -RInE '(^|[^a-z])(reqwest|ureq|hyper|curl)::' \
+    src-tauri/src crates/study-planner-core/src crates/study-planner-store/src \
+    crates/study-planner-transfer/src 2>/dev/null || true)"
+  if [[ -n "$fuera_codigo" ]]; then
+    printf '%s\n' "$fuera_codigo" >&2
+    fail "hay código de red fuera de study-planner-updater"
+  else
+    ok "sin código de red fuera de study-planner-updater"
+  fi
+
+  if [[ ! -f crates/study-planner-updater/updater.pub ]]; then
+    fail "falta crates/study-planner-updater/updater.pub"
+  elif grep -q '^#' crates/study-planner-updater/updater.pub &&
+    ! grep -qv '^#' crates/study-planner-updater/updater.pub; then
+    echo "AVISO: updater.pub es un placeholder; el updater queda deshabilitado."
+  else
+    ok "clave pública del updater configurada"
+  fi
+else
   if grep -Eq '(reqwest|ureq|hyper|curl|tauri-plugin-updater|tokio)' crates/study-planner-updater/Cargo.toml; then
     fail "study-planner-updater tiene dependencias de red antes de Fase 5"
   else
     ok "study-planner-updater desactivado y sin red"
   fi
-else
-  echo "AVISO: el updater está marcado como implementado; revisar manualmente su red."
 fi
 
 # --- URLs remotas en la UI ---------------------------------------------------

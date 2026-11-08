@@ -3276,6 +3276,7 @@ dependencies = [
  "study-planner-core",
  "study-planner-store",
  "study-planner-transfer",
+ "study-planner-updater",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
