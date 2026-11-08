@@ -411,7 +411,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 4 — Cálculo semanal:** ocurrencias efectivas, rotaciones (A/B, paridad, ciclo de días, bisemanal), feriados, excepciones, próxima clase, solapamientos y porcentaje de asistencia; tests puros y de store.
 - [x] **Paso 5 — Comandos e IPC:** comandos Tauri y contrato tipado en `src/lib/ipc.ts` para toda la estructura académica y el horario. Checkpoint de la Fase 1 pendiente de commit incluido; `./scripts/check.sh` verde.
 - [x] **Paso 6 — UI académica:** sección «Materias» con año, término y materias, edición y borrado lógico con mensajes de conflicto. 18 tests de UI.
-- [ ] **Paso 7 — UI de horario:** vista semanal, alta de franjas, feriados, excepciones, asistencia y umbral.
+- [x] **Paso 7 — UI de horario:** sección «Horario» con grilla semanal navegable, alta/edición/baja lógica de franjas, configuración de rotación, feriados, excepciones y registro de asistencia por clase, más solapamientos y umbral por materia. 20 tests de UI; `./scripts/check.sh` verde.
 - [ ] **Paso 8 — Vista Hoy:** próxima clase y asistencia del día con datos reales.
 - [ ] **Paso 9 — Transferencia:** verificar que las entidades nuevas ya viajan en el `.txt` v1 y ampliar fixtures/tests si hace falta.
 - [ ] **Paso 10 — Cierre:** tests completos, documentación, changelog y verificación manual.

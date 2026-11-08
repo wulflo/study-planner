@@ -21,6 +21,7 @@ import {
   type VaultStatus,
 } from "./lib/ipc";
 import { AcademicView } from "./views/AcademicView";
+import { ScheduleView } from "./views/ScheduleView";
 import "./styles.css";
 
 const navItems = [
@@ -40,7 +41,7 @@ const navItems = [
 type SectionId = (typeof navItems)[number]["id"];
 type PlaceholderId = Exclude<
   SectionId,
-  "today" | "tasks" | "vault" | "subjects"
+  "today" | "tasks" | "vault" | "subjects" | "schedule"
 >;
 
 interface SectionInfo {
@@ -50,17 +51,6 @@ interface SectionInfo {
 }
 
 const sectionInfo: Record<PlaceholderId, SectionInfo> = {
-  schedule: {
-    phase: "Fase 2",
-    summary:
-      "Vista semanal, rotaciones A/B, feriados, excepciones y asistencia por materia. Todo calculado en local.",
-    features: [
-      "Vista semanal y vista «Hoy»",
-      "Rotaciones A/B, paridad y ciclos de días",
-      "Feriados y clases canceladas, movidas o extra",
-      "Asistencia y umbral mínimo por materia",
-    ],
-  },
   calendar: {
     phase: "Fase 3",
     summary:
@@ -1225,7 +1215,8 @@ function App() {
     active !== "today" &&
     active !== "tasks" &&
     active !== "vault" &&
-    active !== "subjects"
+    active !== "subjects" &&
+    active !== "schedule"
       ? sectionInfo[active]
       : null;
 
@@ -1301,6 +1292,14 @@ function App() {
 
           {active === "subjects" ? (
             <AcademicView vault={vault} onGoVault={() => setActive("vault")} />
+          ) : null}
+
+          {active === "schedule" ? (
+            <ScheduleView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              onGoSubjects={() => setActive("subjects")}
+            />
           ) : null}
 
           {active === "vault" ? (

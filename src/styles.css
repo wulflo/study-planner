@@ -1248,8 +1248,238 @@ code,
   gap: 2px;
 }
 
+/* Horario semanal (Fase 2). */
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.week-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.week-head p {
+  margin: 4px 0 0;
+}
+
+.week-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.week-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.week-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(170px, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-radius-sm);
+  background: var(--md-sys-color-surface-container-lowest);
+}
+
+.week-day-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.week-holiday {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--md-sys-color-tertiary) 18%, transparent);
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.78rem;
+}
+
+.week-empty {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.occurrence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.occurrence {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px;
+  border-left: 3px solid var(--md-sys-color-primary);
+  border-radius: 8px;
+  background: var(--md-sys-color-surface-container);
+}
+
+.occurrence.kind-cancelled {
+  border-left-color: var(--md-sys-color-error);
+  opacity: 0.75;
+}
+
+.occurrence.kind-moved {
+  border-left-color: var(--md-sys-color-tertiary);
+}
+
+.occurrence.kind-extra {
+  border-left-color: var(--md-sys-color-secondary);
+}
+
+.occurrence-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.occurrence-head strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.occurrence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+}
+
+.occurrence .subject-dot {
+  margin-top: 0;
+}
+
+.kind-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.kind-chip.holiday {
+  background: color-mix(in srgb, var(--md-sys-color-tertiary) 30%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+
+.kind-chip.cancelled {
+  background: color-mix(in srgb, var(--md-sys-color-error) 20%, transparent);
+  color: var(--md-sys-color-error);
+}
+
+.attendance-row {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.attendance-button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.attendance-button:hover {
+  border-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-primary);
+}
+
+.attendance-button.is-active {
+  border-color: var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.overlap-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--md-radius-sm);
+  background: var(--md-sys-color-surface-container);
+}
+
+.attendance-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--md-radius-sm);
+  background: var(--md-sys-color-surface-container);
+}
+
+.attendance-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.attendance-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.attendance-value.is-low {
+  color: var(--md-sys-color-error);
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .academic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-grid {
     grid-template-columns: 1fr;
   }
 }

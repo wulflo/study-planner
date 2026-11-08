@@ -28,6 +28,24 @@ const api = vi.hoisted(() => ({
   createSubject: vi.fn(),
   updateSubject: vi.fn(),
   deleteSubject: vi.fn(),
+  listClassSlots: vi.fn(),
+  createClassSlot: vi.fn(),
+  updateClassSlot: vi.fn(),
+  deleteClassSlot: vi.fn(),
+  getRotation: vi.fn(),
+  saveRotation: vi.fn(),
+  deleteRotation: vi.fn(),
+  listHolidays: vi.fn(),
+  createHoliday: vi.fn(),
+  deleteHoliday: vi.fn(),
+  listClassExceptions: vi.fn(),
+  createClassException: vi.fn(),
+  deleteClassException: vi.fn(),
+  listAttendance: vi.fn(),
+  setAttendance: vi.fn(),
+  clearAttendance: vi.fn(),
+  getWeekSchedule: vi.fn(),
+  getNextClass: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -152,6 +170,61 @@ const algebra = {
   updatedAt: "2026-11-08T10:00:00.000Z",
 };
 
+const classSlot = {
+  id: "slot-1",
+  subjectId: "subject-1",
+  weekday: 1,
+  startTime: "08:00",
+  endTime: "10:00",
+  recurrence: "weekly",
+  rotationKey: null,
+  validFrom: null,
+  validTo: null,
+  roomOverride: null,
+  createdAt: "2026-11-08T10:00:00.000Z",
+  updatedAt: "2026-11-08T10:00:00.000Z",
+};
+
+const weekSchedule = {
+  termId: "term-1",
+  weekStart: "2026-03-02",
+  weekEnd: "2026-03-08",
+  rotationLabel: "A",
+  holidays: [],
+  occurrences: [
+    {
+      date: "2026-03-02",
+      weekday: 1,
+      slotId: "slot-1",
+      subjectId: "subject-1",
+      subjectName: "Álgebra lineal",
+      subjectColor: "#6750A4",
+      startTime: "08:00",
+      endTime: "10:00",
+      room: "Aula 3",
+      kind: "scheduled",
+      attendanceStatus: null,
+    },
+  ],
+  overlaps: [],
+  attendance: [
+    {
+      subjectId: "subject-1",
+      subjectName: "Álgebra lineal",
+      subjectColor: "#6750A4",
+      present: 0,
+      absent: 0,
+      late: 0,
+      justified: 0,
+      counted: 0,
+      attended: 0,
+      percentBp: null,
+      minBp: 7500,
+      belowMin: false,
+    },
+  ],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAppInfo.mockResolvedValue({
@@ -209,6 +282,59 @@ beforeEach(() => {
   api.createSubject.mockResolvedValue(algebra);
   api.updateSubject.mockResolvedValue(algebra);
   api.deleteSubject.mockResolvedValue(undefined);
+  api.listClassSlots.mockResolvedValue([]);
+  api.createClassSlot.mockResolvedValue(classSlot);
+  api.updateClassSlot.mockResolvedValue(classSlot);
+  api.deleteClassSlot.mockResolvedValue(undefined);
+  api.getRotation.mockResolvedValue(null);
+  api.saveRotation.mockResolvedValue({
+    id: "rotation-1",
+    termId: "term-1",
+    mode: "weekly_ab",
+    anchorDate: "2026-03-02",
+    cycleLength: 2,
+    labels: ["A", "B"],
+    dayCycle: [],
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.deleteRotation.mockResolvedValue(undefined);
+  api.listHolidays.mockResolvedValue([]);
+  api.createHoliday.mockResolvedValue({
+    id: "holiday-1",
+    termId: "term-1",
+    date: "2026-04-02",
+    name: "Feriado",
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.deleteHoliday.mockResolvedValue(undefined);
+  api.listClassExceptions.mockResolvedValue([]);
+  api.createClassException.mockResolvedValue({
+    id: "exception-1",
+    classSlotId: "slot-1",
+    date: "2026-03-09",
+    kind: "cancelled",
+    newStartTime: null,
+    newEndTime: null,
+    newRoom: null,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.deleteClassException.mockResolvedValue(undefined);
+  api.listAttendance.mockResolvedValue([]);
+  api.setAttendance.mockResolvedValue({
+    id: "attendance-1",
+    classSlotId: "slot-1",
+    date: "2026-03-02",
+    status: "present",
+    note: null,
+    createdAt: "2026-11-08T10:00:00.000Z",
+    updatedAt: "2026-11-08T10:00:00.000Z",
+  });
+  api.clearAttendance.mockResolvedValue(undefined);
+  api.getWeekSchedule.mockResolvedValue(weekSchedule);
+  api.getNextClass.mockResolvedValue(null);
 });
 
 afterEach(cleanup);
@@ -452,5 +578,91 @@ describe("App con IPC de Tauri", () => {
       ),
     );
     expect(await screen.findByText("Física I")).toBeInTheDocument();
+  });
+
+  it("carga la semana y registra asistencia desde Horario", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Horario" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Horario semanal",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("2026-03-02 → 2026-03-08"),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Rotación A")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Marcar presente «Álgebra lineal» 2026-03-02",
+      }),
+    ).toBeInTheDocument();
+
+    api.getWeekSchedule.mockResolvedValue({
+      ...weekSchedule,
+      occurrences: [
+        {
+          ...weekSchedule.occurrences[0],
+          attendanceStatus: "present",
+        },
+      ],
+      attendance: [
+        {
+          ...weekSchedule.attendance[0],
+          present: 1,
+          counted: 1,
+          attended: 1,
+          percentBp: 10000,
+        },
+      ],
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Marcar presente «Álgebra lineal» 2026-03-02",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(api.setAttendance).toHaveBeenCalledWith(
+        "slot-1",
+        "2026-03-02",
+        "present",
+        null,
+      ),
+    );
+    expect(
+      await screen.findByRole("button", {
+        name: "Marcar presente «Álgebra lineal» 2026-03-02",
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("100.0% / mín. 75.0%")).toBeInTheDocument();
+  });
+
+  it("agrega una franja horaria a la materia", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Horario" }));
+    await screen.findByRole("heading", { name: "Franjas horarias" });
+
+    await user.click(screen.getByRole("button", { name: "Agregar franja" }));
+
+    await waitFor(() =>
+      expect(api.createClassSlot).toHaveBeenCalledWith(
+        "subject-1",
+        expect.objectContaining({
+          weekday: 1,
+          startTime: "08:00",
+          endTime: "10:00",
+          recurrence: "weekly",
+        }),
+      ),
+    );
   });
 });

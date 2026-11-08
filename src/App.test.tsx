@@ -31,9 +31,9 @@ describe("App en navegador", () => {
     await user.click(screen.getByRole("button", { name: "Horario" }));
 
     expect(
-      screen.getByRole("heading", { name: "Horario", level: 1 }),
+      screen.getByRole("heading", { name: "Horario semanal", level: 1 }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Fase 2 · Horario")).toBeInTheDocument();
+    expect(screen.getByText(/bóveda requerida/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /empezá por elegir/i }),
     ).not.toBeInTheDocument();
@@ -43,7 +43,7 @@ describe("App en navegador", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Horario" }));
+    await user.click(screen.getByRole("button", { name: "Calendario" }));
     await user.click(screen.getByRole("button", { name: "Volver a Hoy" }));
 
     expect(
