@@ -1159,29 +1159,35 @@ mod tests {
               VALUES ('exception-1', 'slot-1', '2026-05-04', 'moved');
             INSERT INTO attendance_record(id, class_slot_id, date, status)
               VALUES ('attendance-1', 'slot-1', '2026-05-11', 'present');
-            INSERT INTO exam(id, subject_id, term_id, title, date)
-              VALUES ('exam-1', 'subject-1', 'term-1', 'Parcial 1', '2026-05-20');
-            INSERT INTO topic(id, subject_id, name)
-              VALUES ('topic-1', 'subject-1', 'Matrices');
-            INSERT INTO topic(id, subject_id, parent_topic_id, name)
-              VALUES ('topic-2', 'subject-1', 'topic-1', 'Operaciones');
+            INSERT INTO exam(id, subject_id, term_id, title, date, start_time, end_time, room, weight_bp, result_score_cp, result_max_cp, result_status, notes)
+              VALUES ('exam-1', 'subject-1', 'term-1', 'Parcial 1', '2026-05-20', '08:00', '10:00', 'Aula 3', 5000, 8000, 10000, 'passed', 'Repasar matrices');
+            INSERT INTO topic(id, subject_id, name, description, sort_order)
+              VALUES ('topic-1', 'subject-1', 'Matrices', 'Definiciones y operaciones', 1);
+            INSERT INTO topic(id, subject_id, parent_topic_id, name, sort_order)
+              VALUES ('topic-2', 'subject-1', 'topic-1', 'Operaciones', 2);
             INSERT INTO exam_topic(id, exam_id, topic_id)
               VALUES ('exam-topic-1', 'exam-1', 'topic-1');
-            INSERT INTO grade_scale(id, subject_id, name, min_cp, max_cp, pass_cp)
-              VALUES ('scale-1', 'subject-1', 'Escala', 0, 10000, 6000);
-            INSERT INTO grade_category(id, subject_id, scale_id, name, weight_bp)
-              VALUES ('category-1', 'subject-1', 'scale-1', 'Parciales', 5000);
-            INSERT INTO grade_entry(id, subject_id, category_id, title, score_cp, max_cp)
-              VALUES ('entry-1', 'subject-1', 'category-1', 'Parcial 1', 8000, 10000);
-            INSERT INTO task(id, subject_id, title, status)
-              VALUES ('task-1', 'subject-1', 'Repasar matrices', 'pending');
-            INSERT INTO task(id, subject_id, parent_task_id, title, status)
-              VALUES ('task-2', 'subject-1', 'task-1', 'Hacer ejercicios', 'done');
-            INSERT INTO tag(id, name) VALUES ('tag-1', 'matemática');
+            INSERT INTO grade_scale(id, subject_id, name, min_cp, max_cp, pass_cp, precision, is_default)
+              VALUES ('scale-1', 'subject-1', 'Escala', 0, 10000, 6000, 2, 1);
+            INSERT INTO grade_category(id, subject_id, scale_id, name, weight_bp, drop_lowest)
+              VALUES ('category-1', 'subject-1', 'scale-1', 'Parciales', 6000, 1);
+            INSERT INTO grade_category(id, subject_id, scale_id, name, weight_bp, drop_lowest)
+              VALUES ('category-2', 'subject-1', 'scale-1', 'Trabajos', 4000, 0);
+            INSERT INTO grade_entry(id, subject_id, category_id, exam_id, title, score_cp, max_cp, weight_bp, date)
+              VALUES ('entry-1', 'subject-1', 'category-1', 'exam-1', 'Parcial 1', 8000, 10000, NULL, '2026-05-20');
+            INSERT INTO grade_entry(id, subject_id, category_id, title, score_cp, max_cp, weight_bp, date)
+              VALUES ('entry-2', 'subject-1', 'category-1', 'Parcial 2', 10000, 10000, NULL, '2026-06-20');
+            INSERT INTO grade_entry(id, subject_id, category_id, title, score_cp, max_cp, weight_bp, date)
+              VALUES ('entry-3', 'subject-1', 'category-2', 'Trabajo 1', 9000, 10000, NULL, '2026-06-01');
+            INSERT INTO task(id, subject_id, title, description, start_date, due_date, due_time, priority, important, estimate_minutes, status, recurrence_json)
+              VALUES ('task-1', 'subject-1', 'Repasar matrices', 'Repaso de álgebra', '2026-05-01', '2026-05-20', '18:00', 2, 1, 90, 'pending', '{{"kind":"weekly","interval":1,"until":"2026-06-30"}}');
+            INSERT INTO task(id, subject_id, parent_task_id, title, priority, status, completed_at)
+              VALUES ('task-2', 'subject-1', 'task-1', 'Hacer ejercicios', 1, 'done', '2026-05-19T10:00:00.000Z');
+            INSERT INTO tag(id, name, color) VALUES ('tag-1', 'matemática', '#FF0000');
             INSERT INTO task_tag(id, task_id, tag_id)
               VALUES ('task-tag-1', 'task-1', 'tag-1');
             INSERT INTO saved_filter(id, screen, name, query_json)
-              VALUES ('filter-1', 'tasks', 'Pendientes', '{{}}');
+              VALUES ('filter-1', 'tasks', 'Pendientes', '{{"text":"matrices","status":"open"}}');
             INSERT INTO self_assessment(id, topic_id, score)
               VALUES ('assessment-1', 'topic-1', 4);
             INSERT INTO strength_override(id, topic_id, classification)
@@ -1361,6 +1367,116 @@ mod tests {
                 "[\"A\",\"B\"]".to_string()
             )
         );
+
+        let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
+        assert_eq!(text, round_trip);
+
+        fs::remove_dir_all(source_attachments).unwrap();
+        fs::remove_dir_all(target_attachments).unwrap();
+    }
+
+    #[test]
+    fn phase_three_entities_round_trip_with_semantics() {
+        let (source, source_attachments, _) = fixture_with_all_tables();
+        let text = export_to_text(&source, &source_attachments).expect("exportar fixture");
+
+        for table in [
+            "exam",
+            "topic",
+            "exam_topic",
+            "grade_scale",
+            "grade_category",
+            "grade_entry",
+            "task",
+            "tag",
+            "task_tag",
+            "saved_filter",
+        ] {
+            assert!(
+                text.contains(&format!("\"table\":\"{table}\"")),
+                "falta la tabla {table} en la exportación"
+            );
+        }
+
+        let target = migrated_store();
+        let target_attachments = temp_dir("phase-three-attachments");
+        import_from_text(&target, &target_attachments, &text, ImportMode::EmptyOnly)
+            .expect("importar fixture");
+
+        let conn = target.connection();
+        for (table, expected) in [
+            ("exam", 1),
+            ("topic", 2),
+            ("exam_topic", 1),
+            ("grade_scale", 1),
+            ("grade_category", 2),
+            ("grade_entry", 3),
+            ("task", 2),
+            ("tag", 1),
+            ("task_tag", 1),
+            ("saved_filter", 1),
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("contar filas");
+            assert_eq!(count, expected, "filas de {table}");
+        }
+
+        let exam: (i64, String, String) = conn
+            .query_row(
+                "SELECT weight_bp, result_status, notes FROM exam WHERE id = 'exam-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("leer examen");
+        assert_eq!(
+            exam,
+            (5000, "passed".to_string(), "Repasar matrices".to_string())
+        );
+
+        let task: (i64, i64, i64, String) = conn
+            .query_row(
+                "SELECT priority, important, estimate_minutes, recurrence_json
+                 FROM task WHERE id = 'task-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("leer tarea");
+        assert_eq!(
+            task,
+            (
+                2,
+                1,
+                90,
+                "{\"kind\":\"weekly\",\"interval\":1,\"until\":\"2026-06-30\"}".to_string()
+            )
+        );
+
+        let filter_query: String = conn
+            .query_row(
+                "SELECT query_json FROM saved_filter WHERE id = 'filter-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("leer filtro guardado");
+        assert_eq!(filter_query, "{\"text\":\"matrices\",\"status\":\"open\"}");
+
+        let grade = target
+            .get_subject_grade("subject-1")
+            .expect("calcular promedio importado");
+        assert_eq!(grade.final_bp, Some(9600));
+        assert_eq!(grade.final_cp, Some(9600));
+        assert_eq!(grade.passed, Some(true));
+        assert_eq!(grade.categories.len(), 2);
+        let parciales = grade
+            .categories
+            .iter()
+            .find(|category| category.category_id == "category-1")
+            .expect("categoría de parciales");
+        assert_eq!(parciales.dropped, 1);
+        assert_eq!(parciales.percent_bp, Some(10000));
 
         let round_trip = export_to_text(&target, &target_attachments).expect("re-exportar");
         assert_eq!(text, round_trip);
