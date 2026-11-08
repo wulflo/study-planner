@@ -6,7 +6,9 @@
 > `study-planner` y a los canales `stable`, `beta` y `edge`. El workflow compila
 > el `.snap`, lo deja como artefacto y, al lanzarlo a mano, lo publica en el canal
 > elegido (`stable` por defecto). Los builds de `pull_request` solo compilan.
-> Falta probar la instalación desde la tienda en Ubuntu 24.04 limpio.
+> Revisión 1 (versión 0.1.0) liberada en `stable` el 2026-11-08; la ficha pública
+> puede tardar en aparecer mientras Canonical revisa el primer envío. Falta probar
+> la instalación desde la tienda en Ubuntu 24.04 limpio.
 
 ## Decisión
 
