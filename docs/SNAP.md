@@ -3,11 +3,11 @@
 > **Estado:** empaquetado y publicación manual a la Snap Store implementados
 > (2026-11-09). El nombre `study-planner` está registrado a la cuenta `wulflo`.
 > El workflow compila el `.snap`, lo deja como artefacto y, al lanzarlo a mano, lo
-> publica en el canal elegido (`stable` por defecto, `edge` para pruebas). El
-> secreto `SNAPCRAFT_STORE_CREDENTIALS` actual solo permite `edge`: hay que rotarlo
-> con los canales `stable,edge` antes de publicar en `stable`. Los builds de
-> `pull_request` solo compilan. Falta probar la instalación desde la tienda en
-> Ubuntu 24.04 limpio.
+> publica en el canal elegido (`stable` por defecto, `beta` o `edge` para
+> pruebas). El secreto `SNAPCRAFT_STORE_CREDENTIALS` actual solo permite `edge`:
+> hay que rotarlo con los canales `stable,beta,edge` antes de publicar en
+> `stable`. Los builds de `pull_request` solo compilan. Falta probar la
+> instalación desde la tienda en Ubuntu 24.04 limpio.
 
 ## Decisión
 
@@ -49,7 +49,7 @@ inactiva.
 - `.snapcraftignore` — excluye artefactos de build, `node_modules`, `target` y
   binarios ya empaquetados.
 - `snap/gui/study-planner.png` — ícono de la ficha de la Snap Store.
-- `.github/workflows/snap.yml` — compilación en CI y publicación manual a `stable` o `edge`.
+- `.github/workflows/snap.yml` — compilación en CI y publicación manual a `stable`, `beta` o `edge`.
 - `scripts/check-snap-version.sh` — exige que la versión del snap coincida con
   `src-tauri/tauri.conf.json`.
 
@@ -83,8 +83,8 @@ en `snap/**`. Pasos:
 2. `bash scripts/check-snap-version.sh`.
 3. `snapcore/action-build@v1`.
 4. Subida del `.snap` como artefacto `study-planner-snap`.
-5. `snapcore/action-publish@v1` al canal elegido (`stable` por defecto, `edge`
-   para pruebas), **solo** en `workflow_dispatch`.
+5. `snapcore/action-publish@v1` al canal elegido (`stable` por defecto, `beta` o
+   `edge` para pruebas), **solo** en `workflow_dispatch`.
 
 Los builds de `pull_request` nunca publican: no reciben secretos y el paso de
 publicación está condicionado al disparo manual. Para publicar una revisión hay
@@ -95,48 +95,34 @@ que lanzar el workflow «Snap» a mano desde la pestaña Actions y elegir el can
 > **Estado actual:** nombre `study-planner` registrado a la cuenta `wulflo` y
 > `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub. El token actual está limitado a
 > `study-planner` y al canal `edge`, y expira el 2027-11-08. Para publicar en
-> `stable` hay que rotarlo con `--channels stable,edge` (comando abajo).
+> `stable` hay que rotarlo con los canales `stable,beta,edge` (comando abajo).
 
-El token debe limitarse a `study-planner`, a los canales `stable` y `edge` y a los
-ACLs de paquete. El registro del nombre y el login con contraseña + 2FA los hace
-el usuario; el token se exporta a un archivo temporal y se guarda como secreto de
-GitHub sin imprimirlo.
-
-```bash
-mkdir -p /tmp/opencode/snap
-chmod 700 /tmp/opencode/snap
-
-podman run --rm -it --userns=keep-id -e HOME=/work \
-  -v /tmp/opencode/snap:/work:Z -w /work \
-  --entrypoint bash \
-  ghcr.io/canonical/snapcraft:8_core24 \
-  -lc 'snapcraft register study-planner'
-```
-
-Si el nombre ya está registrado a la cuenta, el registro falla y se sigue igual.
-
-> **Keyring:** las imágenes de Snapcraft 8.x usan el keyring del sistema y fallan
-> en contenedores sin sesión de escritorio (`No keyring found`). Para registrar el
-> nombre alcanza con `snapcore/snapcraft:stable` (4.4.4), que guarda la sesión en
-> `~/.snapcraft`. El token restringido se sigue exportando con Snapcraft 8.x,
-> porque `export-login` usa modo efímero y no necesita keyring.
+El registro del nombre y el login con contraseña + 2FA los hace el usuario. Se usa
+la imagen `docker.io/snapcore/snapcraft:stable` (4.4.4), que guarda la sesión en
+`~/.snapcraft` y evita el problema de keyring de Snapcraft 8.x. El token se exporta
+a un archivo temporal y se guarda como secreto de GitHub sin imprimirlo.
 
 ```bash
-podman run --rm -it --userns=keep-id -e HOME=/work \
-  -v /tmp/opencode/snap:/work:Z -w /work \
-  --entrypoint bash \
-  ghcr.io/canonical/snapcraft:8_core24 \
-  -lc 'snapcraft export-login \
+mkdir -p /tmp/opencode/snap && chmod 700 /tmp/opencode/snap
+cd /tmp/opencode/snap
+
+podman run --rm -it \
+  -v "$PWD:/work" -w /work \
+  docker.io/snapcore/snapcraft:stable \
+  bash -lc 'snapcraft login && snapcraft export-login \
     --snaps study-planner \
-    --channels stable,edge \
+    --channels stable,beta,edge \
     --acls package_access,package_push,package_update,package_release \
-    --expires 2027-11-09T00:00:00Z \
     /work/snap-login.txt'
 ```
 
-El token queda limitado a `study-planner` y a los canales `stable` y `edge`. El
-workflow elige el canal al lanzarse; no hace falta ampliar el token para publicar
-en `stable`.
+Si el nombre todavía no estuviera registrado, se ejecuta
+`snapcraft register study-planner` dentro del mismo contenedor antes del
+`export-login`. Si ya está registrado, el registro falla y se sigue igual.
+
+El token queda limitado a `study-planner` y a los canales `stable`, `beta` y
+`edge`. El workflow elige el canal al lanzarse; no hace falta ampliar el token
+para publicar en `stable`.
 
 Guardar en GitHub Secrets:
 
