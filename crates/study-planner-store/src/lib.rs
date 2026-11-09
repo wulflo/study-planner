@@ -16,6 +16,7 @@ mod academic;
 mod backup;
 mod exams;
 mod grades;
+mod notifications;
 mod schedule;
 mod settings;
 mod study;
@@ -29,6 +30,7 @@ pub use academic::{SubjectInput, TermInput};
 pub use backup::BackupReport;
 pub use exams::{ExamInput, TopicInput};
 pub use grades::{GradeCategoryInput, GradeEntryInput, GradeScaleInput};
+pub use notifications::{NotificationRecord, Reminder};
 pub use schedule::{ClassSlotInput, RotationInput, WeekHoliday, WeekSchedule};
 pub use settings::NetworkEvent;
 pub use study::{
