@@ -107,11 +107,11 @@ aparecen en el manifiesto del paquete y en la ficha pública):
 
 | Campo del Partner Center | Valor | Variable |
 |---|---|---|
-| `Package/Identity/Name` | `wulfo.StudyPlannerMax` | `MSIX_IDENTITY_NAME` |
+| `Package/Identity/Name` | `wulflo.StudyPlannerMax` | `MSIX_IDENTITY_NAME` |
 | `Package/Identity/Publisher` | `CN=7F51EF66-8407-4798-A8F4-3C4A407DA359` | `MSIX_PUBLISHER` |
-| `Package/Properties/PublisherDisplayName` | `wulfo` | `MSIX_PUBLISHER_DISPLAY` |
+| `Package/Properties/PublisherDisplayName` | `wulflo` | `MSIX_PUBLISHER_DISPLAY` |
 | `Package/Properties/DisplayName` | `Study Planner Max` | `MSIX_DISPLAY_NAME` |
-| Package Family Name (PFN) | `wulfo.StudyPlannerMax_m5406cz1kxxs8` | derivada; no se configura |
+| Package Family Name (PFN) | `wulflo.StudyPlannerMax_m5406cz1kxxs8` | derivada; no se configura |
 | Store ID | `9N1B9V99VGHR` | solo para la ficha de la Store |
 
 `scripts/prepare-store-msix.mjs` y el workflow `store-msix.yml` usan estos
@@ -295,11 +295,11 @@ que better-tracker y SinNotas:
    `https://github.com/wulflo/study-planner/blob/main/PRIVACY.md`.
 
 El manifiesto usa por defecto la identidad reservada en el Partner Center:
-`Identity Name` `wulfo.StudyPlannerMax`, `Publisher`
-`CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulfo` y
+`Identity Name` `wulflo.StudyPlannerMax`, `Publisher`
+`CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulflo` y
 `DisplayName` `Study Planner Max`. Los tres primeros deben coincidir
 exactamente con el Partner Center; si no, la Store rechaza la carga. La PFN
-(`wulfo.StudyPlannerMax_m5406cz1kxxs8`) se deriva de `Identity Name` y
+(`wulflo.StudyPlannerMax_m5406cz1kxxs8`) se deriva de `Identity Name` y
 `Publisher`, así que si alguno cambia, la PFN también. Se pueden sobrescribir con
 `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY` y
 `MSIX_DISPLAY_NAME`. La app detecta que corre desde `WindowsApps` y oculta todo

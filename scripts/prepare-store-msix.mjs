@@ -24,10 +24,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_IDENTITY_NAME = "wulfo.StudyPlannerMax";
+const DEFAULT_IDENTITY_NAME = "wulflo.StudyPlannerMax";
 const DEFAULT_PUBLISHER = "CN=7F51EF66-8407-4798-A8F4-3C4A407DA359";
 const DEFAULT_DISPLAY_NAME = "Study Planner Max";
-const DEFAULT_PUBLISHER_DISPLAY_NAME = "wulfo";
+const DEFAULT_PUBLISHER_DISPLAY_NAME = "wulflo";
 const STAGING_DIR = resolve(ROOT, "target", "msix", "stage");
 const ASSETS = [
   "StoreLogo.png",
@@ -137,6 +137,20 @@ const publisherDisplayName = (
   process.env.MSIX_PUBLISHER_DISPLAY ?? DEFAULT_PUBLISHER_DISPLAY_NAME
 ).trim();
 
+if (!displayName) {
+  fail(
+    "falta MSIX_DISPLAY_NAME. Copiá Package/Properties/DisplayName desde " +
+      "Partner Center.",
+  );
+}
+
+if (!publisherDisplayName) {
+  fail(
+    "falta MSIX_PUBLISHER_DISPLAY. Copiá " +
+      "Package/Properties/PublisherDisplayName desde Partner Center.",
+  );
+}
+
 if (!identityName) {
   fail(
     "falta MSIX_IDENTITY_NAME. Copiá el valor de Partner Center → " +
@@ -195,10 +209,18 @@ const manifest = template
   .replaceAll("__DISPLAY_NAME__", xmlEscape(displayName))
   .replaceAll("__PUBLISHER_DISPLAY_NAME__", xmlEscape(publisherDisplayName));
 
+if (/__[A-Z0-9_]+__/.test(manifest)) {
+  fail(
+    "El AppxManifest.xml generado todavía contiene placeholders sin " +
+      "reemplazar. Revisá la plantilla y los valores de identidad.",
+  );
+}
+
 writeFileSync(join(STAGING_DIR, "AppxManifest.xml"), manifest, "utf8");
 
 console.log(`Payload MSIX preparado: ${STAGING_DIR}`);
-console.log(`  Identity:  ${identityName}`);
-console.log(`  Publisher: ${publisher}`);
-console.log(`  Version:   ${version}`);
-console.log(`  Display:   ${displayName}`);
+console.log(`  Identity:             ${identityName}`);
+console.log(`  Publisher:            ${publisher}`);
+console.log(`  Version:              ${version}`);
+console.log(`  Display:              ${displayName}`);
+console.log(`  PublisherDisplayName: ${publisherDisplayName}`);

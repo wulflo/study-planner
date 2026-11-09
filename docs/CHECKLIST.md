@@ -2,7 +2,7 @@
 
 > **Última actualización:** 2026-11-10
 > **Fase actual:** 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento)
-> **Versión:** 0.1.4 · `schema_version = 1` · `export_format_version = 1`
+> **Versión:** 0.1.5 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
 
@@ -25,19 +25,19 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Campo | Valor |
 |---|---|
 | Fase | 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento) |
-| Versión de app | 0.1.4 |
+| Versión de app | 0.1.5 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos; el lanzador del repositorio y el updater viven en Rust |
-| Updater | Clave pública de producción configurada; detección de AppImage, `.deb`, `.rpm`, Windows y macOS; Snap y MSIX gestionados por sus tiendas; releases firmadas publicadas (`v0.1.0` a `v0.1.4`) |
+| Updater | Clave pública de producción configurada; detección de AppImage, `.deb`, `.rpm`, Windows y macOS; Snap y MSIX gestionados por sus tiendas; releases firmadas publicadas (`v0.1.0` a `v0.1.5`) |
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview; sonido opcional y modo segundo plano con bandeja |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
-| Release | AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS; `v0.1.4` suma MSIX para Microsoft Store e instancia única reforzada |
+| Release | AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS; `v0.1.5` corrige la identidad de Microsoft Store (`wulflo`) y endurece los workflows |
 
 ### Verificación vigente
 

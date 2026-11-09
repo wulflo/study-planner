@@ -2,11 +2,22 @@
 
 Todos los cambios relevantes de Study Planner se registran acá. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado pretende seguir [SemVer](https://semver.org/lang/es/).
 
+## [0.1.5] — 2026-11-09 — Identidad de Microsoft Store
+
+### Corregido
+
+- El manifiesto MSIX ahora usa la identidad real de Partner Center: `Identity Name` `wulflo.StudyPlannerMax` y `PublisherDisplayName` `wulflo`. Antes generaba `wulfo` y la Store rechazaba el paquete.
+- El workflow `store-msix` verifica los cuatro campos de identidad y el `AppxManifest.xml` generado antes de empaquetar.
+
+### Cambiado
+
+- Workflows endurecidos: checkout sin credenciales persistentes, `upload-artifact` v7, `download-artifact` v8 y acciones de Snap fijadas a `v1.3.0`/`v1.2.0`.
+
 ## [0.1.4] — 2026-11-09 — MSIX, instancia única y limpieza de interfaz
 
 ### Agregado
 
-- Empaquetado MSIX para Windows y Microsoft Store en un workflow independiente (`.github/workflows/store-msix.yml`), con el mismo patrón que better-tracker y SinNotas: `scripts/prepare-store-msix.mjs` prepara el payload y el manifiesto desde `packaging/windows-store/AppxManifest.template.xml`, y `MakeAppx.exe` deja el `.msix` sin firmar como artefacto, listo para subir al Partner Center. El workflow de release ya no genera MSIX. El manifiesto usa la identidad reservada `wulfo.StudyPlannerMax` (`Publisher` `CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulfo`) y el nombre visible `Study Planner Max`. Microsoft Store aplica su identidad y firma al publicar.
+- Empaquetado MSIX para Windows y Microsoft Store en un workflow independiente (`.github/workflows/store-msix.yml`), con el mismo patrón que better-tracker y SinNotas: `scripts/prepare-store-msix.mjs` prepara el payload y el manifiesto desde `packaging/windows-store/AppxManifest.template.xml`, y `MakeAppx.exe` deja el `.msix` sin firmar como artefacto, listo para subir al Partner Center. El workflow de release ya no genera MSIX. El manifiesto usa la identidad reservada `wulflo.StudyPlannerMax` (`Publisher` `CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulflo`) y el nombre visible `Study Planner Max`. Microsoft Store aplica su identidad y firma al publicar.
 - Detecta la instalación MSIX por la ruta `WindowsApps`, expone el runtime `msix` y oculta el panel del updater con el aviso de que se actualiza desde Microsoft Store.
 - `PRIVACY.md` con la política de privacidad requerida por Microsoft Store; el workflow de la Store falla si falta.
 - Botón «Visitar repositorio» en «Ajustes». Abre la URL fija del proyecto con el lanzador del sistema desde Rust (`xdg-open`, `open` o `rundll32`), sin plugins ni permisos nuevos en la webview.
