@@ -32,6 +32,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
 | Updater | Implementado en `study-planner-updater`; sin clave pública de producción todavía (placeholder), opt-in y firma obligatoria |
+| Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
@@ -40,10 +41,10 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 ### Verificación vigente
 
 ```text
-npm run check       ✅  32 tests de UI
+npm run check       ✅  34 tests de UI
 cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater
-                    ✅  113 tests (42 core, 42 store, 16 transfer, 13 updater)
-cargo test -p study-planner                                 ✅  13 tests de bóveda y host
+                    ✅  117 tests (42 core, 46 store, 16 transfer, 13 updater)
+cargo test -p study-planner                                 ✅  14 tests de bóveda y host
 cargo clippy (core/store/transfer/updater) -- -D warnings    ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
 cargo check -p study-planner                                 ✅
@@ -222,7 +223,7 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 - [x] Verificación de firma obligatoria; rechazar manifiestos sin firma válida.
 - [x] Descarga, verificación, instalación y rollback en Linux AppImage.
 - [x] Sin bindings JS; sin datos de usuario en la petición.
-- [ ] Notificaciones locales (clases, tareas, exámenes, repasos) con permisos solo en Rust.
+- [x] Notificaciones locales (clases, tareas, exámenes, repasos) con permisos solo en Rust.
 - [ ] Empaquetado AppImage; `.deb` opcional.
 - [ ] Auditoría final de red, licencias, CSP, permisos y backups.
 - [ ] Documentar recuperación de clave y simulacro de rotación.
@@ -319,6 +320,8 @@ Resumen; detalle en `docs/OFFLINE.md`.
 │   └── styles.css               tokens Material 3
 ├── src-tauri/                   host Tauri
 │   ├── src/lib.rs               comandos y builder
+│   ├── src/updater.rs           comandos del updater aislado
+│   ├── src/notifications.rs     planificador y D-Bus
 │   ├── tauri.conf.json          CSP, ventana, bundle
 │   └── capabilities/default.json permisos mínimos
 ├── crates/
@@ -463,7 +466,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 1 — Núcleo del updater:** manifiesto, validación de URL/host, comparación de versión, firma minisign y SHA-256 con tests. 9 tests de `study-planner-updater`; la firma debe declarar la misma versión que el manifiesto.
 - [x] **Paso 2 — Descarga e instalación:** cliente HTTP aislado con timeout y hosts permitidos, descarga temporal, verificación SHA-256 + firma + versión, reemplazo atómico, backup y rollback. 13 tests del updater (4 nuevos; sin red real en tests).
 - [x] **Paso 3 — Integración Tauri y UI:** comandos Rust `get_updater_status`, `set_updater_auto_check`, `check_updates`, `install_update`, `rollback_update` y `list_network_events`; ajuste opt-in persistido en `setting`; registro en `network_event`; vista «Ajustes» con estado, búsqueda, instalación, rollback y auditoría. La webview nunca recibe URL, firma ni ruta configurable. 32 tests de UI y 13 del host.
-- [ ] **Paso 4 — Notificaciones locales:** avisos de clases, tareas, exámenes y repasos calculados y entregados desde Rust.
+- [x] **Paso 4 — Notificaciones locales:** cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en `study-planner-store`; reclamo con `dedupe_key` único, marcado `fired`, liberación si falla la entrega y listado. Planificador cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust, sin plugin ni permisos de webview. Vista «Ajustes» con activación, tiempos de anticipación visibles, revisión manual y notificación de prueba. 4 tests nuevos del store y 1 del host.
 - [ ] **Paso 5 — Empaquetado y cierre:** AppImage, auditoría final, documentación y verificación completa.
 
 > **Bloqueado por el usuario:** la generación real de la clave minisign, su custodia en VeraCrypt/Drive y los secrets de GitHub requieren passphrase y acceso físico. El código se implementa y prueba con una clave pública de test; la clave de producción queda pendiente de confirmación explícita.
@@ -472,8 +475,8 @@ Resumen; detalle en `docs/OFFLINE.md`.
 
 ## Próximos 5 pasos
 
-1. Implementar el núcleo del updater con firma obligatoria y tests.
-2. Agregar descarga, reemplazo atómico y rollback locales.
-3. Integrar los comandos Tauri, el ajuste opt-in y la vista «Ajustes».
-4. Implementar notificaciones locales calculadas en Rust.
-5. Empaquetar el AppImage, correr la auditoría final y cerrar la Fase 5.
+1. Empaquetar el AppImage y verificar que arranca y abre la bóveda.
+2. Correr la auditoría final de red, licencias, CSP, permisos y backups.
+3. Documentar recuperación y rotación de la clave minisign.
+4. Generar la clave de producción y publicar una release firmada (bloqueado por el usuario).
+5. Cerrar la Fase 5 con demo y verificación completa.

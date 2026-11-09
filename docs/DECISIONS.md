@@ -317,3 +317,27 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 - La restauración siempre deja dos backups: el principal restaurado y el `pre-restore-*` del estado anterior.
 - Habilitar el reemplazo total requiere una decisión nueva con confirmación de doble paso y pruebas de adjuntos huérfanos.
 - El log local crece sin rotación automática en Fase 1; la rotación se evaluará junto con el diagnóstico de Fase 5.
+
+---
+
+## ADR-019 — Notificaciones locales sin plugin
+
+**Estado:** aceptada; implementada en Fase 5.
+
+**Contexto:** hacen falta recordatorios de clases, tareas, exámenes y repasos sin ampliar la superficie de la webview ni agregar red. El plugin oficial de notificaciones exigiría permisos nuevos y una dependencia más de Tauri.
+
+**Decisión:**
+
+- El cálculo de recordatorios vive en `study-planner-store` (`due_reminders`), es determinista para una hora local y usa los ajustes portables del esquema v1.
+- La deduplicación usa la tabla `notification` con `dedupe_key` única: se reclama, se envía y se marca `fired`; si la entrega falla, se libera el reclamo.
+- La entrega se hace por D-Bus (`org.freedesktop.Notifications`) desde el host Rust con `zbus`, sin plugin ni permiso `notification:*`.
+- Los ajustes de anticipación se siembran en la migración inicial; no hay migración nueva.
+- La UI solo invoca comandos sin argumentos de red y muestra los últimos avisos entregados.
+
+**Consecuencias:**
+
+- Dependencias nuevas: `zbus` (D-Bus) y `chrono` (fechas locales), sin capacidades de red.
+- En escritorios sin bus de sesión la entrega falla de forma controlada y se reintenta.
+- Los avisos no se entregan con la app cerrada; no hay servicio del sistema en esta fase.
+- La tabla conserva los avisos entregados sin purga automática por ahora.
+

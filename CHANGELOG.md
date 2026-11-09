@@ -11,6 +11,8 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Comandos Tauri del updater sin parámetros de red: estado, ajuste opt-in, comprobación, instalación, rollback y listado de eventos. La webview nunca recibe URL, firma ni ruta configurable.
 - Vista «Ajustes» con estado del updater, clave pública, activación opt-in, búsqueda e instalación de actualizaciones, rollback y auditoría de eventos de red.
 - Registro `network_event` con tipo, host, bytes, resultado y detalle técnico acotado; sin datos de la bóveda ni identificadores de usuario.
+- Notificaciones locales sin plugin ni permisos de webview: cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en el store, deduplicación con `dedupe_key` única, marcado `fired` y liberación para reintento.
+- Planificador de recordatorios cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust; vista «Ajustes» con activación, anticipaciones visibles, revisión manual, notificación de prueba y últimos avisos entregados.
 - Ajustes portables `get_setting` / `set_setting` en el store y persistencia de `updater.auto_check`.
 - Bóveda local elegible desde la app: el selector nativo se abre solo desde Rust, la raíz se guarda en la configuración de la app y se crean `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`.
 - Validación de la raíz de la bóveda: debe existir, ser una carpeta escribible, no ser la raíz del sistema de archivos y no estar dentro del repositorio.
