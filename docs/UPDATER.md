@@ -2,9 +2,8 @@
 
 > **Estado:** implementado en `crates/study-planner-updater` y conectado a la vista «Ajustes».
 > La comprobación es opt-in, la URL HTTPS es fija y la firma minisign es obligatoria.
-> **Pendiente:** reemplazar `crates/study-planner-updater/updater.pub` por la clave pública de
-> producción. Mientras siga el placeholder, el updater responde «clave pública no configurada»
-> y no descarga nada.
+> **Clave pública:** configurada en `crates/study-planner-updater/updater.pub` (2026-11-09).
+> **Pendiente:** custodiar la passphrase/copias offline y publicar la primera release firmada.
 
 El updater es la **única** excepción a la regla de «Study Planner no usa red». Debe ser pequeño, auditable, opt-in y separado del resto del código.
 

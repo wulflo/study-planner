@@ -1,8 +1,8 @@
 # Empaquetado y releases
 
-> **Estado:** pipeline implementado. El AppImage se compila en CI y se firma con
-> la clave de producción cuando exista. La publicación real queda bloqueada
-> hasta generar esa clave (ver `docs/KEYS.md`).
+> **Estado:** pipeline implementado y clave pública de producción configurada
+> (2026-11-09). Falta custodiar la passphrase/copias y configurar los secrets para
+> publicar la primera release firmada.
 
 ## Decisión
 

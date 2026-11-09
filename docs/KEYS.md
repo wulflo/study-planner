@@ -1,6 +1,9 @@
 # Custodia de claves
 
-> **Estado:** protocolo definido, nada generado todavía. La clave se crea en Fase 5.
+> **Estado:** clave de producción generada el 2026-11-09 en
+> `/run/media/veracrypt1/study-planner-keys` y clave pública versionada en
+> `crates/study-planner-updater/updater.pub`. La custodia secundaria y la
+> configuración de secrets están pendientes de confirmación del usuario.
 > **Regla de oro:** la clave privada y su passphrase nunca pasan por el chat, el repositorio, un issue, una captura de pantalla ni un archivo junto a la clave.
 
 ## Qué se protege

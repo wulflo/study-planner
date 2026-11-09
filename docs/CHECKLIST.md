@@ -31,7 +31,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
-| Updater | Implementado en `study-planner-updater`; sin clave pública de producción todavía (placeholder), opt-in y firma obligatoria |
+| Updater | Clave pública de producción configurada en `study-planner-updater`; falta publicar una release firmada |
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
@@ -218,7 +218,7 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 
 ## Fase 5 — Updater, notificaciones y empaquetado
 
-- [ ] Generar clave minisign y passphrase localmente (protocolo en `docs/KEYS.md`).
+- [x] Generar clave minisign y passphrase localmente (protocolo en `docs/KEYS.md`).
 - [ ] Custodia en VeraCrypt + copia offline + Drive cifrado; passphrase en Bitwarden + papel.
 - [ ] Configurar secrets de GitHub con `gh secret set` desde archivos, nunca en YAML.
 - [x] Implementar `study-planner-updater` con URL HTTPS fija en compilación.
@@ -471,16 +471,17 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 3 — Integración Tauri y UI:** comandos Rust `get_updater_status`, `set_updater_auto_check`, `check_updates`, `install_update`, `rollback_update` y `list_network_events`; ajuste opt-in persistido en `setting`; registro en `network_event`; vista «Ajustes» con estado, búsqueda, instalación, rollback y auditoría. La webview nunca recibe URL, firma ni ruta configurable. 32 tests de UI y 13 del host.
 - [x] **Paso 4 — Notificaciones locales:** cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en `study-planner-store`; reclamo con `dedupe_key` único, marcado `fired`, liberación si falla la entrega y listado. Planificador cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust, sin plugin ni permisos de webview. Vista «Ajustes» con activación, tiempos de anticipación visibles, revisión manual y notificación de prueba. 4 tests nuevos del store y 1 del host.
 - [x] **Paso 5 — Empaquetado, CI y cierre documental:** AppImage compilado y verificado localmente (`Study Planner_0.1.0_amd64.AppImage`, 110,79 MiB); workflow de release con build en GitHub Actions, firma con `--app-version`, generación de `latest.json` y verificación contra la clave embebida antes de publicar. CI actualizado a los crates reales, con updater, host y auditoría. Inventario de licencias actualizado (499 paquetes Cargo). Simulacro de firma/rotación con clave de test fuera del repo. Guías en `docs/RELEASE.md`, `docs/NOTIFICATIONS.md` y `docs/KEYS.md`.
-- [ ] **Cierre real de Fase 5:** depende de generar la clave de producción, custodiar la passphrase, configurar los secrets y publicar una release firmada. Sin eso, el updater sigue deshabilitado por el placeholder.
+- [x] **Clave de producción generada:** par minisign creado dentro de `/run/media/veracrypt1/study-planner-keys`, passphrase aleatoria en un archivo temporal con permisos `600`, firma de prueba verificada contra la clave pública y clave pública copiada a `crates/study-planner-updater/updater.pub`. La passphrase y la clave privada nunca se mostraron en el chat ni se versionaron.
+- [ ] **Cierre real de Fase 5:** depende de custodiar la passphrase (Bitwarden + papel), copiar la clave a la copia offline y al Drive cifrado, configurar los secrets y publicar una release firmada.
 
-> **Bloqueado por el usuario:** la generación real de la clave minisign, su custodia en VeraCrypt/Drive y los secrets de GitHub requieren passphrase y acceso físico. El código se implementa y prueba con una clave pública de test; la clave de producción queda pendiente de confirmación explícita.
+> **Pendiente del usuario:** confirmar que la passphrase quedó guardada en Bitwarden y papel para borrar `/tmp/opencode/study-planner-keygen/passphrase.txt`. Después hay que configurar los secrets del release workflow y publicar la primera release firmada.
 
 ---
 
 ## Próximos 5 pasos
 
-1. Generar la clave minisign de producción con el protocolo de `docs/KEYS.md`.
-2. Custodiarla en VeraCrypt, copia offline y contenedor cifrado; passphrase en Bitwarden y papel.
-3. Reemplazar el placeholder de `crates/study-planner-updater/updater.pub` y commitear la clave pública.
-4. Configurar los secrets del release workflow y publicar una release firmada.
+1. Guardar la passphrase en Bitwarden y papel, y confirmar para borrar el archivo temporal.
+2. Copiar `study-planner.key` y `.pub` a la copia offline y al contenedor cifrado de Drive.
+3. Configurar `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con `gh secret set`.
+4. Publicar una release firmada (`v0.2.0` o superior) y probar el updater real.
 5. Ejecutar el simulacro real de recuperación/rotación y cerrar la Fase 5.

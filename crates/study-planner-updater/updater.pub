@@ -1,8 +1,1 @@
-# Clave pública minisign de producción de Study Planner.
-#
-# Reemplazar este archivo por la salida de `tauri signer generate` (el archivo
-# .pub, tal como lo produce la CLI). Mientras siga este comentario, el updater
-# responde «clave pública no configurada» y no descarga nada.
-#
-# La clave privada y su passphrase nunca se guardan en el repositorio.
-# Ver docs/KEYS.md.
+dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUwQjI0RTNBMTZFOTREN0MKUldSOFRla1dPazZ5NExaQjhWVnNkeWc5Z0FrMnlocFhwNGJJZXd2VnNFODNBZTc2Z2c3ekRsVVMK
