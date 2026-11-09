@@ -29,4 +29,10 @@ else
   echo "==> Rust: check del host Tauri omitido (SKIP_TAURI_CHECK=1)"
 fi
 
+echo "==> Auditoría de red, permisos y secretos"
+bash scripts/audit-network.sh
+
+echo "==> Auditoría de licencias"
+bash scripts/audit-licenses.sh
+
 echo "==> OK: verificación completa"
