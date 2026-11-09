@@ -3,6 +3,7 @@ use study_planner_core::{AppInfo, app_info};
 use study_planner_store::Store;
 use tauri::Manager;
 
+mod notifications;
 mod updater;
 mod vault;
 
@@ -44,6 +45,7 @@ pub fn run() {
             app.manage(state);
             let handle = app.handle().clone();
             std::thread::spawn(move || updater::auto_check_on_startup(&handle));
+            notifications::start_scheduler(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -151,7 +153,11 @@ pub fn run() {
             updater::check_updates,
             updater::install_update,
             updater::rollback_update,
-            updater::list_network_events
+            updater::list_network_events,
+            notifications::get_notification_status,
+            notifications::set_notifications_enabled,
+            notifications::run_notification_scan,
+            notifications::send_test_notification
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar Study Planner");
