@@ -341,3 +341,44 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 - Los avisos no se entregan con la app cerrada; no hay servicio del sistema en esta fase.
 - La tabla conserva los avisos entregados sin purga automática por ahora.
 
+## ADR-020 — MSIX para Microsoft Store sin target nativo
+
+**Estado:** aceptada; implementada.
+
+**Contexto:** Microsoft Store distribuye apps de escritorio como MSIX. Tauri 2.12 solo genera NSIS y MSI en Windows; no existe un bundle MSIX nativo.
+
+**Decisión:**
+
+- El `.msix` se arma en un workflow independiente, `.github/workflows/store-msix.yml`, con `scripts/prepare-store-msix.mjs` y `MakeAppx.exe` del Windows SDK en `windows-latest`. El workflow de release no lo toca.
+- El manifiesto sale de `packaging/windows-store/AppxManifest.template.xml`, usa el identificador de la app, `runFullTrust`, `Windows.FullTrustApplication` y los íconos de tienda de `src-tauri/icons`. No declara `uap:DefaultTile`, porque MakeAppx exige `Wide310x150Logo` cuando aparece `Square310x310Logo`.
+- La firma Authenticode no se hace localmente: el `.msix` se sube sin firmar al Partner Center y Microsoft Store aplica la identidad y firma de la cuenta al publicar. No se usan certificados ni secretos de firma.
+- `PRIVACY.md` es obligatoria y el workflow `store-msix.yml` falla si no existe.
+- La app detecta `WindowsApps` en su ruta, reporta `runtime: "msix"` y oculta el updater: la Store gestiona las actualizaciones.
+
+**Consecuencias:**
+
+- El MSIX no participa del manifiesto `latest.json` ni del updater propio, ni de la release de GitHub: queda como artefacto `store-msix` del workflow manual.
+- La publicación en la Store es manual: se descarga el `.msix` del run y se sube al Partner Center.
+- El paquete no se puede instalar por sideloading sin un certificado de confianza; ese no es el flujo soportado.
+- El workflow de la Store depende del Windows SDK preinstalado en el runner.
+
+## ADR-021 — Instancia única con `tauri-plugin-single-instance`
+
+**Estado:** aceptada; implementada.
+
+**Contexto:** abrir la app desde el menú con una ventana ya oculta en la bandeja iniciaba un segundo proceso en lugar de mostrar el existente. El lock de la bóveda evitaba compartir la base, pero no resolvía la experiencia de escritorio.
+
+**Decisión:**
+
+- Se registra `tauri-plugin-single-instance` como primer plugin; el callback llama a `background::show_main_window` (mostrar, desminimizar y enfocar).
+- En Linux el plugin usa un nombre de sesión D-Bus; en Windows y macOS usa los mecanismos nativos.
+- En AppImage, `.deb`, `.rpm`, Windows y macOS funciona sin permisos adicionales.
+- Bajo snap `strict` el nombre D-Bus requiere un slot privilegiado y revisión manual de la Store; no se declara y el plugin degrada a «arrancar normalmente». Para ese caso, `src-tauri/src/instance.rs` mantiene un respaldo en Unix: `flock` sobre `instance.lock` en el directorio de datos y un socket local `instance.sock`. La segunda instancia se cierra y le pide a la primera que muestre su ventana.
+- El icono de bandeja se crea una sola vez (`TRAY_ID`): si ya existe, `setup_tray` no agrega otro.
+
+**Consecuencias:**
+
+- Una segunda instancia no llega a ejecutar `setup` ni bloquea la bóveda.
+- En el snap, la segunda apertura ya no crea otra ventana ni otro icono; enfocar la instancia viva depende del socket local, no de un slot `dbus`.
+- En Windows la detección queda a cargo del mutex con nombre del plugin, que no requiere configuración adicional.
+

@@ -28,12 +28,13 @@ git push origin v0.2.0
 
 El workflow `.github/workflows/release.yml` compila en una matriz de tres
 plataformas. Es independiente de `.github/workflows/snap.yml`, que solo construye
-el snap.
+el snap, y de `.github/workflows/store-msix.yml`, que arma el MSIX para
+Microsoft Store por separado.
 
 | Plataforma | Runner | Paquetes |
 |---|---|---|
 | Linux x86_64 | `ubuntu-24.04` | `.AppImage`, `.deb`, `.rpm` |
-| Windows x64 | `windows-latest` | `.exe` (NSIS), `.msi` y `.msix` |
+| Windows x64 | `windows-latest` | `.exe` (NSIS) y `.msi` (el MSIX va aparte) |
 | macOS arm64 | `macos-15` | `.dmg` |
 
 Pasos del workflow:
@@ -47,17 +48,13 @@ Pasos del workflow:
 4. `node scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y
    `.dmg`, copia cada artefacto con su `.sig`, escribe un `SHA256SUMS` por
    plataforma y un manifiesto parcial `manifest-<plataforma>-<arquitectura>.json`.
-5. En Windows, `node scripts/package-msix.mjs` empaqueta el `.exe` con
-   `MakeAppx.exe` del Windows SDK, genera el `AppxManifest.xml` y agrega el
-   SHA-256 del `.msix` al `SHA256SUMS-windows-x86_64.txt`. El paquete queda sin
-   firmar: se sube así al Partner Center y Microsoft Store lo firma al publicar.
-6. En Linux, `node scripts/package-release.mjs` firma el AppImage con
+5. En Linux, `node scripts/package-release.mjs` firma el AppImage con
    `tauri signer sign --app-version <versión>`, lo copia como
    `study-planner_<versión>_x86_64.AppImage` y escribe
    `dist-release/manifest-appimage.json`.
-7. En Linux, verifica la firma del AppImage contra la clave pública embebida con
+6. En Linux, verifica la firma del AppImage contra la clave pública embebida con
    `cargo run -p study-planner-updater --example verify_release`.
-8. El job `release` descarga los artefactos de las tres plataformas, comprueba
+7. El job `release` descarga los artefactos de las tres plataformas, comprueba
    que `PRIVACY.md` exista, ejecuta `node scripts/merge-manifests.mjs` para
    fusionar los manifiestos parciales en `latest.json` y crea o actualiza la
    release de GitHub, marcada como *latest*.
@@ -117,14 +114,15 @@ aparecen en el manifiesto del paquete y en la ficha pública):
 | Package Family Name (PFN) | `wulfo.StudyPlannerMax_m5406cz1kxxs8` | derivada; no se configura |
 | Store ID | `9N1B9V99VGHR` | solo para la ficha de la Store |
 
-`scripts/package-msix.mjs` y el workflow usan estos valores por defecto, así que
-no hace falta configurar nada para que el `.msix` coincida con la app reservada.
-Las variables solo se necesitan para sobrescribirlos (otra app u otra cuenta) y,
-si se definen, deben coincidir exactamente con el Partner Center: la Store
-rechaza el paquete cuando `Identity Name`, `Publisher` o `PublisherDisplayName`
-no coinciden. `MSIX_DISPLAY_NAME` no lo valida la Store, pero conviene que sea el
-mismo nombre reservado para que el mosaico instalado y la ficha coincidan. No se
-usa ningún certificado ni contraseña de firma.
+`scripts/prepare-store-msix.mjs` y el workflow `store-msix.yml` usan estos
+valores por defecto, así que no hace falta configurar nada para que el `.msix`
+coincida con la app reservada. Las variables solo se necesitan para
+sobrescribirlos (otra app u otra cuenta) y, si se definen, deben coincidir
+exactamente con el Partner Center: la Store rechaza el paquete cuando
+`Identity Name`, `Publisher` o `PublisherDisplayName` no coinciden.
+`MSIX_DISPLAY_NAME` no lo valida la Store, pero conviene que sea el mismo nombre
+reservado para que el mosaico instalado y la ficha coincidan. No se usa ningún
+certificado ni contraseña de firma.
 
 ## URL fija y manifiesto
 
@@ -272,17 +270,26 @@ instalar o al abrir la app.
 
 ## MSIX y Microsoft Store
 
-Tauri 2.12 solo genera NSIS y MSI en Windows, así que el MSIX se arma después
-del build con `scripts/package-msix.mjs`:
+Tauri 2.12 solo genera NSIS y MSI en Windows, así que el MSIX se arma en un
+workflow independiente, `.github/workflows/store-msix.yml`, con el mismo patrón
+que better-tracker y SinNotas:
 
-1. Copia `target/release/study-planner.exe` a un directorio de staging y los
-   íconos de tienda desde `src-tauri/icons` (`StoreLogo.png`,
-   `Square44x44Logo.png`, `Square150x150Logo.png`, etc.).
-2. Genera `AppxManifest.xml` con `Identity Name`, `Publisher`, versión MSIX de
-   cuatro componentes, `runFullTrust` y `Windows.FullTrustApplication`.
-3. Empaqueta con `MakeAppx.exe pack /d <stage> /p <salida> /o`. No firma nada.
-4. Escribe `study-planner_<versión>_x86_64.msix` en `dist-release` y agrega su
-   SHA-256 al `SHA256SUMS-windows-x86_64.txt`.
+1. Se dispara a mano con `gh workflow run store-msix.yml` o desde la pestaña
+   *Actions*. No publica en GitHub Releases ni toca los artefactos del workflow
+   de release.
+2. Compila solo el ejecutable con `npm run tauri build -- --no-bundle` y
+   `scripts/prepare-store-msix.mjs` copia `target/release/study-planner.exe` y
+   los íconos de tienda desde `src-tauri/icons` (`StoreLogo.png`,
+   `Square44x44Logo.png`, `Square150x150Logo.png` y `Square310x310Logo.png`) a
+   `target/msix/stage`.
+3. Genera `AppxManifest.xml` desde
+   `packaging/windows-store/AppxManifest.template.xml` con `Identity Name`,
+   `Publisher`, versión MSIX de cuatro componentes, `runFullTrust` y
+   `Windows.FullTrustApplication`. El manifiesto no declara `uap:DefaultTile`:
+   MakeAppx rechaza `Square310x310Logo` sin `Wide310x150Logo`.
+4. Empaqueta con `MakeAppx.exe pack /d target/msix/stage /p <salida> /o`. No
+   firma nada y deja `study-planner_<versión>_x64.msix` como artefacto del
+   workflow (`store-msix`).
 5. Falla si no existe `PRIVACY.md`: Microsoft Store exige una política de
    privacidad pública, enlazada desde la ficha del producto. La URL pública es
    `https://github.com/wulflo/study-planner/blob/main/PRIVACY.md`.
@@ -301,8 +308,8 @@ actualiza desde Microsoft Store».
 
 ### Publicación en la Store
 
-El workflow no sube nada al Partner Center. El `.msix` queda adjunto a la
-release de GitHub; se descarga y se sube manualmente como paquete de la
+El workflow no sube nada al Partner Center. El `.msix` queda como artefacto
+`store-msix` del run; se descarga y se sube manualmente como paquete de la
 aplicación en el Partner Center. No hace falta firmarlo antes: Microsoft Store
 lo vuelve a firmar con la identidad de la cuenta al certificar la publicación.
 El mismo paquete no se puede instalar por sideloading sin un certificado de
@@ -311,8 +318,9 @@ confianza, pero ese no es el flujo previsto.
 Verificación local (requiere Windows SDK):
 
 ```powershell
-npm run tauri build -- --bundles nsis,msi
-node scripts/package-msix.mjs
+npm run tauri build -- --no-bundle
+node scripts/prepare-store-msix.mjs
+makeappx pack /d target\msix\stage /p target\msix\out\study-planner_0.1.3_x64.msix /o
 ```
 
 ## Rotación y recuperación

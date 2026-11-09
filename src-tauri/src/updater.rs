@@ -13,7 +13,7 @@ use study_planner_updater::{
     check_for_update_for_platforms, detect_appimage, detect_runtime, download_update,
     install_update_artifact, platform_keys, public_key_configured, rollback_appimage,
 };
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::vault::AppState;
 
@@ -191,8 +191,15 @@ pub fn set_updater_auto_check(
 }
 
 #[tauri::command]
-pub fn check_updates(state: State<'_, AppState>) -> Result<Option<UpdateInfo>, String> {
-    run_check(&state)
+pub async fn check_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    // La comprobación hace red de forma bloqueante; correrla en el hilo
+    // principal deja la webview tildada mientras responde GitHub.
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        run_check(&state)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
@@ -276,10 +283,18 @@ pub fn auto_check_on_startup(app: &tauri::AppHandle) {
 /// Descarga, verifica e instala. Vuelve a consultar el manifiesto para no
 /// aceptar URL ni firma desde la webview.
 #[tauri::command]
-pub fn install_update(
-    app: tauri::AppHandle,
-    state: State<'_, AppState>,
-) -> Result<InstallOutcome, String> {
+pub async fn install_update(app: tauri::AppHandle) -> Result<InstallOutcome, String> {
+    // Descarga y instalación son bloqueantes: se hacen fuera del hilo
+    // principal para no congelar la interfaz.
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        run_install(&app, &state)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+fn run_install(app: &tauri::AppHandle, state: &AppState) -> Result<InstallOutcome, String> {
     if !public_key_configured() {
         return Err(UpdateError::PublicKeyNotConfigured.to_string());
     }
@@ -298,7 +313,7 @@ pub fn install_update(
     let check =
         check_for_update_for_platforms(&fetcher, &version, &platforms).map_err(|error| {
             log_event(
-                &state,
+                state,
                 "update_check",
                 UPDATE_HOST,
                 0,
@@ -314,7 +329,7 @@ pub fn install_update(
         .ok_or_else(|| "No hay una actualización disponible para instalar.".to_string())?;
 
     log_event(
-        &state,
+        state,
         "update_check",
         UPDATE_HOST,
         0,
@@ -331,7 +346,7 @@ pub fn install_update(
         Ok(bytes) => bytes,
         Err(error) => {
             log_event(
-                &state,
+                state,
                 "update_download",
                 host_of(&candidate.url),
                 0,
@@ -344,7 +359,7 @@ pub fn install_update(
     };
 
     log_event(
-        &state,
+        state,
         "update_download",
         host_of(&candidate.url),
         0,
@@ -356,7 +371,7 @@ pub fn install_update(
     install_update_artifact(&artifact, runtime, &candidate.platform, target.as_deref()).map_err(
         |error| {
             log_event(
-                &state,
+                state,
                 "update_install",
                 UPDATE_HOST,
                 0,
@@ -369,7 +384,7 @@ pub fn install_update(
     )?;
 
     log_event(
-        &state,
+        state,
         "update_install",
         UPDATE_HOST,
         0,
@@ -382,7 +397,7 @@ pub fn install_update(
     );
 
     if matches!(runtime, Runtime::Windows | Runtime::MacOs) {
-        schedule_restart(app);
+        schedule_restart(app.clone());
     }
 
     Ok(InstallOutcome {
@@ -457,6 +472,7 @@ mod tests {
         assert!(Runtime::Rpm.can_install());
         assert!(Runtime::Windows.can_install());
         assert!(Runtime::MacOs.can_install());
+        assert!(!Runtime::Msix.can_install());
         assert!(!Runtime::Snap.can_install());
         assert!(!Runtime::Development.can_install());
     }
@@ -480,6 +496,7 @@ mod tests {
             platform_keys(Runtime::MacOs),
             vec![format!("darwin-{arch}")]
         );
+        assert!(platform_keys(Runtime::Msix).is_empty());
         assert!(platform_keys(Runtime::Snap).is_empty());
         assert!(platform_keys(Runtime::Development).is_empty());
     }

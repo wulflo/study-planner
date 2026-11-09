@@ -70,7 +70,7 @@ Codifica y decodifica el `.txt` canónico. No conoce Tauri ni la UI. El contrato
 
 ### `study-planner-updater`
 
-Crate separado para que la red no se filtre al resto. Contiene el manifiesto, la validación de URL/host, SHA-256, la verificación minisign y el cliente HTTP bloqueante con rustls. Es la única dependencia de red del proyecto. Diseño y flujo en `docs/UPDATER.md`; publicación en `docs/RELEASE.md`.
+Crate separado para que la red no se filtre al resto. Contiene el manifiesto, la validación de URL/host, SHA-256, la verificación minisign y el cliente HTTP bloqueante con rustls. Es la única dependencia de red del proyecto. Detecta el runtime (AppImage, `.deb`, `.rpm`, Windows, MSIX, macOS, Snap) y bloquea la instalación en Snap y MSIX, donde la actualización la gestiona la tienda. Diseño y flujo en `docs/UPDATER.md`; publicación en `docs/RELEASE.md`.
 
 ### Notificaciones locales
 
@@ -83,6 +83,8 @@ Host y composición:
 - Registra comandos explícitos en `invoke_handler`.
 - Valida parámetros y traduce errores de dominio a errores IPC.
 - Configura CSP, ventana, bundle y capacidades.
+- Usa `tauri-plugin-single-instance` para enfocar la ventana existente cuando se vuelve a abrir la app; el callback llama a `background::show_main_window`. En Unix, `instance` agrega un respaldo con lock de archivo y socket local para los entornos donde el plugin no puede publicar su nombre D-Bus.
+- Abre el repositorio con `repository::open_repository`, que lanza `xdg-open`/`open`/`rundll32` sobre una URL fija definida en Rust. La webview nunca recibe una URL configurable.
 - No expone plugins de `fs`, `http`, `sql`, `shell`, `opener`, `dialog`, `notification` ni `updater` al frontend.
 
 ## Estructura de la bóveda

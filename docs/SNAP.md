@@ -44,6 +44,23 @@ El snap no incluye la clave privada del updater ni ningún secreto. La clave
 pública minisign solo se usa en el build del AppImage; en snap esa ruta queda
 inactiva.
 
+### Instancia única
+
+La app usa `tauri-plugin-single-instance`, que en Linux se apoya en D-Bus. Bajo
+el confinamiento `strict`, publicar y consultar ese nombre requiere un slot
+`dbus` privilegiado (`app.studyplanner.desktop.SingleInstance`) y una revisión
+manual de la Snap Store. El slot no está declarado: el plugin detecta que no
+puede registrar el nombre y avisa en el log.
+
+Para que el snap no quede sin protección, la app tiene un respaldo propio en
+Unix (`src-tauri/src/instance.rs`): toma un `flock` exclusivo sobre
+`instance.lock` en su directorio de datos y escucha en `instance.sock`. Si otra
+instancia no puede usar D-Bus, al abrir la app encuentra el lock tomado, le pide
+por el socket que muestre su ventana y se cierra sin crear otra ventana ni otro
+icono en la bandeja. El lock se libera solo cuando el proceso muere, así que un
+cierre abrupto no deja la app bloqueada. En AppImage, `.deb`, `.rpm`, Windows y
+macOS la instancia única funciona sin configuración adicional.
+
 ## Archivos
 
 - `snap/snapcraft.yaml` — definición del paquete.

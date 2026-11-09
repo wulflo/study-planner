@@ -306,6 +306,11 @@ export async function getAppInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("get_app_info");
 }
 
+/** Abre el repositorio público en el navegador del sistema (solo escritorio). */
+export async function openRepository(): Promise<void> {
+  return invoke<void>("open_repository");
+}
+
 export async function runSchemaSelfCheck(): Promise<SchemaCheck> {
   return invoke<SchemaCheck>("schema_self_check");
 }
@@ -1139,6 +1144,7 @@ export type UpdaterRuntime =
   | "deb"
   | "rpm"
   | "windows"
+  | "msix"
   | "macos"
   | "development";
 

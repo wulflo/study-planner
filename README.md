@@ -4,7 +4,7 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 
 **Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
 
-> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.3` con AppImage, `.deb`, `.rpm`, Windows y macOS, updater firmado multiplataforma y notificaciones locales. Snap `study-planner` 0.1.0 en `stable` (revisión 1); la próxima revisión usa 0.1.3. La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
+> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.4` con AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS, updater firmado multiplataforma, notificaciones locales y empaquetado MSIX para Microsoft Store. Snap `study-planner` 0.1.0 en `stable` (revisión 1); la próxima revisión usa 0.1.4. La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
 
 ## Principios
 
@@ -24,12 +24,12 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 | Persistencia | SQLite con `rusqlite` (bundled), WAL, migraciones versionadas |
 | Exportación | Rust (`study-planner-transfer`), formato canónico propio |
 | Updater | Rust aislado (`study-planner-updater`), opt-in y con firma minisign |
-| Empaquetado | AppImage, deb, rpm, exe/msi, dmg y snap `strict` |
+| Empaquetado | AppImage, deb, rpm, exe/msi/msix, dmg y snap `strict` |
 | Tests | Vitest + Testing Library; `cargo test` |
 
 ## Requisitos
 
-- Linux x86_64 (probado en CachyOS/Arch). Windows x64 y macOS arm64 son builds experimentales: sin notificaciones locales ni updater, y sin firma de código del sistema.
+- Linux x86_64 (probado en CachyOS/Arch). Windows x64 y macOS arm64 se compilan y actualizan, pero no tienen notificaciones locales ni firma de código del sistema.
 - Node.js 22+ y npm.
 - Rust estable 1.90+ con `cargo`.
 - WebKitGTK 4.1, GTK 3, libsoup 3 y dependencias de Tauri.
@@ -69,6 +69,7 @@ npm run check:all      # lo anterior + fmt + clippy + tests Rust
 - [`docs/RELEASE.md`](docs/RELEASE.md) — workflow multiplataforma, firma y secrets.
 - [`docs/SNAP.md`](docs/SNAP.md) — snap estricto, build y publicación.
 - [`docs/KEYS.md`](docs/KEYS.md) — custodia de la clave de firma.
+- [`PRIVACY.md`](PRIVACY.md) — política de privacidad para Microsoft Store.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisiones y descartes.
 - [`docs/OFFLINE.md`](docs/OFFLINE.md) — trabajo sin internet.
 - [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) — licencias y excepciones.

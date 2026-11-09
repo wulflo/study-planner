@@ -14,7 +14,7 @@ El updater es la **única** excepción a la regla de «Study Planner no usa red�
 3. **Firma obligatoria.** Un manifiesto o artefacto sin firma válida se rechaza. No hay modo «skip signature».
 4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Study Planner. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
-6. **Multiplataforma.** El updater detecta AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`). Bajo snap queda deshabilitado y actualiza snapd. Tauri updater no soporta Android/iOS.
+6. **Multiplataforma.** El updater detecta AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`). Bajo snap y MSIX queda deshabilitado: snapd y Microsoft Store gestionan la actualización. Tauri updater no soporta Android/iOS.
 7. **Toda la red se registra** en `network_event` (tipo, host, bytes, resultado y detalle técnico acotado), sin contenido de datos.
 8. **Sin bóveda también funciona.** El estado del updater y la comprobación manual no requieren una bóveda abierta; el registro de red se hace best-effort cuando hay una. El auto-check sigue siendo opt-in y necesita bóveda para persistir la preferencia.
 9. **Detección de runtime robusta.** AppImage se resuelve con `APPIMAGE`, luego `ARGV0` si termina en `.AppImage` y, como último recurso, el ejecutable actual. En Linux, `.deb`/`.rpm` se detectan con `dpkg-query -S` / `rpm -qf`; Windows y macOS se detectan por plataforma.
@@ -172,6 +172,26 @@ estricto la app no puede reemplazar su propio binario, y snapd ya gestiona la
 actualización desde la Snap Store. Si `APPIMAGE` y `SNAP` coexistieran, gana
 `SNAP`. Ver [`docs/SNAP.md`](SNAP.md).
 
+## Ejecución como MSIX
+
+Cuando Study Planner se instala como MSIX (Microsoft Store o sideloading), el
+ejecutable corre desde `C:\Program Files\WindowsApps\...`. La detección busca
+`windowsapps` en la ruta del ejecutable y devuelve `Runtime::Msix` antes de
+`Runtime::Windows`:
+
+- `get_updater_status` devuelve `runtime: "msix"`, `managedBySnap: false` y
+  `canInstall: false`; `platformKeys` queda vacío.
+- `check_updates`, `install_update` y `rollback_update` rechazan la operación
+  con `UpdateError::UnsupportedRuntime`.
+- La comprobación automática al iniciar no se ejecuta.
+- La vista «Ajustes» oculta el panel completo del updater y muestra el aviso
+  «Esta instalación se actualiza desde Microsoft Store». No hay botón de
+  búsqueda ni de instalación, y no aparece la tarjeta de eventos de red.
+
+La Store aplica su propia identidad y firma; el MSIX se empaqueta en
+`.github/workflows/store-msix.yml` con `scripts/prepare-store-msix.mjs`. Ver
+[`docs/RELEASE.md`](RELEASE.md#msix-y-microsoft-store).
+
 ## Tests de Fase 5
 
 - [x] Manifiesto válido y firmado: detecta versión nueva.
@@ -184,6 +204,7 @@ actualización desde la Snap Store. Si `APPIMAGE` y `SNAP` coexistieran, gana
 - [x] El binario actual queda intacto ante cualquier fallo.
 - [x] Instalación atómica y rollback con tests de sistema de archivos.
 - [x] Detección de Snap: tiene prioridad sobre AppImage y bloquea el updater.
+- [x] Detección de MSIX: bloquear la instalación y no publicar claves de plataforma.
 - [ ] Simulación con una release real firmada (requiere clave de producción y publicación).
 
 ## Amenazas y mitigaciones

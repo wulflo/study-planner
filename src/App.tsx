@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { WindowControls } from "./components/WindowControls";
 import {
@@ -14,8 +14,6 @@ import {
   listTasks,
   restoreMainBackup,
   runningInTauri,
-  runSchemaSelfCheck,
-  type SchemaCheck,
   setTaskDone,
   type Task,
   type VaultStatus,
@@ -50,20 +48,6 @@ const navItems = [
 ] as const;
 
 type SectionId = (typeof navItems)[number]["id"];
-
-const projectChecklist = [
-  { done: true, label: "Scaffold Tauri 2 + React + TypeScript" },
-  { done: true, label: "Esquema SQLite v1 y migración con checksum" },
-  { done: true, label: "Permisos mínimos y CSP base" },
-  { done: true, label: "Bóveda local elegible y tareas persistentes" },
-  { done: true, label: "Contrato de exportación v1" },
-  { done: true, label: "Backups verificados y restauración" },
-  { done: true, label: "Exportación e importación canónica" },
-  { done: true, label: "Materias, horario, rotaciones y asistencia" },
-  { done: true, label: "Exámenes, notas, tareas avanzadas y calendario" },
-  { done: true, label: "Autoevaluación, fortalezas y repaso SM-2" },
-  { done: true, label: "Pomodoro, prioridad explicable y estadísticas" },
-];
 
 const iconPaths: Record<string, string> = {
   today:
@@ -135,79 +119,6 @@ function Icon({ name }: { name: string }) {
   );
 }
 
-function ChecklistDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div className="modal-backdrop">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="checklist-title"
-      >
-        <div className="modal-head">
-          <div>
-            <p className="eyebrow">Proyecto</p>
-            <h2 id="checklist-title">Checklist persistente</h2>
-          </div>
-          <button
-            ref={closeRef}
-            type="button"
-            className="icon-button"
-            aria-label="Cerrar checklist"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-        <p className="modal-copy">
-          Resumen del estado actual. El detalle completo vive en{" "}
-          <code>docs/CHECKLIST.md</code>.
-        </p>
-        <ul className="checklist modal-checklist">
-          {projectChecklist.map((item) => (
-            <li key={item.label} className={item.done ? "done" : undefined}>
-              {item.label}
-            </li>
-          ))}
-        </ul>
-        <div className="modal-actions">
-          <button type="button" className="button filled" onClick={onClose}>
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function TaskItem({
   task,
   onToggle,
@@ -252,25 +163,15 @@ function TaskItem({
 }
 
 function TodayView({
-  info,
-  schema,
-  error,
   vault,
   tasks,
-  taskError,
-  onOpenChecklist,
   onOpenTasks,
   onOpenVault,
   onGoSubjects,
   onToggleTask,
 }: {
-  info: AppInfo | null;
-  schema: SchemaCheck | null;
-  error: string | null;
   vault: VaultStatus | null;
   tasks: Task[];
-  taskError: string | null;
-  onOpenChecklist: () => void;
   onOpenTasks: () => void;
   onOpenVault: () => void;
   onGoSubjects: () => void;
@@ -304,13 +205,6 @@ function TodayView({
             onClick={ready ? onOpenTasks : onOpenVault}
           >
             {ready ? "Ver tareas" : "Configurar bóveda"}
-          </button>
-          <button
-            type="button"
-            className="button tonal"
-            onClick={onOpenChecklist}
-          >
-            Ver checklist
           </button>
         </div>
       </section>
@@ -385,58 +279,6 @@ function TodayView({
             romper lo anterior.
           </p>
         </article>
-      </section>
-
-      <section className="status-card" aria-labelledby="status-title">
-        <div>
-          <p className="eyebrow">Autodiagnóstico</p>
-          <h2 id="status-title">Estado técnico</h2>
-        </div>
-        {!runningInTauri ? (
-          <p className="notice">
-            Modo navegador: el IPC de Tauri no está disponible. Abrí la app con{" "}
-            <code>npm run tauri dev</code> para ejecutar el autodiagnóstico.
-          </p>
-        ) : error ? (
-          <p className="notice error">{error}</p>
-        ) : (
-          <dl className="status-grid">
-            <div>
-              <dt>Esquema</dt>
-              <dd>{schema ? `v${schema.schemaVersion}` : "…"}</dd>
-            </div>
-            <div>
-              <dt>Integridad</dt>
-              <dd>{schema?.integrity ?? "…"}</dd>
-            </div>
-            <div>
-              <dt>Claves foráneas</dt>
-              <dd>
-                {schema ? `${schema.foreignKeyViolations} violaciones` : "…"}
-              </dd>
-            </div>
-            <div>
-              <dt>Formato export</dt>
-              <dd>{info ? `v${info.exportFormatVersion}` : "…"}</dd>
-            </div>
-            <div className="span-2">
-              <dt>ID de bóveda de prueba</dt>
-              <dd className="mono">{schema?.vaultId ?? "…"}</dd>
-            </div>
-          </dl>
-        )}
-      </section>
-
-      <section className="next-card" aria-labelledby="next-title">
-        <p className="eyebrow">Siguiente</p>
-        <h2 id="next-title">Primer flujo funcional</h2>
-        <ul className="checklist">
-          <li className="done">Bóveda local con SQLite propia</li>
-          <li className="done">Tareas con crear, completar y eliminar</li>
-          <li>Backups verificados en longlife</li>
-          <li>Horario, rotaciones y asistencia</li>
-        </ul>
-        {taskError ? <p className="notice error">{taskError}</p> : null}
       </section>
     </>
   );
@@ -770,7 +612,6 @@ function App() {
     setAccent,
   } = useTheme();
   const [info, setInfo] = useState<AppInfo | null>(null);
-  const [schema, setSchema] = useState<SchemaCheck | null>(null);
   const [vault, setVault] = useState<VaultStatus | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -782,7 +623,6 @@ function App() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [checklistOpen, setChecklistOpen] = useState(false);
 
   useEffect(() => {
     if (!runningInTauri) {
@@ -793,13 +633,9 @@ function App() {
 
     async function bootstrap() {
       try {
-        const [appInfo, check] = await Promise.all([
-          getAppInfo(),
-          runSchemaSelfCheck(),
-        ]);
+        const appInfo = await getAppInfo();
         if (!cancelled) {
           setInfo(appInfo);
-          setSchema(check);
         }
       } catch (reason) {
         if (!cancelled) {
@@ -1004,15 +840,16 @@ function App() {
         </nav>
 
         <main className="main">
+          {error ? (
+            <p className="notice error" role="alert">
+              {error}
+            </p>
+          ) : null}
+
           {active === "today" ? (
             <TodayView
-              info={info}
-              schema={schema}
-              error={error}
               vault={vault}
               tasks={tasks}
-              taskError={taskError}
-              onOpenChecklist={() => setChecklistOpen(true)}
               onOpenTasks={() => setActive("tasks")}
               onOpenVault={() => setActive("vault")}
               onGoSubjects={() => setActive("subjects")}
@@ -1131,11 +968,6 @@ function App() {
         <span>Study Planner · datos locales</span>
         <span>{runningInTauri ? "IPC conectado" : "Render en navegador"}</span>
       </footer>
-
-      <ChecklistDialog
-        open={checklistOpen}
-        onClose={() => setChecklistOpen(false)}
-      />
     </div>
   );
 }

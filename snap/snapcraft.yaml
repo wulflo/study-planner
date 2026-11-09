@@ -1,6 +1,6 @@
 name: study-planner
 base: core24
-version: "0.1.3"
+version: "0.1.4"
 summary: Organización académica local, sin nube ni telemetría
 description: |
   Study Planner organiza horarios, materias, exámenes, notas, tareas y repaso
