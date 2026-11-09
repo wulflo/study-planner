@@ -17,7 +17,7 @@ jobs:
   checks:
     name: Tests y verificación
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -61,11 +61,30 @@ jobs:
       - name: Formato de Rust
         run: cargo fmt --all -- --check
 
-      - name: Clippy
-        run: cargo clippy -p omega-core -p omega-store -p omega-transfer --all-targets -- -D warnings
+      - name: Clippy de los crates
+        run: |
+          cargo clippy \
+            -p study-planner-core -p study-planner-store \
+            -p study-planner-transfer -p study-planner-updater \
+            --all-targets -- -D warnings
 
-      - name: Tests de Rust
-        run: cargo test -p omega-core -p omega-store -p omega-transfer
+      - name: Clippy del host Tauri
+        run: cargo clippy -p study-planner --all-targets -- -D warnings
+
+      - name: Tests de los crates
+        run: |
+          cargo test \
+            -p study-planner-core -p study-planner-store \
+            -p study-planner-transfer -p study-planner-updater
+
+      - name: Tests de la bóveda y el host
+        run: cargo test -p study-planner
 
       - name: Check del host Tauri
-        run: cargo check -p omega
+        run: cargo check -p study-planner
+
+      - name: Auditoría de red, permisos y secretos
+        run: bash scripts/audit-network.sh
+
+      - name: Auditoría de licencias
+        run: bash scripts/audit-licenses.sh
