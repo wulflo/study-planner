@@ -2,7 +2,7 @@
 
 Todos los cambios relevantes de Study Planner se registran acá. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado pretende seguir [SemVer](https://semver.org/lang/es/).
 
-## [No publicado]
+## [0.1.1] — 2026-11-08 — Temas, segundo plano y updater
 
 ### Agregado
 
