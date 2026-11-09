@@ -28,7 +28,7 @@ jobs:
             os: ubuntu-24.04
             bundles: appimage,deb,rpm
             artifact: linux
-          - name: Windows (NSIS, MSI, MSIX)
+          - name: Windows (NSIS, MSI)
             os: windows-latest
             bundles: nsis,msi
             artifact: windows
@@ -97,18 +97,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/package-artifacts.mjs
-
-      - name: Empaquetar MSIX (Windows)
-        if: runner.os == 'Windows'
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-          RELEASE_OUT_DIR: dist-release
-          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER || secrets.MSIX_PUBLISHER }}
-          MSIX_PUBLISHER_DISPLAY: ${{ vars.MSIX_PUBLISHER_DISPLAY || secrets.MSIX_PUBLISHER_DISPLAY }}
-          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME || secrets.MSIX_IDENTITY_NAME }}
-          MSIX_DISPLAY_NAME: ${{ vars.MSIX_DISPLAY_NAME || secrets.MSIX_DISPLAY_NAME }}
-        run: node scripts/package-msix.mjs
 
       - name: Firmar AppImage y generar manifiesto (Linux)
         if: runner.os == 'Linux'
@@ -193,10 +181,11 @@ jobs:
 # Notas:
 # - Linux: AppImage, .deb y .rpm, firmados. El AppImage se actualiza solo;
 #   .deb/.rpm usan pkexec + dpkg/dnf/zypper/rpm.
-# - Windows: NSIS (.exe), MSI y MSIX. NSIS/MSI se firman con la clave de Tauri
-#   (firma de integridad, no Authenticode). El MSIX se empaqueta con MakeAppx y
-#   se sube SIN firmar al Partner Center: Microsoft Store aplica su identidad y
-#   firma al publicar. El MSIX oculta el autoactualizador.
+# - Windows: NSIS (.exe) y MSI, firmados con la clave de Tauri (firma de
+#   integridad, no Authenticode). El MSIX no se genera acá: lo arma el workflow
+#   independiente .github/workflows/store-msix.yml con MakeAppx y se sube SIN
+#   firmar al Partner Center, donde Microsoft Store aplica su identidad y firma.
+#   En el MSIX la app oculta el autoactualizador.
 # - PRIVACY.md es obligatoria para publicar en Microsoft Store.
 # - macOS: .dmg firmado con la clave de Tauri (integridad, no notarización
 #   Apple). El updater reemplaza el bundle .app y lo reabre.

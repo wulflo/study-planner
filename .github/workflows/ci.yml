@@ -65,7 +65,7 @@ jobs:
 
       - name: Sintaxis de los scripts de empaquetado
         run: |
-          node --check scripts/package-msix.mjs
+          node --check scripts/prepare-store-msix.mjs
           node --check scripts/package-artifacts.mjs
           node --check scripts/package-release.mjs
           node --check scripts/merge-manifests.mjs

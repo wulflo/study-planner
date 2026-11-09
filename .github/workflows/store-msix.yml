@@ -1,0 +1,110 @@
+name: Microsoft Store (MSIX)
+
+# Build independiente para la Store: no toca GitHub Releases, no firma con la
+# clave del updater y no compila NSIS/MSI. El MSIX se sube a mano al Partner
+# Center; Microsoft lo firma después de la certificación.
+#
+# Este workflow sigue el mismo patrón que better-tracker y SinNotas, cuyos MSIX
+# ya se empaquetan correctamente. Se dispara solo a mano.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-msix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  msix:
+    name: Build MSIX (Store)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      # Package/Identity/Name de Partner Center. No es el nombre comercial y
+      # no puede contener espacios. Se puede sobrescribir con una variable de
+      # repositorio si la Store asigna otro nombre.
+      MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME || 'wulfo.StudyPlannerMax' }}
+      # Package/Identity/Publisher de Partner Center.
+      MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER || 'CN=7F51EF66-8407-4798-A8F4-3C4A407DA359' }}
+      MSIX_DISPLAY_NAME: ${{ vars.MSIX_DISPLAY_NAME || 'Study Planner Max' }}
+      MSIX_PUBLISHER_DISPLAY: ${{ vars.MSIX_PUBLISHER_DISPLAY || 'wulfo' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Caché de Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Dependencias npm
+        run: npm ci
+
+      - name: Verificar identidad de la Store
+        shell: bash
+        run: |
+          if [ -z "${MSIX_IDENTITY_NAME:-}" ]; then
+            echo "::error::Falta MSIX_IDENTITY_NAME (Settings → Secrets and variables → Actions → Variables). Copiá Package/Identity/Name desde Partner Center → Product identity."
+            exit 1
+          fi
+          if [[ "$MSIX_IDENTITY_NAME" == *" "* ]]; then
+            echo "::error::MSIX_IDENTITY_NAME no puede contener espacios. Usá el valor exacto de Package/Identity/Name."
+            exit 1
+          fi
+          test -f PRIVACY.md
+          echo "PRIVACY.md presente para Microsoft Store"
+
+      # Igual que el resto de las plataformas: la app detecta que corre desde
+      # WindowsApps (runtime "msix") y oculta el updater, porque las
+      # actualizaciones las gestiona la Store.
+      - name: Compilar la app sin instaladores
+        run: npm run tauri build -- --no-bundle
+
+      - name: Preparar payload y AppxManifest.xml
+        run: node scripts/prepare-store-msix.mjs
+
+      - name: Empaquetar MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $makeappx) {
+            throw "No se encontró makeappx.exe. Instalá el Windows SDK en el runner."
+          }
+
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $output = "target\msix\out\study-planner_${version}_x64.msix"
+          New-Item -ItemType Directory -Force -Path (Split-Path $output) | Out-Null
+          & $makeappx.FullName pack /d target\msix\stage /p $output /o
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx falló con código $LASTEXITCODE"
+          }
+
+          Get-Item $output | Format-List Name, Length
+          Add-Content $env:GITHUB_STEP_SUMMARY "## MSIX para Microsoft Store"
+          Add-Content $env:GITHUB_STEP_SUMMARY ""
+          Add-Content $env:GITHUB_STEP_SUMMARY "- Archivo: ``$output``"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- Identity: ``$env:MSIX_IDENTITY_NAME``"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- Publisher: ``$env:MSIX_PUBLISHER``"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- Firmado: no (Microsoft Store lo firma tras la certificación)"
+
+      - name: Subir MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-msix
+          path: target/msix/out/*.msix
+          if-no-files-found: error
+          retention-days: 30
