@@ -61,7 +61,17 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
    Guardar la clave privada en `$workdir/study-planner.key` y la pública en `$workdir/study-planner.key.pub`.
    La CLI pedirá la passphrase; se toma del archivo, nunca de un argumento visible en `ps`.
 
-5. Verificar el par firmando un archivo de prueba y validando la firma con la clave pública.
+5. Verificar el par firmando un archivo de prueba y validando la firma con la clave pública:
+
+   ```bash
+   export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat "$workdir/passphrase.txt")"
+   npm run tauri signer sign -- --app-version 0.1.0 \
+     --private-key-path "$workdir/study-planner.key" "$workdir/archivo-de-prueba"
+   unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+   cargo run -q -p study-planner-updater --example verify_release -- \
+     "$workdir/archivo-de-prueba" "$workdir/archivo-de-prueba.sig" 0.1.0 \
+     "$workdir/study-planner.key.pub"
+   ```
 
 6. Copiar **solo** clave privada y pública a VeraCrypt, a la copia offline y al contenedor cifrado de Drive.
 
@@ -88,16 +98,21 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
 
 ## Clave pública
 
-- Se versiona en el repo (por ejemplo `src-tauri/updater.pub` o una constante en `study-planner-updater`).
+- Se versiona en `crates/study-planner-updater/updater.pub`.
 - Se embebe en el binario para verificar actualizaciones.
 - Se publica en las releases para que un tercero pueda verificar.
 - No es secreta; puede ir en el README de releases.
+- El release workflow se niega a publicar mientras ese archivo siga siendo un
+  placeholder (solo comentarios).
 
 ## GitHub Actions
 
-> El repositorio es público: [`wulflo/study-planner`](https://github.com/wulflo/study-planner). Estos pasos son para la Fase 5, cuando exista la clave.
+> El repositorio es público: [`wulflo/study-planner`](https://github.com/wulflo/study-planner). Estos pasos son para cuando exista la clave.
 
-Recomendación: **firmar offline** y subir el artefacto ya firmado. Si se acepta el riesgo de firmar en CI:
+El workflow `.github/workflows/release.yml` compila el AppImage y lo firma con la
+CLI de Tauri usando `--app-version` para que el trusted comment incluya
+`version:<versión>`. Después verifica la firma contra la clave pública embebida
+antes de publicar.
 
 ```bash
 # Ejecutar desde archivos locales, nunca pegando secretos en el chat.
@@ -109,9 +124,12 @@ Reglas:
 
 - El YAML solo referencia `secrets.*`; nunca contiene la clave ni la passphrase.
 - El secret de la clave debe ser el contenido exacto que espera Tauri, no una ruta.
+- La clave pública versionada debe corresponder a la privada de los secrets; si no,
+  `verify_release` falla y la release no se publica.
 - Restringir workflows, revisar permisos del token y exigir revisión para `release`.
 - Si el repo es público, recordar que los secretos no se exponen en logs, pero un workflow comprometido sí puede exfiltrarlos.
-- Preferible: workflow de release sin acceso a la clave; firma en una máquina local y subida manual de artefactos.
+- Preferible: firma offline en una máquina local y subida manual de artefactos
+  (ver `docs/RELEASE.md`).
 
 ## Rotación
 

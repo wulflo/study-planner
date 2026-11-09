@@ -36,7 +36,8 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
-| CI | GitHub Actions verde en `main`; check requerido «Tests y verificación» |
+| CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
+| Release | AppImage empaquetado y verificado localmente; publicación firmada pendiente de la clave de producción |
 
 ### Verificación vigente
 
@@ -49,6 +50,7 @@ cargo clippy (core/store/transfer/updater) -- -D warnings    ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
 cargo check -p study-planner                                 ✅
 ./scripts/audit-network.sh                                   ✅
+./scripts/audit-licenses.sh                                  ✅
 ```
 
 > Los conteos pueden subir; lo importante es que no haya fallos.
@@ -224,9 +226,9 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 - [x] Descarga, verificación, instalación y rollback en Linux AppImage.
 - [x] Sin bindings JS; sin datos de usuario en la petición.
 - [x] Notificaciones locales (clases, tareas, exámenes, repasos) con permisos solo en Rust.
-- [ ] Empaquetado AppImage; `.deb` opcional.
-- [ ] Auditoría final de red, licencias, CSP, permisos y backups.
-- [ ] Documentar recuperación de clave y simulacro de rotación.
+- [x] Empaquetado AppImage; `.deb` opcional.
+- [x] Auditoría final de red, licencias, CSP, permisos y backups.
+- [x] Documentar recuperación de clave y simulacro de rotación.
 
 **Aceptación:** una compilación publicada se actualiza solo con firma válida; una firma inválida se rechaza y queda registrada.
 
@@ -282,6 +284,7 @@ npm run check               # typecheck + lint + test + build
 npm run check:all
 ./scripts/check.sh
 ./scripts/audit-network.sh
+./scripts/audit-licenses.sh
 
 # Rust
 cargo fmt --all -- --check
@@ -467,7 +470,8 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 2 — Descarga e instalación:** cliente HTTP aislado con timeout y hosts permitidos, descarga temporal, verificación SHA-256 + firma + versión, reemplazo atómico, backup y rollback. 13 tests del updater (4 nuevos; sin red real en tests).
 - [x] **Paso 3 — Integración Tauri y UI:** comandos Rust `get_updater_status`, `set_updater_auto_check`, `check_updates`, `install_update`, `rollback_update` y `list_network_events`; ajuste opt-in persistido en `setting`; registro en `network_event`; vista «Ajustes» con estado, búsqueda, instalación, rollback y auditoría. La webview nunca recibe URL, firma ni ruta configurable. 32 tests de UI y 13 del host.
 - [x] **Paso 4 — Notificaciones locales:** cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en `study-planner-store`; reclamo con `dedupe_key` único, marcado `fired`, liberación si falla la entrega y listado. Planificador cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust, sin plugin ni permisos de webview. Vista «Ajustes» con activación, tiempos de anticipación visibles, revisión manual y notificación de prueba. 4 tests nuevos del store y 1 del host.
-- [ ] **Paso 5 — Empaquetado y cierre:** AppImage, auditoría final, documentación y verificación completa.
+- [x] **Paso 5 — Empaquetado, CI y cierre documental:** AppImage compilado y verificado localmente (`Study Planner_0.1.0_amd64.AppImage`, 110,79 MiB); workflow de release con build en GitHub Actions, firma con `--app-version`, generación de `latest.json` y verificación contra la clave embebida antes de publicar. CI actualizado a los crates reales, con updater, host y auditoría. Inventario de licencias actualizado (499 paquetes Cargo). Simulacro de firma/rotación con clave de test fuera del repo. Guías en `docs/RELEASE.md`, `docs/NOTIFICATIONS.md` y `docs/KEYS.md`.
+- [ ] **Cierre real de Fase 5:** depende de generar la clave de producción, custodiar la passphrase, configurar los secrets y publicar una release firmada. Sin eso, el updater sigue deshabilitado por el placeholder.
 
 > **Bloqueado por el usuario:** la generación real de la clave minisign, su custodia en VeraCrypt/Drive y los secrets de GitHub requieren passphrase y acceso físico. El código se implementa y prueba con una clave pública de test; la clave de producción queda pendiente de confirmación explícita.
 
@@ -475,8 +479,8 @@ Resumen; detalle en `docs/OFFLINE.md`.
 
 ## Próximos 5 pasos
 
-1. Empaquetar el AppImage y verificar que arranca y abre la bóveda.
-2. Correr la auditoría final de red, licencias, CSP, permisos y backups.
-3. Documentar recuperación y rotación de la clave minisign.
-4. Generar la clave de producción y publicar una release firmada (bloqueado por el usuario).
-5. Cerrar la Fase 5 con demo y verificación completa.
+1. Generar la clave minisign de producción con el protocolo de `docs/KEYS.md`.
+2. Custodiarla en VeraCrypt, copia offline y contenedor cifrado; passphrase en Bitwarden y papel.
+3. Reemplazar el placeholder de `crates/study-planner-updater/updater.pub` y commitear la clave pública.
+4. Configurar los secrets del release workflow y publicar una release firmada.
+5. Ejecutar el simulacro real de recuperación/rotación y cerrar la Fase 5.

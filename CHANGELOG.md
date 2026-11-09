@@ -14,6 +14,9 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Notificaciones locales sin plugin ni permisos de webview: cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en el store, deduplicación con `dedupe_key` única, marcado `fired` y liberación para reintento.
 - Planificador de recordatorios cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust; vista «Ajustes» con activación, anticipaciones visibles, revisión manual, notificación de prueba y últimos avisos entregados.
 - Ajustes portables `get_setting` / `set_setting` en el store y persistencia de `updater.auto_check`.
+- Empaquetado AppImage verificado localmente y pipeline de release en GitHub Actions: build, firma con `--app-version`, generación de `latest.json`, verificación contra la clave pública embebida y publicación de la release latest.
+- Herramienta `verify_release` para validar artefacto, firma y versión sin red.
+- CI actualizado a los crates reales (`study-planner-*`), con updater, host y auditoría de red.
 - Bóveda local elegible desde la app: el selector nativo se abre solo desde Rust, la raíz se guarda en la configuración de la app y se crean `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`.
 - Validación de la raíz de la bóveda: debe existir, ser una carpeta escribible, no ser la raíz del sistema de archivos y no estar dentro del repositorio.
 - Lock de instancia en `<bóveda>/omega/.study-planner.lock`: una segunda instancia no puede abrir la misma bóveda y recibe un error explícito.

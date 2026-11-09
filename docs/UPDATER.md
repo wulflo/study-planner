@@ -46,6 +46,23 @@ vista «Ajustes»
 
 La UI solo ve `UpdateInfo` (versión, fecha, notas) y un estado. No ve URLs internas, firmas ni rutas temporales.
 
+## Publicación
+
+El AppImage se compila y firma en GitHub Actions (`.github/workflows/release.yml`).
+`scripts/package-release.mjs` firma con `tauri signer sign --app-version <versión>`
+—para que el trusted comment incluya `version:<versión>`—, renombra el artefacto,
+calcula su SHA-256 y genera `latest.json` en `dist-release/`.
+
+Antes de publicar, el workflow exige que `updater.pub` no sea el placeholder y
+verifica la firma contra esa clave con:
+
+```bash
+cargo run -q -p study-planner-updater --example verify_release -- \
+  <artefacto> <firma> <versión>
+```
+
+Detalle completo del pipeline, secrets y release offline en `docs/RELEASE.md`.
+
 ## Manifiesto
 
 Formato compatible con la convención de Tauri, pero verificado por nuestro código:

@@ -70,7 +70,11 @@ Codifica y decodifica el `.txt` canónico. No conoce Tauri ni la UI. El contrato
 
 ### `study-planner-updater`
 
-Crate separado para que la red no se filtre al resto. Hasta la Fase 5 solo contiene `UPDATER_IMPLEMENTED = false` y ninguna dependencia de red. Diseño en `docs/UPDATER.md`.
+Crate separado para que la red no se filtre al resto. Contiene el manifiesto, la validación de URL/host, SHA-256, la verificación minisign y el cliente HTTP bloqueante con rustls. Es la única dependencia de red del proyecto. Diseño y flujo en `docs/UPDATER.md`; publicación en `docs/RELEASE.md`.
+
+### Notificaciones locales
+
+No hay crate ni plugin aparte. El cálculo determinista vive en `study-planner-store` y la entrega por D-Bus (`org.freedesktop.Notifications`) en `src-tauri/src/notifications.rs`. No se concede ningún permiso de notificación a la webview. Detalle en `docs/NOTIFICATIONS.md`.
 
 ### `src-tauri`
 

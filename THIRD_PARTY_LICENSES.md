@@ -27,6 +27,15 @@ cargo metadata --format-version 1 \
 
 Para una distribución formal, usar `cargo-about` y una herramienta equivalente para npm, y archivar los textos completos.
 
+Verificación rápida y reproducible del grafo Cargo (sin red):
+
+```bash
+./scripts/audit-licenses.sh
+```
+
+El script falla ante GPL/AGPL/LGPL/SSPL/CPAL sin decisión registrada y lista las
+excepciones MPL-2.0 aceptadas en ADR-017.
+
 ## Dependencias directas de npm
 
 | Paquete | Licencia |
@@ -68,20 +77,27 @@ Inventario npm resuelto: **152 paquetes** (incluye binarios opcionales por plata
 | `thiserror` | MIT OR Apache-2.0 |
 | `sha2` | MIT OR Apache-2.0 |
 | `hex` | MIT OR Apache-2.0 |
+| `base64` | MIT OR Apache-2.0 |
+| `semver` | MIT OR Apache-2.0 |
+| `minisign-verify` | MIT |
+| `reqwest` (solo updater) | MIT OR Apache-2.0 |
+| `rustls` (transitivo, solo updater) | Apache-2.0 OR ISC OR MIT |
+| `chrono` (notificaciones) | MIT OR Apache-2.0 |
+| `zbus` (notificaciones) | MIT |
 | `libsqlite3-sys` (transitivo) | MIT; SQLite es dominio público |
 
-Inventario Cargo resuelto: **423 paquetes** (incluye dependencias de todas las plataformas y de build; no todos se compilan en Linux).
+Inventario Cargo resuelto: **499 paquetes** (incluye dependencias de todas las plataformas y de build; no todos se compilan en Linux).
 
 ## Resumen del grafo Cargo
 
 | Familia de licencia | Paquetes |
 |---|---|
-| MIT OR Apache-2.0 | 173 |
-| MIT | 99 |
-| Apache-2.0 OR MIT | 30 |
+| MIT OR Apache-2.0 | 228 |
+| MIT | 115 |
+| Apache-2.0 OR MIT | 49 |
 | Unicode-3.0 | 18 |
 | Zlib OR Apache-2.0 OR MIT | 17 |
-| MIT/Apache-2.0 | 15 |
+| MIT/Apache-2.0 | 16 |
 | Unlicense OR MIT | 9 |
 | MPL-2.0 | 5 |
 | Otras combinaciones permisivas | resto |
