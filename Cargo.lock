@@ -3568,7 +3568,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "study-planner"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -3584,7 +3584,7 @@ dependencies = [
 
 [[package]]
 name = "study-planner-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "uuid",
@@ -3592,7 +3592,7 @@ dependencies = [
 
 [[package]]
 name = "study-planner-store"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "hex",
@@ -3607,7 +3607,7 @@ dependencies = [
 
 [[package]]
 name = "study-planner-transfer"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -3622,7 +3622,7 @@ dependencies = [
 
 [[package]]
 name = "study-planner-updater"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.22.1",
  "hex",

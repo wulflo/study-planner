@@ -2,7 +2,7 @@
 
 > **Última actualización:** 2026-11-08
 > **Fase actual:** 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento)
-> **Versión:** 0.1.1 · `schema_version = 1` · `export_format_version = 1`
+> **Versión:** 0.1.2 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
 
@@ -25,19 +25,19 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Campo | Valor |
 |---|---|
 | Fase | 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento) |
-| Versión de app | 0.1.1 |
+| Versión de app | 0.1.2 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
-| Updater | Clave pública de producción configurada; releases firmadas publicadas (`v0.1.0`, `v0.1.1`) |
+| Updater | Clave pública de producción configurada; releases firmadas publicadas (`v0.1.0`, `v0.1.1`, `v0.1.2`) |
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview; sonido opcional y modo segundo plano con bandeja |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
-| Release | AppImage, `.deb`, `.rpm`, Windows y macOS firmados y publicados; `v0.1.1` es la última |
+| Release | AppImage, `.deb`, `.rpm`, Windows y macOS firmados y publicados; `v0.1.2` es la última |
 
 ### Verificación vigente
 

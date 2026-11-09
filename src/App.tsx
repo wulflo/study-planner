@@ -979,9 +979,7 @@ function App() {
         <div className="topbar-end">
           <div className="topbar-meta">
             <span className="quiet">Local · sin cuentas · sin telemetría</span>
-            <span className="version">
-              {info ? `v${info.version}` : "v0.1.0"}
-            </span>
+            <span className="version">{info ? `v${info.version}` : null}</span>
           </div>
           <WindowControls />
         </div>

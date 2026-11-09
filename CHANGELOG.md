@@ -2,6 +2,12 @@
 
 Todos los cambios relevantes de Study Planner se registran acá. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado pretende seguir [SemVer](https://semver.org/lang/es/).
 
+## [0.1.2] — 2026-11-08 — Corrección de la versión en la barra superior
+
+### Corregido
+
+- La barra superior ya no muestra `v0.1.0` mientras carga la información de la app. Ahora deja el espacio vacío hasta recibir la versión real, así una instalación actualizada no parece seguir en una versión anterior.
+
 ## [0.1.1] — 2026-11-08 — Temas, segundo plano y updater
 
 ### Agregado
