@@ -247,11 +247,7 @@ const manifest = `<?xml version="1.0" encoding="utf-8"?>
         Square44x44Logo="Assets\\Square44x44Logo.png">
         <uap:DefaultTile
           Square310x310Logo="Assets\\Square310x310Logo.png"
-          Square71x71Logo="Assets\\Square71x71Logo.png"
-          Square89x89Logo="Assets\\Square89x89Logo.png"
-          Square107x107Logo="Assets\\Square107x107Logo.png"
-          Square142x142Logo="Assets\\Square142x142Logo.png"
-          Square284x284Logo="Assets\\Square284x284Logo.png" />
+          Square71x71Logo="Assets\\Square71x71Logo.png" />
       </uap:VisualElements>
     </Application>
   </Applications>
