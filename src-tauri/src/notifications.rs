@@ -16,6 +16,7 @@ use tauri::{Manager, State};
 use crate::vault::AppState;
 
 const ENABLED_KEY: &str = "notifications.enabled";
+const SOUND_KEY: &str = "notifications.sound";
 const CLASS_LEAD_KEY: &str = "notifications.class_lead_minutes";
 const TASK_LEAD_KEY: &str = "notifications.task_lead_minutes";
 const EXAM_LEAD_KEY: &str = "notifications.exam_lead_hours";
@@ -26,6 +27,7 @@ const SCAN_INTERVAL: Duration = Duration::from_secs(60);
 #[serde(rename_all = "camelCase")]
 pub struct NotificationStatus {
     pub enabled: bool,
+    pub sound: bool,
     pub class_lead_minutes: i64,
     pub task_lead_minutes: i64,
     pub exam_lead_hours: i64,
@@ -61,6 +63,7 @@ fn status_of(state: &AppState) -> Result<NotificationStatus, String> {
     state.with_store(|store| {
         Ok(NotificationStatus {
             enabled: read_bool(store, ENABLED_KEY, true),
+            sound: read_bool(store, SOUND_KEY, true),
             class_lead_minutes: read_i64(store, CLASS_LEAD_KEY, 10),
             task_lead_minutes: read_i64(store, TASK_LEAD_KEY, 60),
             exam_lead_hours: read_i64(store, EXAM_LEAD_KEY, 24),
@@ -69,6 +72,13 @@ fn status_of(state: &AppState) -> Result<NotificationStatus, String> {
                 .map_err(|error| error.to_string())?,
         })
     })
+}
+
+/// Lee la preferencia de sonido sin exigir una bóveda abierta.
+fn sound_enabled(state: &AppState) -> bool {
+    state
+        .with_store_opt(|store| Ok(store.is_none_or(|store| read_bool(store, SOUND_KEY, true))))
+        .unwrap_or(true)
 }
 
 #[tauri::command]
@@ -93,22 +103,53 @@ pub fn set_notifications_enabled(
     status_of(&state)
 }
 
+#[tauri::command]
+pub fn set_notifications_sound(
+    enabled: bool,
+    state: State<'_, AppState>,
+) -> Result<NotificationStatus, String> {
+    state.with_store(|store| {
+        store
+            .set_setting(
+                SOUND_KEY,
+                if enabled { "true" } else { "false" },
+                "portable",
+            )
+            .map_err(|error| error.to_string())
+    })?;
+    status_of(&state)
+}
+
 /// Revisa y entrega ahora los recordatorios pendientes.
 #[tauri::command]
 pub fn run_notification_scan(state: State<'_, AppState>) -> Result<ScanOutcome, String> {
     scan_reminders(&state)
 }
 
+/// Variante para la bandeja del sistema: no propaga errores y respeta el
+/// interruptor de notificaciones.
+pub fn scan_now(app: &tauri::AppHandle) {
+    let state = app.state::<AppState>();
+    let enabled = state
+        .with_store(|store| Ok(read_bool(store, ENABLED_KEY, true)))
+        .unwrap_or(false);
+    if enabled {
+        let _ = scan_reminders(&state);
+    }
+}
+
 /// Envía una notificación de prueba sin tocar la base ni la red.
 #[tauri::command]
-pub fn send_test_notification() -> Result<(), String> {
+pub fn send_test_notification(state: State<'_, AppState>) -> Result<(), String> {
     send_notification(
         "Study Planner",
         "Las notificaciones locales funcionan. Este aviso no salió de la bóveda.",
+        sound_enabled(&state),
     )
 }
 
 fn scan_reminders(state: &State<'_, AppState>) -> Result<ScanOutcome, String> {
+    let sound = sound_enabled(state);
     let claims: Vec<(String, Reminder)> = state.with_store(|store| {
         let mut claims = Vec::new();
         for reminder in store.due_reminders().map_err(|error| error.to_string())? {
@@ -125,7 +166,7 @@ fn scan_reminders(state: &State<'_, AppState>) -> Result<ScanOutcome, String> {
     let mut delivered = 0;
     let mut failed = 0;
     for (id, reminder) in claims {
-        match send_notification(&reminder.title, &reminder.body) {
+        match send_notification(&reminder.title, &reminder.body, sound) {
             Ok(()) => {
                 state
                     .with_store(|store| {
@@ -182,10 +223,17 @@ fn start_linux_scheduler(app: tauri::AppHandle) {
 }
 
 #[cfg(target_os = "linux")]
-fn send_notification(title: &str, body: &str) -> Result<(), String> {
+fn send_notification(title: &str, body: &str, sound: bool) -> Result<(), String> {
     let connection = zbus::blocking::Connection::session()
         .map_err(|error| format!("No se pudo abrir la sesión D-Bus: {error}"))?;
-    let hints: HashMap<&str, zbus::zvariant::Value<'_>> = HashMap::new();
+    let mut hints: HashMap<&str, zbus::zvariant::Value<'_>> = HashMap::new();
+    if sound {
+        // El escritorio decide qué sonido asociar a este nombre estándar.
+        hints.insert(
+            "sound-name",
+            zbus::zvariant::Value::from("message-new-instant"),
+        );
+    }
     connection
         .call_method(
             Some("org.freedesktop.Notifications"),
@@ -208,7 +256,7 @@ fn send_notification(title: &str, body: &str) -> Result<(), String> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn send_notification(_title: &str, _body: &str) -> Result<(), String> {
+fn send_notification(_title: &str, _body: &str, _sound: bool) -> Result<(), String> {
     Err("Las notificaciones locales solo están disponibles en Linux.".to_string())
 }
 
@@ -222,6 +270,7 @@ mod tests {
         let mut store = store;
         store.migrate().expect("migrar");
         assert!(read_bool(&store, ENABLED_KEY, true));
+        assert!(read_bool(&store, SOUND_KEY, true));
         assert_eq!(read_i64(&store, CLASS_LEAD_KEY, 10), 10);
         assert_eq!(read_i64(&store, TASK_LEAD_KEY, 60), 60);
         assert_eq!(read_i64(&store, EXAM_LEAD_KEY, 24), 24);

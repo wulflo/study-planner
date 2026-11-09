@@ -6,6 +6,10 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 
 ### Agregado
 
+- Apariencia configurable en «Ajustes»: modo claro, oscuro o sistema y ocho colores de acento (violeta, azul, verde azulado, verde, ámbar, naranja, rosa y rojo) que tiñen fondos, superficies y controles. La preferencia se guarda en `localStorage`, así que funciona antes de configurar la bóveda.
+- Modo segundo plano con icono de bandeja: mostrar, revisar recordatorios y salir. Cerrar la ventana la oculta en lugar de terminar la app cuando la bandeja está disponible.
+- Sonido opcional en los recordatorios mediante el hint `sound-name` de `org.freedesktop.Notifications`; se puede activar o desactivar desde «Ajustes» y se aplica también a la notificación de prueba.
+- Categoría `Education` en el bundle de Linux para que el menú de aplicaciones clasifique Study Planner correctamente.
 - Updater aislado en `study-planner-updater`: manifiesto JSON, versión semver, SHA-256, firma minisign obligatoria con `version:<versión>` en el trusted comment, hosts HTTPS permitidos y redirects limitados.
 - Descarga con `reqwest` bloqueante y rustls solo dentro del crate del updater; verificación antes de instalar, reemplazo atómico del AppImage, backup `.old` y rollback con el binario fallido en `.failed`.
 - Comandos Tauri del updater sin parámetros de red: estado, ajuste opt-in, comprobación, instalación, rollback y listado de eventos. La webview nunca recibe URL, firma ni ruta configurable.
@@ -88,6 +92,10 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 
 ### Corregido
 
+- El updater ya no depende de que haya una bóveda abierta: el estado y la comprobación funcionan sin ella y el registro de red es best-effort. La detección de AppImage usa `APPIMAGE`, `ARGV0` y el ejecutable actual, por lo que el botón de instalar deja de aparecer bloqueado en un AppImage publicado.
+- La ventana maximizada ya no deja padding lateral de más: la barra lateral queda pegada al borde y el contenido principal se centra con un ancho máximo propio.
+- En ventanas angostas la barra lateral colapsa a una franja de íconos (y a una barra horizontal en anchos muy reducidos), con etiquetas accesibles y tooltips.
+- El redimensionado de la ventana sin decoración dejó de acumular artefactos grises: se quitaron los `backdrop-filter`, los fondos pasaron a ser sólidos y los bordes de redimensionado se ocultan al maximizar.
 - CI: `cargo fetch --locked` antes de las auditorías para que `cargo metadata --offline` tenga también las dependencias de otros targets (fallaba con `hermit-abi`).
 - Release: el job de macOS usa `macos-15`; `macos-14` ya no está disponible en GitHub Actions.
 - Snap: el toolchain de Rust se instala con `rustup-init` oficial porque el snap `rustup/latest` (core26) choca con la libc del SDK gnome-46 (core24), y el `.deb` se toma del `target/` del workspace (no de `src-tauri/target/`).

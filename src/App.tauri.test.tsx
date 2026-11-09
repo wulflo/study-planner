@@ -111,8 +111,11 @@ const api = vi.hoisted(() => ({
   listNetworkEvents: vi.fn(),
   getNotificationStatus: vi.fn(),
   setNotificationsEnabled: vi.fn(),
+  setNotificationsSound: vi.fn(),
   runNotificationScan: vi.fn(),
   sendTestNotification: vi.fn(),
+  getBackgroundStatus: vi.fn(),
+  setBackgroundMode: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -585,10 +588,16 @@ const notificationRecord = {
 
 const notificationStatus = {
   enabled: true,
+  sound: true,
   classLeadMinutes: 10,
   taskLeadMinutes: 60,
   examLeadHours: 24,
   recent: [notificationRecord],
+};
+
+const backgroundStatus = {
+  enabled: true,
+  trayAvailable: true,
 };
 
 beforeEach(() => {
@@ -824,8 +833,17 @@ beforeEach(() => {
     ...notificationStatus,
     enabled: false,
   });
+  api.setNotificationsSound.mockResolvedValue({
+    ...notificationStatus,
+    sound: false,
+  });
   api.runNotificationScan.mockResolvedValue({ delivered: 2, failed: 0 });
   api.sendTestNotification.mockResolvedValue(undefined);
+  api.getBackgroundStatus.mockResolvedValue(backgroundStatus);
+  api.setBackgroundMode.mockResolvedValue({
+    ...backgroundStatus,
+    enabled: false,
+  });
 });
 
 afterEach(cleanup);
@@ -1470,6 +1488,19 @@ describe("App con IPC de Tauri", () => {
     ).toBeInTheDocument();
   });
 
+  it("habilita el updater en un AppImage aunque no haya bóveda", async () => {
+    api.getVaultStatus.mockResolvedValue(vaultMissing);
+    api.listTasks.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Buscar actualizaciones" }),
+    ).toBeEnabled();
+  });
+
   it("deshabilita la comprobación sin clave pública configurada", async () => {
     api.getUpdaterStatus.mockResolvedValue({
       ...updaterStatus,
@@ -1559,5 +1590,54 @@ describe("App con IPC de Tauri", () => {
     expect(
       await screen.findByText(/notificación de prueba enviada/i),
     ).toBeInTheDocument();
+  });
+
+  it("alterna el sonido de los recordatorios", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+    const sound = await screen.findByRole("checkbox", {
+      name: /sonido en los recordatorios/i,
+    });
+    expect(sound).toBeChecked();
+
+    await user.click(sound);
+    expect(api.setNotificationsSound).toHaveBeenCalledWith(false);
+    expect(
+      await screen.findByRole("checkbox", {
+        name: /sonido en los recordatorios/i,
+      }),
+    ).not.toBeChecked();
+  });
+
+  it("alterna el modo segundo plano", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+    const background = await screen.findByRole("checkbox", {
+      name: /mantener en segundo plano/i,
+    });
+    expect(background).toBeChecked();
+
+    await user.click(background);
+    expect(api.setBackgroundMode).toHaveBeenCalledWith(false);
+  });
+
+  it("permite elegir tema claro y color de acento", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+    await user.click(screen.getByRole("button", { name: "Claro" }));
+
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(window.localStorage.getItem("study-planner.theme")).toBe("light");
+
+    await user.click(screen.getByRole("button", { name: "Azul" }));
+
+    expect(document.documentElement.dataset.accent).toBe("blue");
+    expect(window.localStorage.getItem("study-planner.accent")).toBe("blue");
   });
 });

@@ -20,6 +20,7 @@ import {
   type Task,
   type VaultStatus,
 } from "./lib/ipc";
+import { useTheme } from "./lib/theme";
 import { AcademicView } from "./views/AcademicView";
 import { CalendarView } from "./views/CalendarView";
 import { ExamsView } from "./views/ExamsView";
@@ -762,6 +763,12 @@ function VaultView({
 
 function App() {
   const [active, setActive] = useState<SectionId>("today");
+  const {
+    mode: themeMode,
+    accent,
+    setMode: setThemeMode,
+    setAccent,
+  } = useTheme();
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [schema, setSchema] = useState<SchemaCheck | null>(null);
   const [vault, setVault] = useState<VaultStatus | null>(null);
@@ -988,6 +995,8 @@ function App() {
               type="button"
               className={`nav-item${active === item.id ? " is-active" : ""}`}
               aria-current={active === item.id ? "page" : undefined}
+              aria-label={item.label}
+              title={item.label}
               onClick={() => setActive(item.id)}
             >
               <Icon name={item.icon} />
@@ -1108,7 +1117,14 @@ function App() {
           ) : null}
 
           {active === "settings" ? (
-            <SettingsView vault={vault} onGoVault={() => setActive("vault")} />
+            <SettingsView
+              vault={vault}
+              onGoVault={() => setActive("vault")}
+              themeMode={themeMode}
+              accent={accent}
+              onThemeModeChange={setThemeMode}
+              onAccentChange={setAccent}
+            />
           ) : null}
         </main>
       </div>

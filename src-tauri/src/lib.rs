@@ -3,6 +3,7 @@ use study_planner_core::{AppInfo, app_info};
 use study_planner_store::Store;
 use tauri::Manager;
 
+mod background;
 mod notifications;
 mod updater;
 mod vault;
@@ -42,12 +43,26 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let state = vault::load_state(app.handle());
+            let background = background::load(&state);
             app.manage(state);
+            app.manage(background);
+
+            let tray_available = match background::setup_tray(app.handle()) {
+                Ok(available) => available,
+                Err(error) => {
+                    eprintln!("No se pudo crear la bandeja del sistema: {error}");
+                    false
+                }
+            };
+            app.state::<background::BackgroundRuntime>()
+                .set_tray_available(tray_available);
+
             let handle = app.handle().clone();
             std::thread::spawn(move || updater::auto_check_on_startup(&handle));
             notifications::start_scheduler(app.handle().clone());
             Ok(())
         })
+        .on_window_event(background::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             schema_self_check,
@@ -156,8 +171,11 @@ pub fn run() {
             updater::list_network_events,
             notifications::get_notification_status,
             notifications::set_notifications_enabled,
+            notifications::set_notifications_sound,
             notifications::run_notification_scan,
-            notifications::send_test_notification
+            notifications::send_test_notification,
+            background::get_background_status,
+            background::set_background_mode
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar Study Planner");

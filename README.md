@@ -4,13 +4,13 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 
 **Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
 
-> **Estado:** Fases 0 a 4 cerradas. Fase 5 implementada en código (updater aislado, notificaciones, AppImage y release firmada pendiente de secrets); Fase 6 implementada en código (snap estricto y workflow de solo build, publicación pendiente de credenciales). La app permite elegir una bóveda validada, gestionar horarios, materias, exámenes, notas, tareas, repaso espaciado y estadísticas, con backups verificados, snapshots diarias y exportación/importación con round-trip byte a byte.
+> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.0` con AppImage, `.deb`, `.rpm`, Windows y macOS, updater firmado y notificaciones locales. Snap `study-planner` 0.1.0 en `stable` (revisión 1). La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
 
 ## Principios
 
 - **Local primero:** elegís una carpeta raíz (la bóveda) y la app crea `<bóveda>/omega` para los datos vivos y el backup principal verificado, y `<bóveda>/longlife` para las snapshots diarias. La ruta se valida y nunca cambia en silencio.
 - **Continuidad verificada:** cada backup se comprueba con SHA-256, `integrity_check` y `foreign_key_check`; se conserva el backup previo a cada migración, las últimas 7 snapshots por dispositivo y un backup `pre-restore-*.db` antes de cada restauración.
-- **Sin red en la interfaz:** la webview no tiene permisos de archivos, SQL, shell, diálogos ni HTTP. La única excepción futura es un módulo de actualización aislado en Rust, opt-in y con firma obligatoria.
+- **Sin red en la interfaz:** la webview no tiene permisos de archivos, SQL, shell, diálogos ni HTTP. La única excepción es el updater aislado en Rust, opt-in, con URL fija y firma obligatoria.
 - **Exportación total:** un único `.txt` canónico que permite reconstruir la bóveda. `exportar → importar → exportar` da bytes idénticos en la misma versión; la importación solo se acepta en una bóveda vacía.
 - **Sin cifrado de bóveda:** decisión explícita del usuario. La confidencialidad depende del disco cifrado del sistema y de la custodia física.
 - **Continuidad:** cada fase deja tests, changelog y `docs/CHECKLIST.md` para retomar sin internet. La MPL-2.0 transitiva de Tauri está aceptada como excepción acotada (ADR-017); ver `THIRD_PARTY_LICENSES.md`.
@@ -33,6 +33,7 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 - Node.js 22+ y npm.
 - Rust estable 1.90+ con `cargo`.
 - WebKitGTK 4.1, GTK 3, libsoup 3 y dependencias de Tauri.
+- En Linux, `libayatana-appindicator3` para el icono de bandeja del modo segundo plano. Si falta, la app sigue funcionando pero cerrar la ventana termina el proceso.
 - `rg` (ripgrep) para `scripts/audit-network.sh`; si falta, el script usa `grep`.
 
 ## Arranque
@@ -64,6 +65,7 @@ npm run check:all      # lo anterior + fmt + clippy + tests Rust
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — esquema y convenciones.
 - [`docs/EXPORT_FORMAT.md`](docs/EXPORT_FORMAT.md) — contrato del `.txt`.
 - [`docs/UPDATER.md`](docs/UPDATER.md) — diseño del updater aislado.
+- [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md) — recordatorios locales, sonido y segundo plano.
 - [`docs/RELEASE.md`](docs/RELEASE.md) — workflow multiplataforma, firma y secrets.
 - [`docs/SNAP.md`](docs/SNAP.md) — snap estricto, build y publicación.
 - [`docs/KEYS.md`](docs/KEYS.md) — custodia de la clave de firma.

@@ -1343,10 +1343,16 @@ export interface NotificationRecord {
 
 export interface NotificationStatus {
   enabled: boolean;
+  sound: boolean;
   classLeadMinutes: number;
   taskLeadMinutes: number;
   examLeadHours: number;
   recent: NotificationRecord[];
+}
+
+export interface BackgroundStatus {
+  enabled: boolean;
+  trayAvailable: boolean;
 }
 
 export interface NotificationScanOutcome {
@@ -1362,6 +1368,22 @@ export async function setNotificationsEnabled(
   enabled: boolean,
 ): Promise<NotificationStatus> {
   return invoke<NotificationStatus>("set_notifications_enabled", { enabled });
+}
+
+export async function setNotificationsSound(
+  enabled: boolean,
+): Promise<NotificationStatus> {
+  return invoke<NotificationStatus>("set_notifications_sound", { enabled });
+}
+
+export async function getBackgroundStatus(): Promise<BackgroundStatus> {
+  return invoke<BackgroundStatus>("get_background_status");
+}
+
+export async function setBackgroundMode(
+  enabled: boolean,
+): Promise<BackgroundStatus> {
+  return invoke<BackgroundStatus>("set_background_mode", { enabled });
 }
 
 /** Revisa y entrega ahora los recordatorios pendientes. */

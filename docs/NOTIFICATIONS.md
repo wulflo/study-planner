@@ -19,6 +19,9 @@
    entrega dos veces el mismo aviso.
 5. **Sin datos fuera del equipo.** El cuerpo del aviso muestra solo lo necesario
    (materia, título, fecha, aula). Nada se envía a la red.
+6. **Sonido opcional.** Con `notifications.sound = true` se envía el hint
+   `sound-name = message-new-instant`; el escritorio decide qué sonido reproducir.
+   Si el sistema no tiene sonidos configurados, el aviso se muestra igual.
 
 ## Tipos de recordatorio
 
@@ -31,15 +34,16 @@
 
 Los ajustes se guardan en `setting` con alcance `portable` y viajan en la
 exportación canónica v1. `notifications.enabled` existe desde el esquema v1; no
-hubo migración.
+hubo migración. `notifications.sound` se agregó como ajuste portable con valor
+por defecto `true`.
 
 ## Flujo
 
 ```text
-planificador (cada 60 s, solo con la app abierta y notificaciones activas)
+planificador (cada 60 s, solo con la app abierta o en segundo plano y notificaciones activas)
   → Store::due_reminders()
   → por cada recordatorio: claim_notification() (INSERT ... ON CONFLICT DO NOTHING)
-  → send_notification() por D-Bus
+  → send_notification() por D-Bus (con `sound-name` si el sonido está activo)
        éxito → mark_notification_fired()
        fallo → release_notification() y reintento en la próxima pasada
 ```
@@ -47,6 +51,18 @@ planificador (cada 60 s, solo con la app abierta y notificaciones activas)
 La vista «Ajustes» permite activar/desactivar, ver las anticipaciones, forzar una
 revisión (`run_notification_scan`), enviar una notificación de prueba
 (`send_test_notification`) y consultar los últimos avisos entregados.
+
+## Segundo plano
+
+Con «Mantener en segundo plano» activo (por defecto), cerrar la ventana la oculta
+en la bandeja del sistema si el escritorio ofrece una. El icono permite mostrar
+la app, revisar recordatorios ahora o salir del todo. El planificador sigue
+corriendo cada 60 s mientras el proceso vive.
+
+Si el escritorio no permite crear la bandeja, la app lo informa en «Ajustes» y
+cerrar la ventana termina el proceso, igual que sin modo segundo plano. La
+preferencia se guarda en la bóveda cuando hay una; sin bóveda funciona durante
+la sesión actual.
 
 ## Límites conocidos
 

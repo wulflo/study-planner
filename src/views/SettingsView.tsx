@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import {
+  type BackgroundStatus,
   checkUpdates,
+  getBackgroundStatus,
   getNotificationStatus,
   getUpdaterStatus,
   installUpdate,
@@ -10,12 +12,20 @@ import {
   rollbackUpdate,
   runNotificationScan,
   sendTestNotification,
+  setBackgroundMode,
   setNotificationsEnabled,
+  setNotificationsSound,
   setUpdaterAutoCheck,
   type UpdateInfo,
   type UpdaterStatus,
   type VaultStatus,
 } from "../lib/ipc";
+import {
+  ACCENTS,
+  type AccentId,
+  THEME_MODES,
+  type ThemeMode,
+} from "../lib/theme";
 
 function messageOf(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
@@ -55,12 +65,21 @@ function eventTime(value: string): string {
 export function SettingsView({
   vault,
   onGoVault,
+  themeMode,
+  accent,
+  onThemeModeChange,
+  onAccentChange,
 }: {
   vault: VaultStatus | null;
   onGoVault: () => void;
+  themeMode: ThemeMode;
+  accent: AccentId;
+  onThemeModeChange: (mode: ThemeMode) => void;
+  onAccentChange: (accent: AccentId) => void;
 }) {
   const ready = vault?.ready === true;
   const [status, setStatus] = useState<UpdaterStatus | null>(null);
+  const [background, setBackground] = useState<BackgroundStatus | null>(null);
   const [events, setEvents] = useState<NetworkEvent[]>([]);
   const [notifications, setNotifications] = useState<NotificationStatus | null>(
     null,
@@ -73,38 +92,64 @@ export function SettingsView({
   const [installing, setInstalling] = useState(false);
   const [notifying, setNotifying] = useState(false);
 
+  async function loadCore() {
+    const [loadedStatus, loadedBackground] = await Promise.all([
+      getUpdaterStatus(),
+      getBackgroundStatus(),
+    ]);
+    setStatus(loadedStatus);
+    setBackground(loadedBackground);
+  }
+
+  async function loadVaultData() {
+    const [loadedEvents, loadedNotifications] = await Promise.all([
+      listNetworkEvents(),
+      getNotificationStatus(),
+    ]);
+    setEvents(loadedEvents);
+    setNotifications(loadedNotifications);
+  }
+
   async function load() {
     try {
-      const [loadedStatus, loadedEvents, loadedNotifications] =
-        await Promise.all([
-          getUpdaterStatus(),
-          listNetworkEvents(),
-          getNotificationStatus(),
-        ]);
-      setStatus(loadedStatus);
-      setEvents(loadedEvents);
-      setNotifications(loadedNotifications);
+      await loadCore();
+      if (ready) {
+        await loadVaultData();
+      }
     } catch (reason) {
       setError(messageOf(reason));
     }
   }
 
   useEffect(() => {
-    if (!ready) {
-      return;
-    }
     let cancelled = false;
 
     async function loadInitial() {
       try {
-        const [loadedStatus, loadedEvents, loadedNotifications] =
-          await Promise.all([
-            getUpdaterStatus(),
-            listNetworkEvents(),
-            getNotificationStatus(),
-          ]);
+        const [loadedStatus, loadedBackground] = await Promise.all([
+          getUpdaterStatus(),
+          getBackgroundStatus(),
+        ]);
         if (!cancelled) {
           setStatus(loadedStatus);
+          setBackground(loadedBackground);
+        }
+      } catch (reason) {
+        if (!cancelled) {
+          setError(messageOf(reason));
+        }
+      }
+
+      if (!ready) {
+        return;
+      }
+
+      try {
+        const [loadedEvents, loadedNotifications] = await Promise.all([
+          listNetworkEvents(),
+          getNotificationStatus(),
+        ]);
+        if (!cancelled) {
           setEvents(loadedEvents);
           setNotifications(loadedNotifications);
         }
@@ -133,6 +178,18 @@ export function SettingsView({
     }
   }
 
+  async function handleToggleBackground(enabled: boolean) {
+    setSaving(true);
+    setError(null);
+    try {
+      setBackground(await setBackgroundMode(enabled));
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleCheck() {
     setChecking(true);
     setError(null);
@@ -146,7 +203,7 @@ export function SettingsView({
           ? `Hay una actualización disponible: ${found.version}.`
           : "La versión instalada es la más nueva.",
       );
-      setEvents(await listNetworkEvents());
+      setEvents(await listNetworkEvents().catch(() => []));
     } catch (reason) {
       setError(messageOf(reason));
       setEvents(await listNetworkEvents().catch(() => []));
@@ -204,6 +261,18 @@ export function SettingsView({
     }
   }
 
+  async function handleToggleSound(enabled: boolean) {
+    setNotifying(true);
+    setError(null);
+    try {
+      setNotifications(await setNotificationsSound(enabled));
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setNotifying(false);
+    }
+  }
+
   async function handleScanNotifications() {
     setNotifying(true);
     setError(null);
@@ -239,6 +308,23 @@ export function SettingsView({
 
   const busy = saving || checking || installing || notifying;
   const snapManaged = status?.managedBySnap === true;
+  const updaterBlockedReason = !status
+    ? "Cargando el estado del updater…"
+    : snapManaged
+      ? "Esta instalación se actualiza desde la Snap Store."
+      : !status.publicKeyConfigured
+        ? "Esta compilación no tiene una clave pública de producción."
+        : !status.runningAsAppImage
+          ? "Esta compilación no corre desde un AppImage publicado."
+          : null;
+  const canCheckUpdates = !busy && updaterBlockedReason === null;
+  const runtimeLabel = status
+    ? status.runningAsAppImage
+      ? "AppImage"
+      : snapManaged
+        ? "Snap"
+        : "desarrollo"
+    : "desconocido";
 
   return (
     <>
@@ -246,8 +332,8 @@ export function SettingsView({
         <p className="eyebrow">Ajustes · local y sin telemetría</p>
         <h1>Ajustes</h1>
         <p className="hero-copy">
-          Preferencias de la app y el updater aislado. La webview no hace
-          peticiones de red: todo pasa por Rust, con URL fija y firma
+          Apariencia, preferencias de la app y el updater aislado. La webview no
+          hace peticiones de red: todo pasa por Rust, con URL fija y firma
           obligatoria.
         </p>
         <div className="hero-actions">
@@ -263,139 +349,216 @@ export function SettingsView({
         </div>
       </section>
 
-      {!ready ? (
-        <section className="next-card">
-          <p className="eyebrow">Bóveda requerida</p>
-          <h2>Primero elegí dónde guardar tus datos</h2>
-          <p>
-            Los ajustes y el registro de red se guardan en la bóveda local.
-            Elegí una carpeta en la sección Bóveda.
-          </p>
-          <div className="hero-actions">
-            <button type="button" className="button filled" onClick={onGoVault}>
-              Ir a Bóveda
-            </button>
+      {error ? (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="study-layout">
+        <section
+          className="status-card settings-card appearance-card"
+          aria-labelledby="appearance-title"
+        >
+          <div>
+            <p className="eyebrow">Apariencia</p>
+            <h2 id="appearance-title">Tema y color</h2>
+            <p className="quiet">
+              El modo «Sistema» sigue la preferencia del escritorio. La elección
+              se guarda en este equipo.
+            </p>
           </div>
-        </section>
-      ) : (
-        <>
-          {error ? (
-            <p className="notice error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {notice ? (
-            <p className="notice" role="status">
-              {notice}
-            </p>
-          ) : null}
 
-          <div className="study-layout">
-            <section
-              className="status-card settings-card"
-              aria-labelledby="updater-title"
-            >
-              <div>
-                <p className="eyebrow">Updater aislado</p>
-                <h2 id="updater-title">Actualizaciones</h2>
-                <p className="quiet">
-                  Versión {status?.currentVersion ?? "desconocida"} · host fijo{" "}
-                  {status?.updateHost ?? "github.com"}
-                </p>
-              </div>
-
-              {!status?.publicKeyConfigured ? (
-                <p className="notice">
-                  Esta compilación no tiene una clave pública de producción. El
-                  updater queda deshabilitado hasta configurarla; nunca se
-                  descarga nada sin firma válida.
-                </p>
-              ) : null}
-
-              {snapManaged ? (
-                <p className="notice">
-                  Esta instalación es un snap. Las actualizaciones las gestiona
-                  snapd desde la Snap Store; el updater de AppImage queda
-                  deshabilitado para no reemplazar archivos fuera del
-                  confinamiento.
-                </p>
-              ) : null}
-
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  checked={status?.autoCheck ?? false}
-                  disabled={busy || !status || snapManaged}
-                  onChange={(event) =>
-                    void handleToggleAutoCheck(event.target.checked)
-                  }
-                />
-                <span>
-                  <strong>Buscar actualizaciones al iniciar</strong>
-                  <span className="quiet">
-                    Desactivado por defecto. Solo consulta el manifiesto fijo;
-                    no envía datos de la bóveda.
-                  </span>
-                </span>
-              </label>
-
-              <div className="hero-actions">
+          <div className="preference-block">
+            <span className="preference-label">Modo</span>
+            <fieldset className="segmented" aria-label="Modo de color">
+              {THEME_MODES.map((option) => (
                 <button
+                  key={option.id}
                   type="button"
-                  className="button filled"
-                  disabled={
-                    busy ||
-                    snapManaged ||
-                    !status?.publicKeyConfigured ||
-                    !status.runningAsAppImage
-                  }
-                  onClick={() => void handleCheck()}
+                  className={`segment${themeMode === option.id ? " is-selected" : ""}`}
+                  aria-pressed={themeMode === option.id}
+                  onClick={() => onThemeModeChange(option.id)}
                 >
-                  {checking ? "Buscando…" : "Buscar actualizaciones"}
+                  {option.label}
                 </button>
-                {candidate ? (
-                  <button
-                    type="button"
-                    className="button tonal"
-                    disabled={busy || snapManaged || !status?.runningAsAppImage}
-                    onClick={() => void handleInstall()}
-                  >
-                    {installing
-                      ? "Instalando…"
-                      : `Instalar ${candidate.version}`}
-                  </button>
-                ) : null}
-                {status?.canRollback ? (
-                  <button
-                    type="button"
-                    className="button"
-                    disabled={busy || snapManaged}
-                    onClick={() => void handleRollback()}
-                  >
-                    Restaurar versión anterior
-                  </button>
-                ) : null}
-              </div>
+              ))}
+            </fieldset>
+          </div>
 
-              {!status?.runningAsAppImage && !snapManaged ? (
-                <p className="quiet">
-                  Las actualizaciones solo se instalan desde un AppImage
-                  publicado. En desarrollo la comprobación queda deshabilitada.
-                </p>
+          <div className="preference-block">
+            <span className="preference-label">Color de acento</span>
+            <fieldset className="accent-grid" aria-label="Color de acento">
+              {ACCENTS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`accent-swatch${accent === option.id ? " is-selected" : ""}`}
+                  style={{ "--swatch": option.swatch } as CSSProperties}
+                  aria-label={option.label}
+                  aria-pressed={accent === option.id}
+                  title={option.label}
+                  onClick={() => onAccentChange(option.id)}
+                >
+                  <span className="accent-dot" />
+                  <span className="accent-name">{option.label}</span>
+                </button>
+              ))}
+            </fieldset>
+          </div>
+
+          <label className="setting-toggle">
+            <input
+              type="checkbox"
+              checked={background?.enabled ?? true}
+              disabled={busy || !background}
+              onChange={(event) =>
+                void handleToggleBackground(event.target.checked)
+              }
+            />
+            <span>
+              <strong>Mantener en segundo plano</strong>
+              <span className="quiet">
+                Al cerrar la ventana, la app sigue en la bandeja y revisa
+                recordatorios. Usá «Salir» en el icono de la bandeja para
+                cerrarla del todo.
+                {background && !background.trayAvailable
+                  ? " En este escritorio no se detectó una bandeja; cerrar la ventana cierra la app."
+                  : ""}
+              </span>
+            </span>
+          </label>
+          {!ready ? (
+            <p className="quiet">
+              La preferencia funciona ahora mismo; se guardará en la bóveda
+              cuando la configures.
+            </p>
+          ) : null}
+        </section>
+
+        <section
+          className="status-card settings-card"
+          aria-labelledby="updater-title"
+        >
+          <div>
+            <p className="eyebrow">Updater aislado</p>
+            <h2 id="updater-title">Actualizaciones</h2>
+            <p className="quiet">
+              Versión {status?.currentVersion ?? "desconocida"} · host fijo{" "}
+              {status?.updateHost ?? "github.com"} · runtime {runtimeLabel}
+            </p>
+          </div>
+
+          {status && !status.publicKeyConfigured ? (
+            <p className="notice">
+              Esta compilación no tiene una clave pública de producción. El
+              updater queda deshabilitado hasta configurarla; nunca se descarga
+              nada sin firma válida.
+            </p>
+          ) : null}
+
+          {snapManaged ? (
+            <p className="notice">
+              Esta instalación es un snap. Las actualizaciones las gestiona
+              snapd desde la Snap Store; el updater de AppImage queda
+              deshabilitado para no reemplazar archivos fuera del confinamiento.
+            </p>
+          ) : null}
+
+          <label className="setting-toggle">
+            <input
+              type="checkbox"
+              checked={status?.autoCheck ?? false}
+              disabled={busy || !status || !ready || snapManaged}
+              onChange={(event) =>
+                void handleToggleAutoCheck(event.target.checked)
+              }
+            />
+            <span>
+              <strong>Buscar actualizaciones al iniciar</strong>
+              <span className="quiet">
+                Desactivado por defecto. Solo consulta el manifiesto fijo; no
+                envía datos de la bóveda.
+                {!ready ? " Requiere una bóveda configurada." : ""}
+              </span>
+            </span>
+          </label>
+
+          <div className="hero-actions">
+            <button
+              type="button"
+              className="button filled"
+              disabled={!canCheckUpdates}
+              onClick={() => void handleCheck()}
+            >
+              {checking ? "Buscando…" : "Buscar actualizaciones"}
+            </button>
+            {candidate ? (
+              <button
+                type="button"
+                className="button tonal"
+                disabled={busy || snapManaged || !status?.runningAsAppImage}
+                onClick={() => void handleInstall()}
+              >
+                {installing ? "Instalando…" : `Instalar ${candidate.version}`}
+              </button>
+            ) : null}
+            {status?.canRollback ? (
+              <button
+                type="button"
+                className="button"
+                disabled={busy || snapManaged}
+                onClick={() => void handleRollback()}
+              >
+                Restaurar versión anterior
+              </button>
+            ) : null}
+          </div>
+
+          {status &&
+          updaterBlockedReason &&
+          !snapManaged &&
+          status.publicKeyConfigured ? (
+            <p className="quiet">{updaterBlockedReason}</p>
+          ) : null}
+
+          {candidate ? (
+            <div className="nested-card">
+              <p className="eyebrow">Nueva versión</p>
+              <h3>{candidate.version}</h3>
+              {candidate.pubDate ? (
+                <p className="quiet">Publicada: {candidate.pubDate}</p>
               ) : null}
+              <p>{candidate.notes || "Sin notas de la versión."}</p>
+            </div>
+          ) : null}
+        </section>
 
-              {candidate ? (
-                <div className="nested-card">
-                  <p className="eyebrow">Nueva versión</p>
-                  <h3>{candidate.version}</h3>
-                  {candidate.pubDate ? (
-                    <p className="quiet">Publicada: {candidate.pubDate}</p>
-                  ) : null}
-                  <p>{candidate.notes || "Sin notas de la versión."}</p>
-                </div>
-              ) : null}
-            </section>
-
+        {!ready ? (
+          <section className="next-card">
+            <p className="eyebrow">Bóveda requerida</p>
+            <h2>Primero elegí dónde guardar tus datos</h2>
+            <p>
+              Los recordatorios y el registro de red se guardan en la bóveda
+              local. Elegí una carpeta en la sección Bóveda.
+            </p>
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button filled"
+                onClick={onGoVault}
+              >
+                Ir a Bóveda
+              </button>
+            </div>
+          </section>
+        ) : (
+          <>
             <section
               className="status-card settings-card"
               aria-labelledby="notifications-title"
@@ -425,6 +588,24 @@ export function SettingsView({
                     Clases {notifications?.classLeadMinutes ?? 10} min antes ·
                     tareas {notifications?.taskLeadMinutes ?? 60} min antes ·
                     exámenes {notifications?.examLeadHours ?? 24} h antes.
+                  </span>
+                </span>
+              </label>
+
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={notifications?.sound ?? true}
+                  disabled={busy || !notifications}
+                  onChange={(event) =>
+                    void handleToggleSound(event.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Sonido en los recordatorios</strong>
+                  <span className="quiet">
+                    Pide al escritorio el sonido estándar de notificación. Si no
+                    se reproduce, revisá la configuración de sonido del sistema.
                   </span>
                 </span>
               </label>
@@ -466,7 +647,7 @@ export function SettingsView({
               ) : (
                 <p className="quiet">
                   Todavía no se entregaron recordatorios. El planificador revisa
-                  cada minuto mientras la app está abierta.
+                  cada minuto mientras la app está abierta o en segundo plano.
                 </p>
               )}
             </section>
@@ -508,9 +689,9 @@ export function SettingsView({
                 </ul>
               )}
             </section>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </>
   );
 }

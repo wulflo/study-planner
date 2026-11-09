@@ -74,21 +74,44 @@ fn runtime_from(appimage: bool, snap: bool) -> Runtime {
     }
 }
 
+fn is_appimage_path(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("appimage"))
+}
+
+/// Resuelve la ruta del AppImage en ejecución.
+///
+/// El runtime de AppImage define `APPIMAGE`. Algunos lanzadores solo dejan
+/// `ARGV0`; como último recurso se revisa el ejecutable actual.
+fn detect_appimage() -> Option<PathBuf> {
+    if let Some(raw) = std::env::var_os("APPIMAGE").filter(|value| !value.is_empty()) {
+        return Some(PathBuf::from(raw));
+    }
+
+    if let Some(raw) = std::env::var_os("ARGV0").filter(|value| !value.is_empty()) {
+        let path = PathBuf::from(raw);
+        if is_appimage_path(&path) {
+            return Some(path);
+        }
+    }
+
+    let executable = std::env::current_exe().ok()?;
+    is_appimage_path(&executable).then_some(executable)
+}
+
 fn runtime() -> Runtime {
     runtime_from(
-        std::env::var_os("APPIMAGE").is_some(),
+        detect_appimage().is_some(),
         std::env::var_os("SNAP").is_some(),
     )
 }
 
 fn appimage_path() -> Result<PathBuf, String> {
-    match runtime() {
-        Runtime::Snap => Err(UpdateError::ManagedBySnap.to_string()),
-        Runtime::AppImage => Ok(PathBuf::from(
-            std::env::var_os("APPIMAGE").expect("APPIMAGE comprobado por runtime()"),
-        )),
-        Runtime::Development => Err(UpdateError::NotAppImage.to_string()),
+    if std::env::var_os("SNAP").is_some() {
+        return Err(UpdateError::ManagedBySnap.to_string());
     }
+    detect_appimage().ok_or_else(|| UpdateError::NotAppImage.to_string())
 }
 
 /// Lee un ajuste booleano; si no existe, usa `false` (opt-in).
@@ -127,6 +150,32 @@ fn truncate_detail(detail: &str) -> &str {
     detail.get(..detail.len().min(500)).unwrap_or(detail)
 }
 
+/// Registra un evento de red sin exigir una bóveda abierta.
+fn log_event(
+    state: &AppState,
+    kind: &str,
+    host: &str,
+    bytes_sent: i64,
+    bytes_received: i64,
+    outcome: &str,
+    detail: Option<&str>,
+) {
+    let _ = state.with_store_opt(|store| {
+        if let Some(store) = store {
+            record_event(
+                store,
+                kind,
+                host,
+                bytes_sent,
+                bytes_received,
+                outcome,
+                detail,
+            );
+        }
+        Ok(())
+    });
+}
+
 fn host_of(url: &str) -> &str {
     url.strip_prefix("https://")
         .and_then(|rest| rest.split('/').next())
@@ -143,13 +192,11 @@ fn info_of(candidate: &UpdateCandidate) -> UpdateInfo {
 }
 
 fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
-    let auto_check = state.with_store(|store| read_bool(store, AUTO_CHECK_KEY))?;
-    let runtime = runtime();
-    let appimage = if runtime == Runtime::AppImage {
-        std::env::var_os("APPIMAGE").map(PathBuf::from)
-    } else {
-        None
-    };
+    let auto_check = state.with_store_opt(|store| {
+        store.map_or(Ok(false), |store| read_bool(store, AUTO_CHECK_KEY))
+    })?;
+    let snap = std::env::var_os("SNAP").is_some();
+    let appimage = if snap { None } else { detect_appimage() };
     let can_rollback = appimage
         .as_deref()
         .is_some_and(|path| appimage_backup_path(path).is_file());
@@ -159,8 +206,8 @@ fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
         current_version: current_version(),
         update_host: UPDATE_HOST.to_string(),
         auto_check,
-        running_as_appimage: runtime == Runtime::AppImage,
-        managed_by_snap: runtime == Runtime::Snap,
+        running_as_appimage: appimage.is_some(),
+        managed_by_snap: snap,
         can_rollback,
     })
 }
@@ -200,40 +247,37 @@ fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
         .as_ref()
         .map_or(0, |check| check.manifest_bytes as i64);
 
-    state.with_store(|store| {
-        match &result {
-            Ok(check) => match &check.candidate {
-                Some(candidate) => record_event(
-                    store,
-                    "update_check",
-                    UPDATE_HOST,
-                    0,
-                    bytes_received,
-                    "ok",
-                    Some(&format!("actualización {} disponible", candidate.version)),
-                ),
-                None => record_event(
-                    store,
-                    "update_check",
-                    UPDATE_HOST,
-                    0,
-                    bytes_received,
-                    "ok",
-                    Some("sin actualizaciones"),
-                ),
-            },
-            Err(error) => record_event(
-                store,
+    match &result {
+        Ok(check) => match &check.candidate {
+            Some(candidate) => log_event(
+                state,
                 "update_check",
                 UPDATE_HOST,
                 0,
                 bytes_received,
-                "error",
-                Some(&error.to_string()),
+                "ok",
+                Some(&format!("actualización {} disponible", candidate.version)),
             ),
-        }
-        Ok(())
-    })?;
+            None => log_event(
+                state,
+                "update_check",
+                UPDATE_HOST,
+                0,
+                bytes_received,
+                "ok",
+                Some("sin actualizaciones"),
+            ),
+        },
+        Err(error) => log_event(
+            state,
+            "update_check",
+            UPDATE_HOST,
+            0,
+            bytes_received,
+            "error",
+            Some(&error.to_string()),
+        ),
+    }
 
     result
         .map(|check| check.candidate.as_ref().map(info_of))
@@ -253,7 +297,7 @@ pub fn auto_check_on_startup(app: &tauri::AppHandle) {
 
     let state = app.state::<AppState>();
     let enabled = state
-        .with_store(|store| read_bool(store, AUTO_CHECK_KEY))
+        .with_store_opt(|store| store.map_or(Ok(false), |store| read_bool(store, AUTO_CHECK_KEY)))
         .unwrap_or(false);
     if enabled && public_key_configured() {
         let _ = run_check(&state);
@@ -272,20 +316,15 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
     let fetcher = ReqwestFetcher::new(&version).map_err(|error| error.to_string())?;
 
     let check = check_for_update_with_size(&fetcher, &version).map_err(|error| {
-        state
-            .with_store(|store| {
-                record_event(
-                    store,
-                    "update_check",
-                    UPDATE_HOST,
-                    0,
-                    0,
-                    "error",
-                    Some(&error.to_string()),
-                );
-                Ok(())
-            })
-            .ok();
+        log_event(
+            &state,
+            "update_check",
+            UPDATE_HOST,
+            0,
+            0,
+            "error",
+            Some(&error.to_string()),
+        );
         error.to_string()
     })?;
 
@@ -293,18 +332,15 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
         .candidate
         .ok_or_else(|| "No hay una actualización disponible para instalar.".to_string())?;
 
-    state.with_store(|store| {
-        record_event(
-            store,
-            "update_check",
-            UPDATE_HOST,
-            0,
-            check.manifest_bytes as i64,
-            "ok",
-            Some(&format!("actualización {} disponible", candidate.version)),
-        );
-        Ok(())
-    })?;
+    log_event(
+        &state,
+        "update_check",
+        UPDATE_HOST,
+        0,
+        check.manifest_bytes as i64,
+        "ok",
+        Some(&format!("actualización {} disponible", candidate.version)),
+    );
 
     let artifact = match download_update(
         &fetcher,
@@ -313,68 +349,54 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
     ) {
         Ok(bytes) => bytes,
         Err(error) => {
-            state.with_store(|store| {
-                record_event(
-                    store,
-                    "update_download",
-                    host_of(&candidate.url),
-                    0,
-                    0,
-                    "error",
-                    Some(&error.to_string()),
-                );
-                Ok(())
-            })?;
+            log_event(
+                &state,
+                "update_download",
+                host_of(&candidate.url),
+                0,
+                0,
+                "error",
+                Some(&error.to_string()),
+            );
             return Err(error.to_string());
         }
     };
 
-    state.with_store(|store| {
-        record_event(
-            store,
-            "update_download",
-            host_of(&candidate.url),
-            0,
-            artifact.len() as i64,
-            "ok",
-            Some(&format!("artefacto {} verificado", candidate.version)),
-        );
-        Ok(())
-    })?;
+    log_event(
+        &state,
+        "update_download",
+        host_of(&candidate.url),
+        0,
+        artifact.len() as i64,
+        "ok",
+        Some(&format!("artefacto {} verificado", candidate.version)),
+    );
 
     install_appimage(&artifact, &target).map_err(|error| {
-        state
-            .with_store(|store| {
-                record_event(
-                    store,
-                    "update_install",
-                    UPDATE_HOST,
-                    0,
-                    0,
-                    "error",
-                    Some(&error.to_string()),
-                );
-                Ok(())
-            })
-            .ok();
-        error.to_string()
-    })?;
-
-    state.with_store(|store| {
-        record_event(
-            store,
+        log_event(
+            &state,
             "update_install",
             UPDATE_HOST,
             0,
             0,
-            "ok",
-            Some(&format!(
-                "instalado {}; backup disponible",
-                candidate.version
-            )),
+            "error",
+            Some(&error.to_string()),
         );
-        Ok(())
+        error.to_string()
     })?;
+
+    log_event(
+        &state,
+        "update_install",
+        UPDATE_HOST,
+        0,
+        0,
+        "ok",
+        Some(&format!(
+            "instalado {}; backup disponible",
+            candidate.version
+        )),
+    );
 
     Ok(InstallOutcome {
         version: candidate.version,
@@ -386,18 +408,15 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
 pub fn rollback_update(state: State<'_, AppState>) -> Result<(), String> {
     let target = appimage_path()?;
     rollback_appimage(&target).map_err(|error| error.to_string())?;
-    state.with_store(|store| {
-        record_event(
-            store,
-            "update_rollback",
-            UPDATE_HOST,
-            0,
-            0,
-            "ok",
-            Some("versión anterior restaurada"),
-        );
-        Ok(())
-    })?;
+    log_event(
+        &state,
+        "update_rollback",
+        UPDATE_HOST,
+        0,
+        0,
+        "ok",
+        Some("versión anterior restaurada"),
+    );
     Ok(())
 }
 
@@ -440,5 +459,16 @@ mod tests {
         assert_eq!(runtime_from(true, false), Runtime::AppImage);
         assert_eq!(runtime_from(false, true), Runtime::Snap);
         assert_eq!(runtime_from(true, true), Runtime::Snap);
+    }
+
+    #[test]
+    fn appimage_paths_are_detected_case_insensitively() {
+        assert!(is_appimage_path(std::path::Path::new(
+            "/home/alonso/Study Planner.AppImage"
+        )));
+        assert!(is_appimage_path(std::path::Path::new("app.appimage")));
+        assert!(!is_appimage_path(std::path::Path::new(
+            "/usr/bin/study-planner"
+        )));
     }
 }

@@ -798,6 +798,23 @@ impl AppState {
         let session = guard.as_ref().ok_or_else(no_vault_error)?;
         operation(&session.store)
     }
+
+    /// Igual que [`AppState::with_store`], pero la operación también se ejecuta
+    /// cuando todavía no hay una bóveda abierta. La recibe como `None`.
+    ///
+    /// Lo usan las preferencias que deben funcionar antes de configurar la
+    /// bóveda (por ejemplo, el modo segundo plano) y el registro de red del
+    /// updater, que es best-effort.
+    pub(crate) fn with_store_opt<T>(
+        &self,
+        operation: impl FnOnce(Option<&Store>) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let guard = self
+            .vault
+            .lock()
+            .map_err(|_| "El estado de la bóveda está bloqueado.".to_string())?;
+        operation(guard.as_ref().map(|session| &session.store))
+    }
 }
 
 fn with_store<T>(

@@ -16,6 +16,8 @@ El updater es la **única** excepción a la regla de «Study Planner no usa red�
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
 6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial. Bajo snap, el updater de AppImage se desactiva y actualiza snapd.
 7. **Toda la red se registra** en `network_event` (tipo, host, bytes, resultado y detalle técnico acotado), sin contenido de datos.
+8. **Sin bóveda también funciona.** El estado del updater y la comprobación manual no requieren una bóveda abierta; el registro de red se hace best-effort cuando hay una. El auto-check sigue siendo opt-in y necesita bóveda para persistir la preferencia.
+9. **Detección de AppImage robusta.** Se resuelve la ruta con `APPIMAGE`, luego `ARGV0` si termina en `.AppImage` y, como último recurso, el ejecutable actual. Así el botón de instalación no queda bloqueado por un lanzador que no propaga `APPIMAGE`.
 
 ## Diseño implementado
 

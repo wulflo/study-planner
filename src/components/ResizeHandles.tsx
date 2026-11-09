@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useState } from "react";
 import { runningInTauri } from "../lib/ipc";
 
 type ResizeDirection =
@@ -28,9 +29,52 @@ const handles: ReadonlyArray<{
 /**
  * Con `decorations: false` la ventana pierde el borde nativo de
  * redimensionado. Estos bordes invisibles delegan el arrastre a Tauri.
+ *
+ * En una ventana maximizada no hay borde que arrastrar y los handles pueden
+ * dejar artefactos de repintado en algunos compositores, así que se ocultan.
  */
 export function ResizeHandles() {
-  if (!runningInTauri) {
+  const [maximized, setMaximized] = useState(false);
+
+  useEffect(() => {
+    if (!runningInTauri) {
+      return;
+    }
+
+    const win = getCurrentWindow();
+    let active = true;
+    let unlisten: (() => void) | undefined;
+
+    const sync = () => {
+      win
+        .isMaximized()
+        .then((value) => {
+          if (active) {
+            setMaximized(value);
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    sync();
+    win
+      .onResized(sync)
+      .then((stop) => {
+        if (active) {
+          unlisten = stop;
+        } else {
+          stop();
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
+  if (!runningInTauri || maximized) {
     return null;
   }
 
