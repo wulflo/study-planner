@@ -219,7 +219,8 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 ## Fase 5 — Updater, notificaciones y empaquetado
 
 - [x] Generar clave minisign y passphrase localmente (protocolo en `docs/KEYS.md`).
-- [ ] Custodia en VeraCrypt + copia offline + Drive cifrado; passphrase en Bitwarden + papel.
+- [x] Backup cifrado del par en Drive: `study-planner-minisign-2026-11-09.tar.gz.gpg` en `gdrive:study-planner-backups/`, cifrado simétrico AES-256 con la misma passphrase, descifrado verificado por `cmp` y copia remota verificada con `rclone check` (0 diferencias).
+- [ ] Custodia completa: copia offline y confirmación de la passphrase en Bitwarden + papel.
 - [ ] Configurar secrets de GitHub con `gh secret set` desde archivos, nunca en YAML.
 - [x] Implementar `study-planner-updater` con URL HTTPS fija en compilación.
 - [x] Verificación de firma obligatoria; rechazar manifiestos sin firma válida.
@@ -472,7 +473,8 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 4 — Notificaciones locales:** cálculo determinista de recordatorios de clases, tareas, exámenes y repasos en `study-planner-store`; reclamo con `dedupe_key` único, marcado `fired`, liberación si falla la entrega y listado. Planificador cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust, sin plugin ni permisos de webview. Vista «Ajustes» con activación, tiempos de anticipación visibles, revisión manual y notificación de prueba. 4 tests nuevos del store y 1 del host.
 - [x] **Paso 5 — Empaquetado, CI y cierre documental:** AppImage compilado y verificado localmente (`Study Planner_0.1.0_amd64.AppImage`, 110,79 MiB); workflow de release con build en GitHub Actions, firma con `--app-version`, generación de `latest.json` y verificación contra la clave embebida antes de publicar. CI actualizado a los crates reales, con updater, host y auditoría. Inventario de licencias actualizado (499 paquetes Cargo). Simulacro de firma/rotación con clave de test fuera del repo. Guías en `docs/RELEASE.md`, `docs/NOTIFICATIONS.md` y `docs/KEYS.md`.
 - [x] **Clave de producción generada:** par minisign creado dentro de `/run/media/veracrypt1/study-planner-keys`, passphrase aleatoria en un archivo temporal con permisos `600`, firma de prueba verificada contra la clave pública y clave pública copiada a `crates/study-planner-updater/updater.pub`. La passphrase y la clave privada nunca se mostraron en el chat ni se versionaron.
-- [ ] **Cierre real de Fase 5:** depende de custodiar la passphrase (Bitwarden + papel), copiar la clave a la copia offline y al Drive cifrado, configurar los secrets y publicar una release firmada.
+- [x] **Backup cifrado en Drive:** `/run/media/veracrypt1/Repo - Keys/study-planner-keys/study-planner-minisign-2026-11-09.tar.gz.gpg` (AES-256, S2K SHA-512, 65011712 iteraciones) subido a `gdrive:study-planner-backups/`. Se descifró en un directorio temporal y los tres archivos coincidieron con `cmp`; la copia remota se verificó con `rclone check` (0 diferencias, SHA-256 `1b836fa2…ffa6`). El `.gpg` se abre con la passphrase de minisign y no la contiene.
+- [ ] **Cierre real de Fase 5:** depende de custodiar la passphrase (Bitwarden + papel), copiar la clave a la copia offline, configurar los secrets y publicar una release firmada.
 
 > **Pendiente del usuario:** confirmar que la passphrase quedó guardada en Bitwarden y papel para borrar `/tmp/opencode/study-planner-keygen/passphrase.txt`. Después hay que configurar los secrets del release workflow y publicar la primera release firmada.
 
@@ -481,7 +483,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 ## Próximos 5 pasos
 
 1. Guardar la passphrase en Bitwarden y papel, y confirmar para borrar el archivo temporal.
-2. Copiar `study-planner.key` y `.pub` a la copia offline y al contenedor cifrado de Drive.
+2. Copiar `study-planner.key` y `.pub` a la copia offline (el backup `.gpg` de Drive ya está subido).
 3. Configurar `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con `gh secret set`.
 4. Publicar una release firmada (`v0.2.0` o superior) y probar el updater real.
 5. Ejecutar el simulacro real de recuperación/rotación y cerrar la Fase 5.

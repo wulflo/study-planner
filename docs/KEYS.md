@@ -1,9 +1,10 @@
 # Custodia de claves
 
 > **Estado:** clave de producción generada el 2026-11-09 en
-> `/run/media/veracrypt1/study-planner-keys` y clave pública versionada en
-> `crates/study-planner-updater/updater.pub`. La custodia secundaria y la
-> configuración de secrets están pendientes de confirmación del usuario.
+> `/run/media/veracrypt1/Repo - Keys/study-planner-keys` y clave pública versionada en
+> `crates/study-planner-updater/updater.pub`. El backup `.gpg` ya está en Drive y en
+> VeraCrypt. La copia offline y la confirmación de la passphrase en Bitwarden/papel
+> siguen pendientes del usuario.
 > **Regla de oro:** la clave privada y su passphrase nunca pasan por el chat, el repositorio, un issue, una captura de pantalla ni un archivo junto a la clave.
 
 ## Qué se protege
@@ -22,18 +23,20 @@ La bóveda **no** se cifra (decisión del usuario). La confidencialidad depende 
 
 | Copia | Ubicación | Contenido |
 |---|---|---|
-| Primaria | VeraCrypt en HDD externo (`/run/media/veracrypt1` cuando esté montado) | Clave privada + clave pública |
+| Primaria | VeraCrypt en HDD externo (`/run/media/veracrypt1` cuando esté montado) | Clave privada + clave pública + backup `.gpg` |
 | Secundaria | Copia offline (pendrive o medio separado) | Clave privada + clave pública |
-| Terciaria | Google Drive **cifrado** (contenedor cifrado, no el archivo suelto) | Clave privada + clave pública |
+| Terciaria | Google Drive, carpeta `study-planner-backups/` | Backup `.gpg` cifrado simétricamente |
 | Passphrase | Bitwarden + papel en un lugar separado | Solo la passphrase |
 
 Reglas:
 
 - La passphrase **no** se guarda en el mismo medio ni en la misma carpeta que la clave.
 - El papel con la passphrase no se guarda junto al HDD de VeraCrypt.
-- No se sube la clave a Drive sin cifrar, ni siquiera dentro de un ZIP.
+- No se sube la clave a Drive sin cifrar. El único archivo aceptado es el `.gpg`
+  cifrado con una passphrase; nunca el `.key`, un ZIP ni un `tar` en claro.
+- El backup de Drive usa la misma passphrase que la clave minisign (decisión del
+  usuario), guardada en Bitwarden y en papel.
 - El acceso a Drive y Bitwarden usa 2FA TOTP con Aegis.
-- No se escribe nada en `/run/media/veracrypt1` hasta la Fase 5 y con el volumen montado y verificado.
 
 ## Protocolo de generación (Fase 5)
 
@@ -76,7 +79,7 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
      "$workdir/study-planner.key.pub"
    ```
 
-6. Copiar **solo** clave privada y pública a VeraCrypt, a la copia offline y al contenedor cifrado de Drive.
+6. Copiar la clave privada y pública a VeraCrypt, a la copia offline y generar el backup `.gpg` para Drive (ver «Backup cifrado con GPG»).
 
 7. Pedir al usuario que guarde la passphrase en Bitwarden y en papel. Confirmar que la copió antes de borrar el temporal.
 
@@ -98,6 +101,53 @@ El asistente puede ejecutar estos pasos localmente. **No debe imprimir la passph
    ```
 
 10. Registrar en `docs/CHECKLIST.md` que la clave existe, sin registrar su contenido ni la passphrase.
+
+## Backup cifrado con GPG
+
+El par minisign se respalda en un único archivo `.tar.gz.gpg` cifrado
+simétricamente con la passphrase de la clave. No se usa una clave OpenPGP del
+keyring: el cifrado es `gpg --symmetric`, y la passphrase se pasa por archivo,
+nunca por `argv`.
+
+```bash
+# Passphrase en un archivo 600, fuera del repo.
+gpg --batch --yes --symmetric --cipher-algo AES256 \
+  --s2k-digest-algo SHA512 --s2k-mode 3 --s2k-count 65011712 \
+  --pinentry-mode loopback --passphrase-file /ruta/passphrase.txt \
+  --output study-planner-minisign-YYYY-MM-DD.tar.gz.gpg \
+  study-planner-minisign-YYYY-MM-DD.tar.gz
+```
+
+Contenido del `tar.gz`: `study-planner.key`, `study-planner.key.pub` y un
+`README.txt` con las instrucciones de restauración. La passphrase **no** va
+dentro del archivo.
+
+Verificación antes de subir:
+
+```bash
+gpg --batch --yes --pinentry-mode loopback --passphrase-file /ruta/passphrase.txt \
+  --output /tmp/restored.tar.gz --decrypt study-planner-minisign-YYYY-MM-DD.tar.gz.gpg
+tar -C /tmp/restored -xzf /tmp/restored.tar.gz
+cmp /tmp/original/study-planner.key /tmp/restored/study-planner.key
+cmp /tmp/original/study-planner.key.pub /tmp/restored/study-planner.key.pub
+```
+
+Subida y verificación:
+
+```bash
+rclone copy estudio.gpg gdrive:study-planner-backups/
+rclone check <carpeta-local> gdrive:study-planner-backups/ --include '*.gpg' --one-way
+```
+
+Estado actual:
+
+| Archivo | Ubicación | SHA-256 |
+|---|---|---|
+| `study-planner-minisign-2026-11-09.tar.gz.gpg` | VeraCrypt y `gdrive:study-planner-backups/` | `1b836fa2b85643f1796075fbbdbbf1d2b0254e1d9704bb2415efe7cef040ffa6` |
+
+El SHA-256 no es secreto: permite comprobar que la copia de Drive es la misma
+que la local. La restauración desde Drive queda pendiente en el simulacro de
+recuperación.
 
 ## Clave pública
 
@@ -152,7 +202,7 @@ Simulacro obligatorio antes de publicar la primera release:
 - [ ] Firmar un archivo de prueba.
 - [ ] Verificar la firma con la clave pública del repo.
 - [ ] Restaurar desde la copia offline.
-- [ ] Restaurar desde el contenedor cifrado de Drive.
+- [ ] Restaurar desde el backup `.gpg` de Drive y comprobar el SHA-256.
 - [ ] Confirmar que la clave no quedó en el repo ni en el historial de shell.
 
 ## Qué hacer si se compromete la clave
