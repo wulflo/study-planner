@@ -21,7 +21,7 @@ describe("App en navegador", () => {
 
   it("explica el modo navegador cuando no hay IPC de Tauri", () => {
     render(<App />);
-    expect(screen.getByText(/modo navegador/i)).toBeInTheDocument();
+    expect(screen.getByText(/render en navegador/i)).toBeInTheDocument();
   });
 
   it("cambia de vista al seleccionar una sección", async () => {
@@ -94,18 +94,5 @@ describe("App en navegador", () => {
     expect(
       screen.getByRole("button", { name: "Ir a Bóveda" }),
     ).toBeInTheDocument();
-  });
-
-  it("abre y cierra el checklist del proyecto", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.click(screen.getByRole("button", { name: "Ver checklist" }));
-    expect(
-      screen.getByRole("dialog", { name: "Checklist persistente" }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Cerrar checklist" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

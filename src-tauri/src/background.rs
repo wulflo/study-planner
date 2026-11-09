@@ -15,6 +15,7 @@ use crate::notifications;
 use crate::vault::AppState;
 
 const BACKGROUND_KEY: &str = "background.enabled";
+const TRAY_ID: &str = "study-planner-tray";
 
 /// Estado del modo segundo plano para la vista «Ajustes».
 #[derive(Debug, Serialize)]
@@ -104,7 +105,7 @@ pub fn set_background_mode(
     Ok(runtime.status())
 }
 
-fn show_main_window(app: &AppHandle) {
+pub(crate) fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
@@ -113,13 +114,20 @@ fn show_main_window(app: &AppHandle) {
 }
 
 /// Crea el icono de bandeja. Devuelve si el escritorio permitió crearlo.
+///
+/// Es idempotente: si el icono ya existe (por ejemplo porque la ventana se
+/// ocultó y se volvió a crear el runtime) no agrega un segundo icono.
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<bool> {
+    if app.tray_by_id(TRAY_ID).is_some() {
+        return Ok(true);
+    }
+
     let show = MenuItem::with_id(app, "show", "Mostrar Study Planner", true, None::<&str>)?;
     let scan = MenuItem::with_id(app, "scan", "Revisar recordatorios", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &scan, &quit])?;
 
-    let mut builder = TrayIconBuilder::with_id("study-planner-tray")
+    let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip("Study Planner")
         .menu(&menu)
         .show_menu_on_left_click(false)

@@ -84,6 +84,8 @@ pub enum Runtime {
     Rpm,
     /// Instalación de Windows (NSIS o MSI).
     Windows,
+    /// Paquete MSIX de Windows (Microsoft Store o sideloading).
+    Msix,
     /// Aplicación de macOS instalada como `.app`.
     #[serde(rename = "macos")]
     MacOs,
@@ -99,6 +101,7 @@ impl Runtime {
             Runtime::Deb => "deb",
             Runtime::Rpm => "rpm",
             Runtime::Windows => "windows",
+            Runtime::Msix => "msix",
             Runtime::MacOs => "macos",
             Runtime::Development => "development",
         }
@@ -124,6 +127,9 @@ pub fn detect_runtime() -> Runtime {
 
     #[cfg(windows)]
     {
+        if detect_msix() {
+            return Runtime::Msix;
+        }
         return Runtime::Windows;
     }
 
@@ -139,6 +145,21 @@ pub fn detect_runtime() -> Runtime {
 
     #[allow(unreachable_code)]
     Runtime::Development
+}
+
+/// Detecta un paquete MSIX por la ubicación del ejecutable.
+///
+/// Las apps empaquetadas con MSIX corren desde `C:\Program Files\WindowsApps\...`.
+/// Es la señal más simple y evita depender de una llamada Win32.
+#[cfg(windows)]
+fn detect_msix() -> bool {
+    std::env::current_exe()
+        .map(|path| {
+            path.to_string_lossy()
+                .to_ascii_lowercase()
+                .contains("windowsapps")
+        })
+        .unwrap_or(false)
 }
 
 fn is_appimage_path(path: &Path) -> bool {
@@ -221,7 +242,7 @@ pub fn platform_keys(runtime: Runtime) -> Vec<String> {
         Runtime::Rpm => vec![format!("linux-{arch}-rpm")],
         Runtime::Windows => windows_platform_keys(arch),
         Runtime::MacOs => vec![format!("darwin-{arch}")],
-        Runtime::Snap | Runtime::Development => Vec::new(),
+        Runtime::Snap | Runtime::Msix | Runtime::Development => Vec::new(),
     }
 }
 
@@ -742,6 +763,7 @@ pub fn install_update_artifact(
         Runtime::Windows => install_windows(artifact, platform.ends_with("-msi")),
         Runtime::MacOs => install_macos(artifact),
         Runtime::Snap => Err(UpdateError::ManagedBySnap),
+        Runtime::Msix => Err(UpdateError::UnsupportedRuntime),
         Runtime::Development => Err(UpdateError::UnsupportedRuntime),
     }
 }

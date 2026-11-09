@@ -6,6 +6,7 @@ import App from "./App";
 const api = vi.hoisted(() => ({
   getAppInfo: vi.fn(),
   runSchemaSelfCheck: vi.fn(),
+  openRepository: vi.fn(),
   getVaultStatus: vi.fn(),
   chooseVault: vi.fn(),
   createBackup: vi.fn(),
@@ -616,6 +617,7 @@ beforeEach(() => {
     foreignKeyViolations: 0,
     vaultId: "self-check",
   });
+  api.openRepository.mockResolvedValue(undefined);
   api.getVaultStatus.mockResolvedValue(vaultReady);
   api.listTasks.mockResolvedValue([pendingTask, doneTask]);
   api.createTask.mockResolvedValue({
@@ -1446,7 +1448,7 @@ describe("App con IPC de Tauri", () => {
     );
   });
 
-  it("configura el updater opt-in y registra eventos de red", async () => {
+  it("configura el updater opt-in y busca actualizaciones", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -1479,15 +1481,47 @@ describe("App con IPC de Tauri", () => {
     expect(
       await screen.findByText(/hay una actualización disponible: 0\.2\.0/i),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByRole("list", { name: "Eventos de red" }),
-    ).toHaveTextContent("sin actualizaciones");
 
     await user.click(screen.getByRole("button", { name: "Instalar 0.2.0" }));
     expect(api.installUpdate).toHaveBeenCalled();
     expect(
       await screen.findByText(/actualización 0\.2\.0 instalada/i),
     ).toBeInTheDocument();
+  });
+
+  it("abre el repositorio desde Ajustes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Visitar repositorio" }),
+    );
+
+    expect(api.openRepository).toHaveBeenCalledTimes(1);
+  });
+
+  it("oculta el autoactualizador en una instalación MSIX", async () => {
+    api.getUpdaterStatus.mockResolvedValue({
+      ...updaterStatus,
+      runtime: "msix",
+      runningAsAppImage: false,
+      canInstall: false,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(await screen.findByText(/instalación msix/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Buscar actualizaciones" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: /buscar actualizaciones al iniciar/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("habilita el updater en un AppImage aunque no haya bóveda", async () => {

@@ -6,11 +6,11 @@ import {
   getNotificationStatus,
   getUpdaterStatus,
   installUpdate,
-  listNetworkEvents,
-  type NetworkEvent,
   type NotificationStatus,
+  openRepository,
   rollbackUpdate,
   runNotificationScan,
+  runningInTauri,
   sendTestNotification,
   setBackgroundMode,
   setNotificationsEnabled,
@@ -32,12 +32,10 @@ function messageOf(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-const kindLabels: Record<string, string> = {
-  update_check: "Comprobación",
-  update_download: "Descarga",
-  update_install: "Instalación",
-  update_rollback: "Rollback",
-};
+function eventTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString("es-AR");
+}
 
 const runtimeLabels: Record<UpdaterRuntime, string> = {
   appimage: "AppImage",
@@ -45,6 +43,7 @@ const runtimeLabels: Record<UpdaterRuntime, string> = {
   deb: "paquete .deb",
   rpm: "paquete .rpm",
   windows: "Windows",
+  msix: "MSIX",
   macos: "macOS",
   development: "desarrollo",
 };
@@ -57,21 +56,6 @@ const notificationKindLabels: Record<string, string> = {
   backup: "Backup",
   update: "Actualización",
 };
-
-function bytesText(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} kB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function eventTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString("es-AR");
-}
 
 export function SettingsView({
   vault,
@@ -91,7 +75,6 @@ export function SettingsView({
   const ready = vault?.ready === true;
   const [status, setStatus] = useState<UpdaterStatus | null>(null);
   const [background, setBackground] = useState<BackgroundStatus | null>(null);
-  const [events, setEvents] = useState<NetworkEvent[]>([]);
   const [notifications, setNotifications] = useState<NotificationStatus | null>(
     null,
   );
@@ -103,6 +86,14 @@ export function SettingsView({
   const [installing, setInstalling] = useState(false);
   const [notifying, setNotifying] = useState(false);
 
+  async function handleOpenRepository() {
+    try {
+      await openRepository();
+    } catch (reason) {
+      setError(messageOf(reason));
+    }
+  }
+
   async function loadCore() {
     const [loadedStatus, loadedBackground] = await Promise.all([
       getUpdaterStatus(),
@@ -113,11 +104,7 @@ export function SettingsView({
   }
 
   async function loadVaultData() {
-    const [loadedEvents, loadedNotifications] = await Promise.all([
-      listNetworkEvents(),
-      getNotificationStatus(),
-    ]);
-    setEvents(loadedEvents);
+    const loadedNotifications = await getNotificationStatus();
     setNotifications(loadedNotifications);
   }
 
@@ -156,12 +143,8 @@ export function SettingsView({
       }
 
       try {
-        const [loadedEvents, loadedNotifications] = await Promise.all([
-          listNetworkEvents(),
-          getNotificationStatus(),
-        ]);
+        const loadedNotifications = await getNotificationStatus();
         if (!cancelled) {
-          setEvents(loadedEvents);
           setNotifications(loadedNotifications);
         }
       } catch (reason) {
@@ -214,10 +197,8 @@ export function SettingsView({
           ? `Hay una actualización disponible: ${found.version}.`
           : "La versión instalada es la más nueva.",
       );
-      setEvents(await listNetworkEvents().catch(() => []));
     } catch (reason) {
       setError(messageOf(reason));
-      setEvents(await listNetworkEvents().catch(() => []));
     } finally {
       setChecking(false);
     }
@@ -238,7 +219,6 @@ export function SettingsView({
       await load();
     } catch (reason) {
       setError(messageOf(reason));
-      setEvents(await listNetworkEvents().catch(() => []));
     } finally {
       setInstalling(false);
     }
@@ -254,7 +234,6 @@ export function SettingsView({
       await load();
     } catch (reason) {
       setError(messageOf(reason));
-      setEvents(await listNetworkEvents().catch(() => []));
     } finally {
       setInstalling(false);
     }
@@ -333,6 +312,9 @@ export function SettingsView({
           : null;
   const canCheckUpdates = !busy && updaterBlockedReason === null;
   const runtimeLabel = status ? runtimeLabels[status.runtime] : "desconocido";
+  // En MSIX el actualizador queda oculto: las actualizaciones las gestiona
+  // Microsoft Store o el instalador de sideloading.
+  const msix = status?.runtime === "msix";
 
   return (
     <>
@@ -354,6 +336,19 @@ export function SettingsView({
               Configurar bóveda
             </button>
           )}
+          <button
+            type="button"
+            className="button tonal"
+            disabled={!runningInTauri}
+            title={
+              runningInTauri
+                ? "Abrir github.com/wulflo/study-planner"
+                : "Disponible en la app de escritorio"
+            }
+            onClick={() => void handleOpenRepository()}
+          >
+            Visitar repositorio
+          </button>
         </div>
       </section>
 
@@ -449,118 +444,126 @@ export function SettingsView({
           ) : null}
         </section>
 
-        <section
-          className="status-card settings-card"
-          aria-labelledby="updater-title"
-        >
-          <div>
-            <p className="eyebrow">Updater aislado</p>
-            <h2 id="updater-title">Actualizaciones</h2>
-            <p className="quiet">
-              Versión {status?.currentVersion ?? "desconocida"} · host fijo{" "}
-              {status?.updateHost ?? "github.com"} · runtime {runtimeLabel}
-            </p>
-          </div>
-
-          {status && !status.publicKeyConfigured ? (
-            <p className="notice">
-              Esta compilación no tiene una clave pública de producción. El
-              updater queda deshabilitado hasta configurarla; nunca se descarga
-              nada sin firma válida.
-            </p>
-          ) : null}
-
-          {snapManaged ? (
-            <p className="notice">
-              Esta instalación es un snap. Las actualizaciones las gestiona
-              snapd desde la Snap Store; el updater automático queda
-              deshabilitado para no reemplazar archivos fuera del confinamiento.
-            </p>
-          ) : null}
-
-          {status?.runtime === "deb" || status?.runtime === "rpm" ? (
-            <p className="quiet">
-              La instalación pedirá tu contraseña de administrador y se aplicará
-              con el gestor de paquetes del sistema. Después habrá que reiniciar
-              Study Planner.
-            </p>
-          ) : null}
-
-          {status?.runtime === "windows" || status?.runtime === "macos" ? (
-            <p className="quiet">
-              La app se cerrará para completar la instalación. En macOS se
-              reabrirá sola; en Windows puede que tengas que abrirla de nuevo.
-            </p>
-          ) : null}
-
-          <label className="setting-toggle">
-            <input
-              type="checkbox"
-              checked={status?.autoCheck ?? false}
-              disabled={busy || !status || !ready || snapManaged}
-              onChange={(event) =>
-                void handleToggleAutoCheck(event.target.checked)
-              }
-            />
-            <span>
-              <strong>Buscar actualizaciones al iniciar</strong>
-              <span className="quiet">
-                Desactivado por defecto. Solo consulta el manifiesto fijo; no
-                envía datos de la bóveda.
-                {!ready ? " Requiere una bóveda configurada." : ""}
-              </span>
-            </span>
-          </label>
-
-          <div className="hero-actions">
-            <button
-              type="button"
-              className="button filled"
-              disabled={!canCheckUpdates}
-              onClick={() => void handleCheck()}
-            >
-              {checking ? "Buscando…" : "Buscar actualizaciones"}
-            </button>
-            {candidate ? (
-              <button
-                type="button"
-                className="button tonal"
-                disabled={busy || !canInstall}
-                onClick={() => void handleInstall()}
-              >
-                {installing ? "Instalando…" : `Instalar ${candidate.version}`}
-              </button>
-            ) : null}
-            {status?.canRollback ? (
-              <button
-                type="button"
-                className="button"
-                disabled={busy || snapManaged}
-                onClick={() => void handleRollback()}
-              >
-                Restaurar versión anterior
-              </button>
-            ) : null}
-          </div>
-
-          {status &&
-          updaterBlockedReason &&
-          !snapManaged &&
-          status.publicKeyConfigured ? (
-            <p className="quiet">{updaterBlockedReason}</p>
-          ) : null}
-
-          {candidate ? (
-            <div className="nested-card">
-              <p className="eyebrow">Nueva versión</p>
-              <h3>{candidate.version}</h3>
-              {candidate.pubDate ? (
-                <p className="quiet">Publicada: {candidate.pubDate}</p>
-              ) : null}
-              <p>{candidate.notes || "Sin notas de la versión."}</p>
+        {!msix ? (
+          <section
+            className="status-card settings-card"
+            aria-labelledby="updater-title"
+          >
+            <div>
+              <p className="eyebrow">Updater aislado</p>
+              <h2 id="updater-title">Actualizaciones</h2>
+              <p className="quiet">
+                Versión {status?.currentVersion ?? "desconocida"} · host fijo{" "}
+                {status?.updateHost ?? "github.com"} · runtime {runtimeLabel}
+              </p>
             </div>
-          ) : null}
-        </section>
+
+            {status && !status.publicKeyConfigured ? (
+              <p className="notice">
+                Esta compilación no tiene una clave pública de producción. El
+                updater queda deshabilitado hasta configurarla; nunca se
+                descarga nada sin firma válida.
+              </p>
+            ) : null}
+
+            {snapManaged ? (
+              <p className="notice">
+                Esta instalación es un snap. Las actualizaciones las gestiona
+                snapd desde la Snap Store; el updater automático queda
+                deshabilitado para no reemplazar archivos fuera del
+                confinamiento.
+              </p>
+            ) : null}
+
+            {status?.runtime === "deb" || status?.runtime === "rpm" ? (
+              <p className="quiet">
+                La instalación pedirá tu contraseña de administrador y se
+                aplicará con el gestor de paquetes del sistema. Después habrá
+                que reiniciar Study Planner.
+              </p>
+            ) : null}
+
+            {status?.runtime === "windows" || status?.runtime === "macos" ? (
+              <p className="quiet">
+                La app se cerrará para completar la instalación. En macOS se
+                reabrirá sola; en Windows puede que tengas que abrirla de nuevo.
+              </p>
+            ) : null}
+
+            <label className="setting-toggle">
+              <input
+                type="checkbox"
+                checked={status?.autoCheck ?? false}
+                disabled={busy || !status || !ready || snapManaged}
+                onChange={(event) =>
+                  void handleToggleAutoCheck(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Buscar actualizaciones al iniciar</strong>
+                <span className="quiet">
+                  Desactivado por defecto. Solo consulta el manifiesto fijo; no
+                  envía datos de la bóveda.
+                  {!ready ? " Requiere una bóveda configurada." : ""}
+                </span>
+              </span>
+            </label>
+
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button filled"
+                disabled={!canCheckUpdates}
+                onClick={() => void handleCheck()}
+              >
+                {checking ? "Buscando…" : "Buscar actualizaciones"}
+              </button>
+              {candidate ? (
+                <button
+                  type="button"
+                  className="button tonal"
+                  disabled={busy || !canInstall}
+                  onClick={() => void handleInstall()}
+                >
+                  {installing ? "Instalando…" : `Instalar ${candidate.version}`}
+                </button>
+              ) : null}
+              {status?.canRollback ? (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy || snapManaged}
+                  onClick={() => void handleRollback()}
+                >
+                  Restaurar versión anterior
+                </button>
+              ) : null}
+            </div>
+
+            {status &&
+            updaterBlockedReason &&
+            !snapManaged &&
+            status.publicKeyConfigured ? (
+              <p className="quiet">{updaterBlockedReason}</p>
+            ) : null}
+
+            {candidate ? (
+              <div className="nested-card">
+                <p className="eyebrow">Nueva versión</p>
+                <h3>{candidate.version}</h3>
+                {candidate.pubDate ? (
+                  <p className="quiet">Publicada: {candidate.pubDate}</p>
+                ) : null}
+                <p>{candidate.notes || "Sin notas de la versión."}</p>
+              </div>
+            ) : null}
+          </section>
+        ) : (
+          <p className="quiet">
+            Instalación MSIX: las actualizaciones las gestiona Microsoft Store o
+            el instalador de sideloading.
+          </p>
+        )}
 
         {!ready ? (
           <section className="next-card">
@@ -581,138 +584,98 @@ export function SettingsView({
             </div>
           </section>
         ) : (
-          <>
-            <section
-              className="status-card settings-card"
-              aria-labelledby="notifications-title"
-            >
-              <div>
-                <p className="eyebrow">Recordatorios locales</p>
-                <h2 id="notifications-title">Notificaciones</h2>
-                <p className="quiet">
-                  Clases, tareas, exámenes y repasos. Se calculan en la bóveda y
-                  se entregan por D-Bus desde Rust: la webview no pide permisos
-                  ni accede a la red.
-                </p>
-              </div>
+          <section
+            className="status-card settings-card"
+            aria-labelledby="notifications-title"
+          >
+            <div>
+              <p className="eyebrow">Recordatorios locales</p>
+              <h2 id="notifications-title">Notificaciones</h2>
+              <p className="quiet">
+                Clases, tareas, exámenes y repasos. Se calculan en la bóveda y
+                se entregan por D-Bus desde Rust: la webview no pide permisos ni
+                accede a la red.
+              </p>
+            </div>
 
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  checked={notifications?.enabled ?? false}
-                  disabled={busy || !notifications}
-                  onChange={(event) =>
-                    void handleToggleNotifications(event.target.checked)
-                  }
-                />
-                <span>
-                  <strong>Activar recordatorios</strong>
-                  <span className="quiet">
-                    Clases {notifications?.classLeadMinutes ?? 10} min antes ·
-                    tareas {notifications?.taskLeadMinutes ?? 60} min antes ·
-                    exámenes {notifications?.examLeadHours ?? 24} h antes.
-                  </span>
+            <label className="setting-toggle">
+              <input
+                type="checkbox"
+                checked={notifications?.enabled ?? false}
+                disabled={busy || !notifications}
+                onChange={(event) =>
+                  void handleToggleNotifications(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Activar recordatorios</strong>
+                <span className="quiet">
+                  Clases {notifications?.classLeadMinutes ?? 10} min antes ·
+                  tareas {notifications?.taskLeadMinutes ?? 60} min antes ·
+                  exámenes {notifications?.examLeadHours ?? 24} h antes.
                 </span>
-              </label>
+              </span>
+            </label>
 
-              <label className="setting-toggle">
-                <input
-                  type="checkbox"
-                  checked={notifications?.sound ?? true}
-                  disabled={busy || !notifications}
-                  onChange={(event) =>
-                    void handleToggleSound(event.target.checked)
-                  }
-                />
-                <span>
-                  <strong>Sonido en los recordatorios</strong>
-                  <span className="quiet">
-                    Pide al escritorio el sonido estándar de notificación. Si no
-                    se reproduce, revisá la configuración de sonido del sistema.
-                  </span>
+            <label className="setting-toggle">
+              <input
+                type="checkbox"
+                checked={notifications?.sound ?? true}
+                disabled={busy || !notifications}
+                onChange={(event) =>
+                  void handleToggleSound(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Sonido en los recordatorios</strong>
+                <span className="quiet">
+                  Pide al escritorio el sonido estándar de notificación. Si no
+                  se reproduce, revisá la configuración de sonido del sistema.
                 </span>
-              </label>
+              </span>
+            </label>
 
-              <div className="hero-actions">
-                <button
-                  type="button"
-                  className="button filled"
-                  disabled={busy || !notifications?.enabled}
-                  onClick={() => void handleScanNotifications()}
-                >
-                  {notifying ? "Revisando…" : "Revisar recordatorios"}
-                </button>
-                <button
-                  type="button"
-                  className="button tonal"
-                  disabled={notifying}
-                  onClick={() => void handleTestNotification()}
-                >
-                  Enviar notificación de prueba
-                </button>
-              </div>
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button filled"
+                disabled={busy || !notifications?.enabled}
+                onClick={() => void handleScanNotifications()}
+              >
+                {notifying ? "Revisando…" : "Revisar recordatorios"}
+              </button>
+              <button
+                type="button"
+                className="button tonal"
+                disabled={notifying}
+                onClick={() => void handleTestNotification()}
+              >
+                Enviar notificación de prueba
+              </button>
+            </div>
 
-              {notifications && notifications.recent.length > 0 ? (
-                <ul className="mini-list" aria-label="Recordatorios entregados">
-                  {notifications.recent.map((record) => (
-                    <li key={record.id} className="mini-item">
-                      <div>
-                        <strong>
-                          {notificationKindLabels[record.kind] ?? record.kind}
-                        </strong>
-                        <span className="quiet">
-                          {eventTime(record.firedAt ?? record.scheduledAt)}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="quiet">
-                  Todavía no se entregaron recordatorios. El planificador revisa
-                  cada minuto mientras la app está abierta o en segundo plano.
-                </p>
-              )}
-            </section>
-
-            <section
-              className="status-card settings-card"
-              aria-labelledby="network-title"
-            >
-              <div>
-                <p className="eyebrow">Auditoría</p>
-                <h2 id="network-title">Eventos de red</h2>
-                <p className="quiet">
-                  Solo tipo, host, bytes y resultado. Sin rutas, materias ni
-                  identificadores de la bóveda.
-                </p>
-              </div>
-
-              {events.length === 0 ? (
-                <p className="quiet">Todavía no hay eventos de red.</p>
-              ) : (
-                <ul className="mini-list" aria-label="Eventos de red">
-                  {events.map((event) => (
-                    <li key={event.id} className="mini-item">
-                      <div>
-                        <strong>
-                          {kindLabels[event.kind] ?? event.kind} ·{" "}
-                          {event.outcome === "ok" ? "OK" : "Error"}
-                        </strong>
-                        <span className="quiet">
-                          {event.host} · {bytesText(event.bytesReceived)}{" "}
-                          recibidos · {eventTime(event.occurredAt)}
-                        </span>
-                        {event.detail ? (
-                          <span className="quiet">{event.detail}</span>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </>
+            {notifications && notifications.recent.length > 0 ? (
+              <ul className="mini-list" aria-label="Recordatorios entregados">
+                {notifications.recent.map((record) => (
+                  <li key={record.id} className="mini-item">
+                    <div>
+                      <strong>
+                        {notificationKindLabels[record.kind] ?? record.kind}
+                      </strong>
+                      <span className="quiet">
+                        {eventTime(record.firedAt ?? record.scheduledAt)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="quiet">
+                Todavía no se entregaron recordatorios. El planificador revisa
+                cada minuto mientras la app está abierta o en segundo plano.
+              </p>
+            )}
+          </section>
         )}
       </div>
     </>

@@ -2,6 +2,26 @@
 
 Todos los cambios relevantes de Study Planner se registran acá. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado pretende seguir [SemVer](https://semver.org/lang/es/).
 
+## [0.1.4] — 2026-11-09 — MSIX, instancia única y limpieza de interfaz
+
+### Agregado
+
+- Empaquetado MSIX para Windows y Microsoft Store en un workflow independiente (`.github/workflows/store-msix.yml`), con el mismo patrón que better-tracker y SinNotas: `scripts/prepare-store-msix.mjs` prepara el payload y el manifiesto desde `packaging/windows-store/AppxManifest.template.xml`, y `MakeAppx.exe` deja el `.msix` sin firmar como artefacto, listo para subir al Partner Center. El workflow de release ya no genera MSIX. El manifiesto usa la identidad reservada `wulfo.StudyPlannerMax` (`Publisher` `CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulfo`) y el nombre visible `Study Planner Max`. Microsoft Store aplica su identidad y firma al publicar.
+- Detecta la instalación MSIX por la ruta `WindowsApps`, expone el runtime `msix` y oculta el panel del updater con el aviso de que se actualiza desde Microsoft Store.
+- `PRIVACY.md` con la política de privacidad requerida por Microsoft Store; el workflow de la Store falla si falta.
+- Botón «Visitar repositorio» en «Ajustes». Abre la URL fija del proyecto con el lanzador del sistema desde Rust (`xdg-open`, `open` o `rundll32`), sin plugins ni permisos nuevos en la webview.
+- Instancia única: si la app ya está corriendo en segundo plano, abrirla de nuevo enfoca la ventana existente en lugar de iniciar otro proceso.
+
+### Corregido
+
+- Instancia única reforzada: además del nombre D-Bus del plugin, un lock de archivo y un socket local en el directorio de datos evitan que una segunda apertura cree otra ventana y otro icono en la bandeja cuando el plugin no puede publicar su nombre (snap `strict`, contenedores o sesiones sin bus). Si el aviso no llega, la segunda instancia se cierra igual.
+- El icono de bandeja es idempotente: si ya existe, no se agrega un segundo icono.
+- «Buscar actualizaciones» e «Instalar actualización» ya no bloquean la interfaz: la comprobación, descarga e instalación corren fuera del hilo principal.
+
+### Eliminado
+
+- Paneles de autodiagnóstico, checklist de proyecto, «Ver checklist» y «Siguiente» de la interfaz de desarrollo, junto con la tarjeta de auditoría de eventos de red en «Ajustes».
+
 ## [0.1.3] — 2026-11-09 — Updater multiplataforma y detección de runtime
 
 ### Corregido

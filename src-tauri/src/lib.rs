@@ -4,7 +4,10 @@ use study_planner_store::Store;
 use tauri::Manager;
 
 mod background;
+#[cfg(unix)]
+mod instance;
 mod notifications;
+mod repository;
 mod updater;
 mod vault;
 
@@ -40,12 +43,56 @@ fn schema_self_check() -> Result<SchemaCheck, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // Una segunda instancia no abre otra ventana: le muestra la
+            // principal a la que ya está corriendo (aunque esté en la bandeja).
+            background::show_main_window(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let state = vault::load_state(app.handle());
             let background = background::load(&state);
             app.manage(state);
             app.manage(background);
+
+            // El plugin de instancia única cubre el caso normal. Este respaldo
+            // evita una segunda ventana y un segundo icono cuando el plugin no
+            // puede publicar su nombre D-Bus (snap `strict`, contenedores).
+            #[cfg(unix)]
+            match app.path().app_local_data_dir() {
+                Ok(dir) => {
+                    let handle = app.handle().clone();
+                    match instance::acquire(&dir, move || {
+                        let target = handle.clone();
+                        let _ = handle.run_on_main_thread(move || {
+                            background::show_main_window(&target);
+                        });
+                    }) {
+                        Ok(instance::Acquired::Primary(guard)) => {
+                            app.manage(guard);
+                        }
+                        Ok(instance::Acquired::Secondary { notified }) => {
+                            if notified {
+                                eprintln!(
+                                    "Study Planner ya está en ejecución; se pidió mostrar la ventana existente."
+                                );
+                            } else {
+                                eprintln!(
+                                    "Study Planner ya está en ejecución y no respondió; no se abre otra instancia."
+                                );
+                            }
+                            app.handle().exit(0);
+                            return Ok(());
+                        }
+                        Err(error) => {
+                            eprintln!("No se pudo comprobar la instancia única: {error}");
+                        }
+                    }
+                }
+                Err(error) => {
+                    eprintln!("No se pudo resolver el directorio de datos: {error}");
+                }
+            }
 
             let tray_available = match background::setup_tray(app.handle()) {
                 Ok(available) => available,
@@ -66,6 +113,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             schema_self_check,
+            repository::open_repository,
             vault::get_vault_status,
             vault::choose_vault,
             vault::create_backup,

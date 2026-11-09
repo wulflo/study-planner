@@ -1,8 +1,8 @@
 # Study Planner — Checklist persistente
 
-> **Última actualización:** 2026-11-09
+> **Última actualización:** 2026-11-10
 > **Fase actual:** 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento)
-> **Versión:** 0.1.3 · `schema_version = 1` · `export_format_version = 1`
+> **Versión:** 0.1.4 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
 
@@ -25,24 +25,24 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Campo | Valor |
 |---|---|
 | Fase | 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento) |
-| Versión de app | 0.1.3 |
+| Versión de app | 0.1.4 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
-| Red en la webview | Prohibida por CSP y permisos |
-| Updater | Clave pública de producción configurada; detección de AppImage, `.deb`, `.rpm`, Windows y macOS; Snap gestionado por snapd; releases firmadas publicadas (`v0.1.0`, `v0.1.1`, `v0.1.2`) |
+| Red en la webview | Prohibida por CSP y permisos; el lanzador del repositorio y el updater viven en Rust |
+| Updater | Clave pública de producción configurada; detección de AppImage, `.deb`, `.rpm`, Windows y macOS; Snap y MSIX gestionados por sus tiendas; releases firmadas publicadas (`v0.1.0` a `v0.1.4`) |
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview; sonido opcional y modo segundo plano con bandeja |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
-| Release | AppImage, `.deb`, `.rpm`, Windows y macOS firmados y publicados; `v0.1.3` incorpora el updater multiplataforma |
+| Release | AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS; `v0.1.4` suma MSIX para Microsoft Store e instancia única reforzada |
 
 ### Verificación vigente
 
 ```text
-npm run check       ✅  39 tests de UI
+npm run check       ✅  40 tests de UI
 cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater
                     ✅  118 tests (42 core, 46 store, 16 transfer, 14 updater)
 cargo test -p study-planner                                 ✅  17 tests de bóveda y host
@@ -503,6 +503,19 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [ ] **Firma de código opcional:** Authenticode en Windows y Developer ID + notarización en macOS. La firma Tauri actual es solo de integridad.
 
 **Estado:** Linux es la plataforma completa; Windows/macOS son builds experimentales sin notificaciones locales ni updater. La firma Tauri no reemplaza la firma de código del sistema operativo.
+
+### 2026-11-10 — MSIX, instancia única y limpieza de interfaz
+
+- [x] **MSIX:** `.github/workflows/store-msix.yml` compila el `.exe`, genera el manifiesto desde `packaging/windows-store/AppxManifest.template.xml` y empaqueta con `MakeAppx.exe` en un workflow independiente, igual que better-tracker y SinNotas. Deja el `.msix` sin firmar como artefacto, listo para subir al Partner Center. Microsoft Store firma al publicar; no hay certificados locales.
+- [x] **Runtime MSIX:** la app detecta `WindowsApps` en la ruta del ejecutable, expone `runtime: "msix"`, no publica claves de plataforma y no permite instalar actualizaciones. «Ajustes» oculta el panel del updater y avisa que se actualiza desde Microsoft Store.
+- [x] **Privacidad:** `PRIVACY.md` en la raíz y verificación en el workflow de la Store; es obligatoria para la ficha de Microsoft Store.
+- [x] **Instancia única:** `tauri-plugin-single-instance` enfoca la ventana existente cuando se vuelve a abrir la app desde el menú, incluso si estaba oculta en la bandeja. En Unix, `instance.rs` agrega un lock de archivo y un socket local como respaldo para snap `strict` y contenedores; el icono de bandeja es idempotente.
+- [x] **Repositorio:** botón «Visitar repositorio» en «Ajustes»; el comando Rust usa `xdg-open`, `open` o `rundll32` con una URL fija y no agrega permisos a la webview.
+- [x] **Updater sin bloqueo:** `check_updates` e `install_update` corren con `spawn_blocking`, así que «Buscar actualizaciones» no congela la interfaz.
+- [x] **Limpieza:** se quitó el autodiagnóstico, el checklist de proyecto, la tarjeta «Siguiente» y la auditoría de eventos de red de la interfaz.
+- [ ] **Validar MSIX en Windows:** compilar, subir el `.msix` al Partner Center y comprobar que el updater queda oculto en la app instalada desde la Store.
+
+**Estado:** cambios de interfaz y Rust con la suite completa en verde (`npm run check`, clippy, tests y `cargo fmt`). El MSIX queda pendiente de validación en Windows real.
 
 ---
 
