@@ -2,6 +2,7 @@
 node_modules/
 dist/
 dist-ssr/
+dist-release/
 target/
 src-tauri/target/
 src-tauri/gen/

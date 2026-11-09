@@ -4,9 +4,11 @@
 > producción configurada y secrets `TAURI_SIGNING_PRIVATE_KEY` /
 > `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub. El updater funciona
 > en AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`); Snap queda
-> gestionado por snapd. Falta custodiar la passphrase/copias offline y publicar
-> la primera release firmada real. Windows/macOS siguen sin firma de código del
-> sistema operativo; ver límites más abajo.
+> gestionado por snapd y el MSIX oculta el updater porque se actualiza desde la
+> Microsoft Store. Falta custodiar la passphrase/copias offline y publicar
+> la primera release firmada real. Los instaladores NSIS/MSI y macOS siguen sin
+> firma de código del sistema operativo; el MSIX se firma en Microsoft Store.
+> Ver límites más abajo.
 
 ## Decisión
 
@@ -31,7 +33,7 @@ el snap.
 | Plataforma | Runner | Paquetes |
 |---|---|---|
 | Linux x86_64 | `ubuntu-24.04` | `.AppImage`, `.deb`, `.rpm` |
-| Windows x64 | `windows-latest` | `.exe` (NSIS) y `.msi` |
+| Windows x64 | `windows-latest` | `.exe` (NSIS), `.msi` y `.msix` |
 | macOS arm64 | `macos-15` | `.dmg` |
 
 Pasos del workflow:
@@ -45,19 +47,24 @@ Pasos del workflow:
 4. `node scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y
    `.dmg`, copia cada artefacto con su `.sig`, escribe un `SHA256SUMS` por
    plataforma y un manifiesto parcial `manifest-<plataforma>-<arquitectura>.json`.
-5. En Linux, `node scripts/package-release.mjs` firma el AppImage con
+5. En Windows, `node scripts/package-msix.mjs` empaqueta el `.exe` con
+   `MakeAppx.exe` del Windows SDK, genera el `AppxManifest.xml` y agrega el
+   SHA-256 del `.msix` al `SHA256SUMS-windows-x86_64.txt`. El paquete queda sin
+   firmar: se sube así al Partner Center y Microsoft Store lo firma al publicar.
+6. En Linux, `node scripts/package-release.mjs` firma el AppImage con
    `tauri signer sign --app-version <versión>`, lo copia como
    `study-planner_<versión>_x86_64.AppImage` y escribe
    `dist-release/manifest-appimage.json`.
-6. En Linux, verifica la firma del AppImage contra la clave pública embebida con
+7. En Linux, verifica la firma del AppImage contra la clave pública embebida con
    `cargo run -p study-planner-updater --example verify_release`.
-7. El job `release` descarga los artefactos de las tres plataformas, ejecuta
-   `node scripts/merge-manifests.mjs` para fusionar los manifiestos parciales en
-   `latest.json` y crea o actualiza la release de GitHub, marcada como *latest*.
+8. El job `release` descarga los artefactos de las tres plataformas, comprueba
+   que `PRIVACY.md` exista, ejecuta `node scripts/merge-manifests.mjs` para
+   fusionar los manifiestos parciales en `latest.json` y crea o actualiza la
+   release de GitHub, marcada como *latest*.
 
 La firma de Tauri es una firma minisign de integridad. **No** es Authenticode en
-Windows ni notarización de Apple en macOS: esos pasos, si se agregan, usan
-certificados distintos.
+Windows ni notarización de Apple en macOS. El MSIX no se firma localmente:
+Microsoft Store aplica su propia firma al publicar.
 
 ### Límites por plataforma
 
@@ -67,15 +74,22 @@ certificados distintos.
 - **Windows:** el updater ejecuta el instalador NSIS (`/S`) o MSI
   (`msiexec /qn`), espera a que la app se cierre y deja que el instalador
   actualice. La detección prefiere MSI si la app corre desde `%ProgramFiles%` y
-  NSIS en el resto de los casos.
+  NSIS en el resto de los casos. En el MSIX el updater queda oculto: la app corre
+  desde `WindowsApps` y la actualización la gestiona Microsoft Store.
+- **MSIX:** el paquete se sube sin firmar al Partner Center; Microsoft Store
+  aplica su identidad y firma al publicar, así que no hace falta ningún
+  certificado local. `MSIX_PUBLISHER` e `MSIX_IDENTITY_NAME` deben coincidir con
+  los valores de la app reservada. El runtime detectado es `msix` y no admite
+  actualizaciones automáticas.
 - **macOS:** el updater monta el `.dmg`, reemplaza el bundle `.app` y lo reabre.
   Gatekeeper puede pedir confirmación porque el `.dmg` no está notarizado.
 - **Snap:** snapd gestiona las actualizaciones desde la Snap Store; el updater
   automático queda oculto para no escribir fuera del confinamiento.
-- La firma de Tauri es de integridad. Windows/macOS siguen sin Authenticode ni
-  notarización de Apple; ver más abajo.
+- La firma de Tauri es de integridad. Los instaladores NSIS/MSI y macOS siguen
+  sin Authenticode ni notarización de Apple; el MSIX se firma en la Store. Ver
+  más abajo.
 
-### Secrets requeridos
+### Secrets de firma del updater
 
 | Secret | Contenido |
 |---|---|
@@ -88,6 +102,29 @@ Se cargan desde archivos, nunca se pegan en YAML, issues ni chat:
 gh secret set TAURI_SIGNING_PRIVATE_KEY < /ruta/segura/study-planner.key
 gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < /ruta/segura/passphrase.txt
 ```
+
+### Secrets y variables del MSIX
+
+Valores reservados en el Partner Center para Study Planner (no son secretos:
+aparecen en el manifiesto del paquete y en la ficha pública):
+
+| Campo del Partner Center | Valor | Variable |
+|---|---|---|
+| `Package/Identity/Name` | `wulfo.StudyPlannerMax` | `MSIX_IDENTITY_NAME` |
+| `Package/Identity/Publisher` | `CN=7F51EF66-8407-4798-A8F4-3C4A407DA359` | `MSIX_PUBLISHER` |
+| `Package/Properties/PublisherDisplayName` | `wulfo` | `MSIX_PUBLISHER_DISPLAY` |
+| `Package/Properties/DisplayName` | `Study Planner Max` | `MSIX_DISPLAY_NAME` |
+| Package Family Name (PFN) | `wulfo.StudyPlannerMax_m5406cz1kxxs8` | derivada; no se configura |
+| Store ID | `9N1B9V99VGHR` | solo para la ficha de la Store |
+
+`scripts/package-msix.mjs` y el workflow usan estos valores por defecto, así que
+no hace falta configurar nada para que el `.msix` coincida con la app reservada.
+Las variables solo se necesitan para sobrescribirlos (otra app u otra cuenta) y,
+si se definen, deben coincidir exactamente con el Partner Center: la Store
+rechaza el paquete cuando `Identity Name`, `Publisher` o `PublisherDisplayName`
+no coinciden. `MSIX_DISPLAY_NAME` no lo valida la Store, pero conviene que sea el
+mismo nombre reservado para que el mosaico instalado y la ficha coincidan. No se
+usa ningún certificado ni contraseña de firma.
 
 ## URL fija y manifiesto
 
@@ -154,7 +191,9 @@ Las claves de plataforma que usa el updater son:
 | Windows MSI | `windows-<arch>-msi` |
 | macOS | `darwin-<arch>` |
 
-`<arch>` es `x86_64` o `aarch64`.
+`<arch>` es `x86_64` o `aarch64`. El MSIX (`msix`) no tiene clave de plataforma:
+su actualización la gestiona la Store, así que el updater no consulta el
+manifiesto desde esa instalación.
 
 La release debe ser la **latest** (no borrador ni pre-release) para que
 `releases/latest/download/latest.json` resuelva al manifiesto correcto. El
@@ -224,11 +263,57 @@ están disponibles en Linux.`
 La firma que produce el workflow es minisign (`TAURI_SIGNING_PRIVATE_KEY`), útil
 para verificar integridad. No reemplaza la firma de código del sistema operativo:
 
-- Windows: Authenticode requiere un certificado de code signing.
+- Windows: Authenticode para NSIS/MSI requiere un certificado de code signing.
+  El MSIX no lo necesita porque lo firma Microsoft Store.
 - macOS: Gatekeeper requiere Developer ID + notarización de Apple.
 
 Hasta no agregar esas firmas, Windows/macOS pueden mostrar advertencias al
 instalar o al abrir la app.
+
+## MSIX y Microsoft Store
+
+Tauri 2.12 solo genera NSIS y MSI en Windows, así que el MSIX se arma después
+del build con `scripts/package-msix.mjs`:
+
+1. Copia `target/release/study-planner.exe` a un directorio de staging y los
+   íconos de tienda desde `src-tauri/icons` (`StoreLogo.png`,
+   `Square44x44Logo.png`, `Square150x150Logo.png`, etc.).
+2. Genera `AppxManifest.xml` con `Identity Name`, `Publisher`, versión MSIX de
+   cuatro componentes, `runFullTrust` y `Windows.FullTrustApplication`.
+3. Empaqueta con `MakeAppx.exe pack /d <stage> /p <salida> /o`. No firma nada.
+4. Escribe `study-planner_<versión>_x86_64.msix` en `dist-release` y agrega su
+   SHA-256 al `SHA256SUMS-windows-x86_64.txt`.
+5. Falla si no existe `PRIVACY.md`: Microsoft Store exige una política de
+   privacidad pública, enlazada desde la ficha del producto. La URL pública es
+   `https://github.com/wulflo/study-planner/blob/main/PRIVACY.md`.
+
+El manifiesto usa por defecto la identidad reservada en el Partner Center:
+`Identity Name` `wulfo.StudyPlannerMax`, `Publisher`
+`CN=7F51EF66-8407-4798-A8F4-3C4A407DA359`, `PublisherDisplayName` `wulfo` y
+`DisplayName` `Study Planner Max`. Los tres primeros deben coincidir
+exactamente con el Partner Center; si no, la Store rechaza la carga. La PFN
+(`wulfo.StudyPlannerMax_m5406cz1kxxs8`) se deriva de `Identity Name` y
+`Publisher`, así que si alguno cambia, la PFN también. Se pueden sobrescribir con
+`MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY` y
+`MSIX_DISPLAY_NAME`. La app detecta que corre desde `WindowsApps` y oculta todo
+el panel de actualizaciones en «Ajustes» con el aviso «Esta instalación se
+actualiza desde Microsoft Store».
+
+### Publicación en la Store
+
+El workflow no sube nada al Partner Center. El `.msix` queda adjunto a la
+release de GitHub; se descarga y se sube manualmente como paquete de la
+aplicación en el Partner Center. No hace falta firmarlo antes: Microsoft Store
+lo vuelve a firmar con la identidad de la cuenta al certificar la publicación.
+El mismo paquete no se puede instalar por sideloading sin un certificado de
+confianza, pero ese no es el flujo previsto.
+
+Verificación local (requiere Windows SDK):
+
+```powershell
+npm run tauri build -- --bundles nsis,msi
+node scripts/package-msix.mjs
+```
 
 ## Rotación y recuperación
 

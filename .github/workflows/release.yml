@@ -28,7 +28,7 @@ jobs:
             os: ubuntu-24.04
             bundles: appimage,deb,rpm
             artifact: linux
-          - name: Windows (NSIS, MSI)
+          - name: Windows (NSIS, MSI, MSIX)
             os: windows-latest
             bundles: nsis,msi
             artifact: windows
@@ -98,6 +98,18 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/package-artifacts.mjs
 
+      - name: Empaquetar MSIX (Windows)
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_OUT_DIR: dist-release
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER || secrets.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY: ${{ vars.MSIX_PUBLISHER_DISPLAY || secrets.MSIX_PUBLISHER_DISPLAY }}
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME || secrets.MSIX_IDENTITY_NAME }}
+          MSIX_DISPLAY_NAME: ${{ vars.MSIX_DISPLAY_NAME || secrets.MSIX_DISPLAY_NAME }}
+        run: node scripts/package-msix.mjs
+
       - name: Firmar AppImage y generar manifiesto (Linux)
         if: runner.os == 'Linux'
         env:
@@ -147,6 +159,11 @@ jobs:
           merge-multiple: true
           path: dist-release
 
+      - name: Verificar la política de privacidad
+        run: |
+          test -f PRIVACY.md
+          echo "PRIVACY.md presente para Microsoft Store"
+
       - name: Fusionar manifiestos de plataformas
         env:
           RELEASE_OUT_DIR: dist-release
@@ -176,8 +193,11 @@ jobs:
 # Notas:
 # - Linux: AppImage, .deb y .rpm, firmados. El AppImage se actualiza solo;
 #   .deb/.rpm usan pkexec + dpkg/dnf/zypper/rpm.
-# - Windows: NSIS (.exe) y MSI, firmados con la clave de Tauri (firma de
-#   integridad, no Authenticode). El updater ejecuta el instalador en silencio.
+# - Windows: NSIS (.exe), MSI y MSIX. NSIS/MSI se firman con la clave de Tauri
+#   (firma de integridad, no Authenticode). El MSIX se empaqueta con MakeAppx y
+#   se sube SIN firmar al Partner Center: Microsoft Store aplica su identidad y
+#   firma al publicar. El MSIX oculta el autoactualizador.
+# - PRIVACY.md es obligatoria para publicar en Microsoft Store.
 # - macOS: .dmg firmado con la clave de Tauri (integridad, no notarización
 #   Apple). El updater reemplaza el bundle .app y lo reabre.
 # - Cada job escribe un manifiesto parcial; el job de release los fusiona en

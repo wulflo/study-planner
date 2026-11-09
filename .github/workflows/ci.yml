@@ -63,6 +63,13 @@ jobs:
       - name: Verificación de frontend
         run: npm run check
 
+      - name: Sintaxis de los scripts de empaquetado
+        run: |
+          node --check scripts/package-msix.mjs
+          node --check scripts/package-artifacts.mjs
+          node --check scripts/package-release.mjs
+          node --check scripts/merge-manifests.mjs
+
       - name: Formato de Rust
         run: cargo fmt --all -- --check
 
