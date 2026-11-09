@@ -109,6 +109,10 @@ const api = vi.hoisted(() => ({
   installUpdate: vi.fn(),
   rollbackUpdate: vi.fn(),
   listNetworkEvents: vi.fn(),
+  getNotificationStatus: vi.fn(),
+  setNotificationsEnabled: vi.fn(),
+  runNotificationScan: vi.fn(),
+  sendTestNotification: vi.fn(),
 }));
 
 vi.mock("./lib/ipc", () => ({
@@ -565,6 +569,27 @@ const networkEvent = {
   updatedAt: "2026-11-08T10:00:00.000Z",
 };
 
+const notificationRecord = {
+  id: "notification-1",
+  kind: "task",
+  entityType: "task",
+  entityId: "task-1",
+  scheduledAt: "2026-11-08T09:30:00.000Z",
+  firedAt: "2026-11-08T09:31:00.000Z",
+  state: "fired",
+  dedupeKey: "task:task-1:2026-11-08:10:00",
+  createdAt: "2026-11-08T09:30:00.000Z",
+  updatedAt: "2026-11-08T09:31:00.000Z",
+};
+
+const notificationStatus = {
+  enabled: true,
+  classLeadMinutes: 10,
+  taskLeadMinutes: 60,
+  examLeadHours: 24,
+  recent: [notificationRecord],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAppInfo.mockResolvedValue({
@@ -793,6 +818,13 @@ beforeEach(() => {
   });
   api.rollbackUpdate.mockResolvedValue(undefined);
   api.listNetworkEvents.mockResolvedValue([networkEvent]);
+  api.getNotificationStatus.mockResolvedValue(notificationStatus);
+  api.setNotificationsEnabled.mockResolvedValue({
+    ...notificationStatus,
+    enabled: false,
+  });
+  api.runNotificationScan.mockResolvedValue({ delivered: 2, failed: 0 });
+  api.sendTestNotification.mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
@@ -1413,7 +1445,11 @@ describe("App con IPC de Tauri", () => {
 
     await user.click(toggle);
     expect(api.setUpdaterAutoCheck).toHaveBeenCalledWith(true);
-    expect(await screen.findByRole("checkbox")).toBeChecked();
+    expect(
+      await screen.findByRole("checkbox", {
+        name: /buscar actualizaciones al iniciar/i,
+      }),
+    ).toBeChecked();
 
     await user.click(
       screen.getByRole("button", { name: "Buscar actualizaciones" }),
@@ -1449,5 +1485,54 @@ describe("App con IPC de Tauri", () => {
     expect(
       screen.getByRole("button", { name: "Buscar actualizaciones" }),
     ).toBeDisabled();
+  });
+
+  it("activa, revisa y prueba las notificaciones locales", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Notificaciones", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("list", { name: "Recordatorios entregados" }),
+    ).toHaveTextContent("Tarea");
+
+    const toggle = await screen.findByRole("checkbox", {
+      name: /activar recordatorios/i,
+    });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    expect(api.setNotificationsEnabled).toHaveBeenCalledWith(false);
+    expect(
+      await screen.findByRole("checkbox", { name: /activar recordatorios/i }),
+    ).not.toBeChecked();
+  });
+
+  it("entrega recordatorios y envía una notificación de prueba", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+    await screen.findByRole("checkbox", { name: /activar recordatorios/i });
+
+    await user.click(
+      screen.getByRole("button", { name: "Revisar recordatorios" }),
+    );
+    expect(api.runNotificationScan).toHaveBeenCalled();
+    expect(
+      await screen.findByText(/recordatorios revisados: 2 entregados/i),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Enviar notificación de prueba" }),
+    );
+    expect(api.sendTestNotification).toHaveBeenCalled();
+    expect(
+      await screen.findByText(/notificación de prueba enviada/i),
+    ).toBeInTheDocument();
   });
 });

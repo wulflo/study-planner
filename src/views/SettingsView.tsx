@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import {
   checkUpdates,
+  getNotificationStatus,
   getUpdaterStatus,
   installUpdate,
   listNetworkEvents,
   type NetworkEvent,
+  type NotificationStatus,
   rollbackUpdate,
+  runNotificationScan,
+  sendTestNotification,
+  setNotificationsEnabled,
   setUpdaterAutoCheck,
   type UpdateInfo,
   type UpdaterStatus,
@@ -21,6 +26,15 @@ const kindLabels: Record<string, string> = {
   update_download: "Descarga",
   update_install: "Instalación",
   update_rollback: "Rollback",
+};
+
+const notificationKindLabels: Record<string, string> = {
+  class: "Clase",
+  task: "Tarea",
+  exam: "Examen",
+  review: "Repaso",
+  backup: "Backup",
+  update: "Actualización",
 };
 
 function bytesText(bytes: number): string {
@@ -48,21 +62,28 @@ export function SettingsView({
   const ready = vault?.ready === true;
   const [status, setStatus] = useState<UpdaterStatus | null>(null);
   const [events, setEvents] = useState<NetworkEvent[]>([]);
+  const [notifications, setNotifications] = useState<NotificationStatus | null>(
+    null,
+  );
   const [candidate, setCandidate] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   async function load() {
     try {
-      const [loadedStatus, loadedEvents] = await Promise.all([
-        getUpdaterStatus(),
-        listNetworkEvents(),
-      ]);
+      const [loadedStatus, loadedEvents, loadedNotifications] =
+        await Promise.all([
+          getUpdaterStatus(),
+          listNetworkEvents(),
+          getNotificationStatus(),
+        ]);
       setStatus(loadedStatus);
       setEvents(loadedEvents);
+      setNotifications(loadedNotifications);
     } catch (reason) {
       setError(messageOf(reason));
     }
@@ -76,13 +97,16 @@ export function SettingsView({
 
     async function loadInitial() {
       try {
-        const [loadedStatus, loadedEvents] = await Promise.all([
-          getUpdaterStatus(),
-          listNetworkEvents(),
-        ]);
+        const [loadedStatus, loadedEvents, loadedNotifications] =
+          await Promise.all([
+            getUpdaterStatus(),
+            listNetworkEvents(),
+            getNotificationStatus(),
+          ]);
         if (!cancelled) {
           setStatus(loadedStatus);
           setEvents(loadedEvents);
+          setNotifications(loadedNotifications);
         }
       } catch (reason) {
         if (!cancelled) {
@@ -168,7 +192,52 @@ export function SettingsView({
     }
   }
 
-  const busy = saving || checking || installing;
+  async function handleToggleNotifications(enabled: boolean) {
+    setNotifying(true);
+    setError(null);
+    try {
+      setNotifications(await setNotificationsEnabled(enabled));
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setNotifying(false);
+    }
+  }
+
+  async function handleScanNotifications() {
+    setNotifying(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const outcome = await runNotificationScan();
+      setNotifications(await getNotificationStatus());
+      const failed =
+        outcome.failed > 0 ? ` ${outcome.failed} no se pudieron entregar.` : "";
+      setNotice(
+        `Recordatorios revisados: ${outcome.delivered} entregados.${failed}`,
+      );
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setNotifying(false);
+    }
+  }
+
+  async function handleTestNotification() {
+    setNotifying(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendTestNotification();
+      setNotice("Notificación de prueba enviada al escritorio.");
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setNotifying(false);
+    }
+  }
+
+  const busy = saving || checking || installing || notifying;
 
   return (
     <>
@@ -314,6 +383,81 @@ export function SettingsView({
                   <p>{candidate.notes || "Sin notas de la versión."}</p>
                 </div>
               ) : null}
+            </section>
+
+            <section
+              className="status-card settings-card"
+              aria-labelledby="notifications-title"
+            >
+              <div>
+                <p className="eyebrow">Recordatorios locales</p>
+                <h2 id="notifications-title">Notificaciones</h2>
+                <p className="quiet">
+                  Clases, tareas, exámenes y repasos. Se calculan en la bóveda y
+                  se entregan por D-Bus desde Rust: la webview no pide permisos
+                  ni accede a la red.
+                </p>
+              </div>
+
+              <label className="setting-toggle">
+                <input
+                  type="checkbox"
+                  checked={notifications?.enabled ?? false}
+                  disabled={busy || !notifications}
+                  onChange={(event) =>
+                    void handleToggleNotifications(event.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Activar recordatorios</strong>
+                  <span className="quiet">
+                    Clases {notifications?.classLeadMinutes ?? 10} min antes ·
+                    tareas {notifications?.taskLeadMinutes ?? 60} min antes ·
+                    exámenes {notifications?.examLeadHours ?? 24} h antes.
+                  </span>
+                </span>
+              </label>
+
+              <div className="hero-actions">
+                <button
+                  type="button"
+                  className="button filled"
+                  disabled={busy || !notifications?.enabled}
+                  onClick={() => void handleScanNotifications()}
+                >
+                  {notifying ? "Revisando…" : "Revisar recordatorios"}
+                </button>
+                <button
+                  type="button"
+                  className="button tonal"
+                  disabled={notifying}
+                  onClick={() => void handleTestNotification()}
+                >
+                  Enviar notificación de prueba
+                </button>
+              </div>
+
+              {notifications && notifications.recent.length > 0 ? (
+                <ul className="mini-list" aria-label="Recordatorios entregados">
+                  {notifications.recent.map((record) => (
+                    <li key={record.id} className="mini-item">
+                      <div>
+                        <strong>
+                          {notificationKindLabels[record.kind] ?? record.kind}
+                        </strong>
+                        <span className="quiet">
+                          {eventTime(record.firedAt ?? record.scheduledAt)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="quiet">
+                  Todavía no se entregaron recordatorios. El planificador revisa
+                  cada minuto mientras la app está abierta.
+                </p>
+              )}
             </section>
 
             <section

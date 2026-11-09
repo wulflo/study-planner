@@ -1326,3 +1326,49 @@ export async function rollbackUpdate(): Promise<void> {
 export async function listNetworkEvents(): Promise<NetworkEvent[]> {
   return invoke<NetworkEvent[]>("list_network_events");
 }
+
+export interface NotificationRecord {
+  id: string;
+  kind: string;
+  entityType: string | null;
+  entityId: string | null;
+  scheduledAt: string;
+  firedAt: string | null;
+  state: string;
+  dedupeKey: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationStatus {
+  enabled: boolean;
+  classLeadMinutes: number;
+  taskLeadMinutes: number;
+  examLeadHours: number;
+  recent: NotificationRecord[];
+}
+
+export interface NotificationScanOutcome {
+  delivered: number;
+  failed: number;
+}
+
+export async function getNotificationStatus(): Promise<NotificationStatus> {
+  return invoke<NotificationStatus>("get_notification_status");
+}
+
+export async function setNotificationsEnabled(
+  enabled: boolean,
+): Promise<NotificationStatus> {
+  return invoke<NotificationStatus>("set_notifications_enabled", { enabled });
+}
+
+/** Revisa y entrega ahora los recordatorios pendientes. */
+export async function runNotificationScan(): Promise<NotificationScanOutcome> {
+  return invoke<NotificationScanOutcome>("run_notification_scan");
+}
+
+/** Envía un aviso de prueba por D-Bus, sin red ni datos de la bóveda. */
+export async function sendTestNotification(): Promise<void> {
+  return invoke<void>("send_test_notification");
+}
