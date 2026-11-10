@@ -2,9 +2,11 @@
 
 > **Estado:** pipeline multiplataforma implementado (2026-11-10). Clave pública de
 > producción configurada y secrets `TAURI_SIGNING_PRIVATE_KEY` /
-> `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub. Falta custodiar la
-> passphrase/copias offline y publicar la primera release firmada real.
-> Windows/macOS son builds experimentales; ver límites más abajo.
+> `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub. El updater funciona
+> en AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`); Snap queda
+> gestionado por snapd. Falta custodiar la passphrase/copias offline y publicar
+> la primera release firmada real. Windows/macOS siguen sin firma de código del
+> sistema operativo; ver límites más abajo.
 
 ## Decisión
 
@@ -40,17 +42,18 @@ Pasos del workflow:
    - Linux: `appimage,deb,rpm`.
    - Windows: `nsis,msi`.
    - macOS: `dmg`.
-4. En Linux, `node scripts/package-release.mjs` firma el AppImage con
+4. `node scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y
+   `.dmg`, copia cada artefacto con su `.sig`, escribe un `SHA256SUMS` por
+   plataforma y un manifiesto parcial `manifest-<plataforma>-<arquitectura>.json`.
+5. En Linux, `node scripts/package-release.mjs` firma el AppImage con
    `tauri signer sign --app-version <versión>`, lo copia como
-   `study-planner_<versión>_x86_64.AppImage` y genera
-   `dist-release/latest.json`.
-5. `node scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y
-   `.dmg`, copia cada artefacto con su `.sig` y escribe un `SHA256SUMS` por
-   plataforma.
+   `study-planner_<versión>_x86_64.AppImage` y escribe
+   `dist-release/manifest-appimage.json`.
 6. En Linux, verifica la firma del AppImage contra la clave pública embebida con
    `cargo run -p study-planner-updater --example verify_release`.
-7. El job `release` descarga los artefactos de las tres plataformas y crea o
-   actualiza la release de GitHub, marcada como *latest*.
+7. El job `release` descarga los artefactos de las tres plataformas, ejecuta
+   `node scripts/merge-manifests.mjs` para fusionar los manifiestos parciales en
+   `latest.json` y crea o actualiza la release de GitHub, marcada como *latest*.
 
 La firma de Tauri es una firma minisign de integridad. **No** es Authenticode en
 Windows ni notarización de Apple en macOS: esos pasos, si se agregan, usan
@@ -58,14 +61,19 @@ certificados distintos.
 
 ### Límites por plataforma
 
-- **Linux:** es la plataforma completa. El updater de AppImage y las
-  notificaciones D-Bus funcionan.
-- **Windows/macOS:** builds experimentales. La app compila sin `zbus`, pero las
-  notificaciones locales devuelven un error claro y el updater queda inactivo
-  (no hay AppImage). No hay firma de código ni notarización.
-- La actualización automática solo existe en Linux/AppImage y Snap. Los paquetes
-  `.deb`/`.rpm` se actualizan con el gestor del sistema; `.exe`/`.msi` y `.dmg`
-  con el instalador correspondiente.
+- **Linux:** el updater reemplaza el AppImage de forma atómica. Los paquetes
+  `.deb` y `.rpm` se instalan con `pkexec` + `dpkg`/`dnf`/`zypper`/`rpm` después
+  de verificar la firma. Las notificaciones D-Bus funcionan.
+- **Windows:** el updater ejecuta el instalador NSIS (`/S`) o MSI
+  (`msiexec /qn`), espera a que la app se cierre y deja que el instalador
+  actualice. La detección prefiere MSI si la app corre desde `%ProgramFiles%` y
+  NSIS en el resto de los casos.
+- **macOS:** el updater monta el `.dmg`, reemplaza el bundle `.app` y lo reabre.
+  Gatekeeper puede pedir confirmación porque el `.dmg` no está notarizado.
+- **Snap:** snapd gestiona las actualizaciones desde la Snap Store; el updater
+  automático queda oculto para no escribir fuera del confinamiento.
+- La firma de Tauri es de integridad. Windows/macOS siguen sin Authenticode ni
+  notarización de Apple; ver más abajo.
 
 ### Secrets requeridos
 
@@ -105,10 +113,48 @@ permitida del updater):
       "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/study-planner_0.2.0_x86_64.AppImage",
       "signature": "<base64 de la firma minisign>",
       "sha256": "<64 hex>"
+    },
+    "linux-x86_64-deb": {
+      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_amd64.deb",
+      "signature": "<base64>",
+      "sha256": "<64 hex>"
+    },
+    "linux-x86_64-rpm": {
+      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner-0.2.0-1.x86_64.rpm",
+      "signature": "<base64>",
+      "sha256": "<64 hex>"
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_x64-setup.exe",
+      "signature": "<base64>",
+      "sha256": "<64 hex>"
+    },
+    "windows-x86_64-msi": {
+      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_x64_en-US.msi",
+      "signature": "<base64>",
+      "sha256": "<64 hex>"
+    },
+    "darwin-aarch64": {
+      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_aarch64.dmg",
+      "signature": "<base64>",
+      "sha256": "<64 hex>"
     }
   }
 }
 ```
+
+Las claves de plataforma que usa el updater son:
+
+| Entorno | Clave |
+|---|---|
+| AppImage | `linux-<arch>` |
+| `.deb` | `linux-<arch>-deb` |
+| `.rpm` | `linux-<arch>-rpm` |
+| Windows NSIS | `windows-<arch>` |
+| Windows MSI | `windows-<arch>-msi` |
+| macOS | `darwin-<arch>` |
+
+`<arch>` es `x86_64` o `aarch64`.
 
 La release debe ser la **latest** (no borrador ni pre-release) para que
 `releases/latest/download/latest.json` resuelva al manifiesto correcto. El
@@ -146,10 +192,14 @@ procedimiento de custodia en CI.
 El workflow de Linux compila `--bundles appimage,deb,rpm`. Los tres se firman
 con la clave de Tauri y se adjuntan a la release.
 
-- `.deb`: se instala con `apt`/`dpkg`; no lo reemplaza el updater de la app.
-- `.rpm`: se instala con `dnf`/`rpm`; tampoco lo reemplaza el updater.
-- El AppImage sigue siendo el único artefacto Linux que el updater puede
-  reemplazar de forma atómica.
+- `.deb`: el updater verifica la firma, escribe el paquete en un directorio
+  temporal privado y ejecuta `pkexec dpkg -i <paquete>`.
+- `.rpm`: igual, pero usa `pkexec dnf install -y --nogpgcheck <paquete>`,
+  `pkexec zypper --non-interactive install --allow-unsigned-rpm <paquete>` o
+  `pkexec rpm -U --replacepkgs <paquete>` según el gestor disponible.
+- La app sigue corriendo la versión anterior hasta que se reinicia.
+- El AppImage se reemplaza de forma atómica y conserva el binario anterior como
+  `.old` para el rollback.
 
 Para generarlos localmente:
 
@@ -161,13 +211,15 @@ npm run tauri build -- --bundles deb,rpm
 
 ## Windows y macOS
 
-Los jobs de Windows y macOS compilan los mismos crates, pero con dos límites
-explícitos:
+Los jobs de Windows y macOS compilan los mismos crates. La app funciona sin
+`zbus`; las notificaciones locales devuelven `Las notificaciones locales solo
+están disponibles en Linux.`
 
-- **Notificaciones:** `zbus` y D-Bus son solo Linux. En otras plataformas la
-  entrega devuelve `Las notificaciones locales solo están disponibles en Linux.`
-- **Updater:** el instalador de actualizaciones reemplaza un AppImage. En
-  Windows/macOS queda inactivo.
+- **Windows:** el updater ejecuta el instalador NSIS con `/S` o MSI con
+  `msiexec /i <archivo> /qn /norestart`. Después cierra la app para que el
+  instalador pueda reemplazar los archivos.
+- **macOS:** el updater monta el `.dmg`, copia el `.app` nuevo, reemplaza el
+  bundle y lo reabre con `open`.
 
 La firma que produce el workflow es minisign (`TAURI_SIGNING_PRIVATE_KEY`), útil
 para verificar integridad. No reemplaza la firma de código del sistema operativo:
@@ -175,8 +227,8 @@ para verificar integridad. No reemplaza la firma de código del sistema operativ
 - Windows: Authenticode requiere un certificado de code signing.
 - macOS: Gatekeeper requiere Developer ID + notarización de Apple.
 
-Hasta no agregar esas firmas, Windows/macOS son builds experimentales y pueden
-mostrar advertencias al instalar.
+Hasta no agregar esas firmas, Windows/macOS pueden mostrar advertencias al
+instalar o al abrir la app.
 
 ## Rotación y recuperación
 

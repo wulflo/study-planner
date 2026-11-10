@@ -89,7 +89,16 @@ jobs:
       - name: Build de los paquetes
         run: npm run tauri build -- --bundles ${{ matrix.bundles }}
 
-      - name: Firmar AppImage y generar latest.json (Linux)
+      - name: Firmar deb, rpm, exe, msi y dmg
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_OUT_DIR: dist-release
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/package-artifacts.mjs
+
+      - name: Firmar AppImage y generar manifiesto (Linux)
         if: runner.os == 'Linux'
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -97,13 +106,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/package-release.mjs
-
-      - name: Firmar deb, rpm, exe, msi y dmg
-        env:
-          RELEASE_OUT_DIR: dist-release
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: node scripts/package-artifacts.mjs
 
       - name: Verificar la firma del AppImage contra la clave embebida
         if: runner.os == 'Linux'
@@ -128,12 +130,27 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
       - name: Descargar artefactos
         uses: actions/download-artifact@v4
         with:
           pattern: release-*
           merge-multiple: true
           path: dist-release
+
+      - name: Fusionar manifiestos de plataformas
+        env:
+          RELEASE_OUT_DIR: dist-release
+        run: node scripts/merge-manifests.mjs
 
       - name: Publicar en GitHub Releases
         env:
@@ -157,8 +174,11 @@ jobs:
           fi
 
 # Notas:
-# - Linux: AppImage (firmado y con latest.json), .deb y .rpm.
-# - Windows: NSIS (.exe) y MSI, firmados con la clave de Tauri (firma de integridad,
-#   no Authenticode).
-# - macOS: .dmg firmado con la clave de Tauri (integridad, no notarización Apple).
-# - El updater y las notificaciones D-Bus siguen siendo solo Linux.
+# - Linux: AppImage, .deb y .rpm, firmados. El AppImage se actualiza solo;
+#   .deb/.rpm usan pkexec + dpkg/dnf/zypper/rpm.
+# - Windows: NSIS (.exe) y MSI, firmados con la clave de Tauri (firma de
+#   integridad, no Authenticode). El updater ejecuta el instalador en silencio.
+# - macOS: .dmg firmado con la clave de Tauri (integridad, no notarización
+#   Apple). El updater reemplaza el bundle .app y lo reabre.
+# - Cada job escribe un manifiesto parcial; el job de release los fusiona en
+#   latest.json antes de publicar.

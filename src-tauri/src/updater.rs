@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use serde::Serialize;
 use study_planner_store::{NetworkEvent, Store};
 use study_planner_updater::{
-    ReqwestFetcher, UPDATE_HOST, UpdateCandidate, UpdateError, appimage_backup_path,
-    check_for_update_with_size, download_update, install_appimage, public_key_configured,
-    rollback_appimage,
+    ReqwestFetcher, Runtime, UPDATE_HOST, UpdateCandidate, UpdateError, appimage_backup_path,
+    check_for_update_for_platforms, detect_appimage, detect_runtime, download_update,
+    install_update_artifact, platform_keys, public_key_configured, rollback_appimage,
 };
 use tauri::State;
 
@@ -27,8 +27,13 @@ pub struct UpdaterStatus {
     pub current_version: String,
     pub update_host: String,
     pub auto_check: bool,
+    pub runtime: String,
+    /// El frontend espera `runningAsAppImage` con «I» mayúscula; el
+    /// `rename_all` de serde generaría `runningAsAppimage`.
+    #[serde(rename = "runningAsAppImage")]
     pub running_as_appimage: bool,
     pub managed_by_snap: bool,
+    pub can_install: bool,
     pub can_rollback: bool,
 }
 
@@ -53,65 +58,17 @@ fn current_version() -> String {
     study_planner_core::app_info().version.to_string()
 }
 
-/// Entorno de ejecución relevante para actualizar la app.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Runtime {
-    /// La app corre desde un AppImage y puede reemplazarse a sí misma.
-    AppImage,
-    /// La app corre desde un snap; snapd gestiona las actualizaciones.
-    Snap,
-    /// `tauri dev` u otro entorno sin AppImage ni snap.
-    Development,
-}
-
-fn runtime_from(appimage: bool, snap: bool) -> Runtime {
-    if snap {
-        Runtime::Snap
-    } else if appimage {
-        Runtime::AppImage
-    } else {
-        Runtime::Development
-    }
-}
-
-fn is_appimage_path(path: &std::path::Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("appimage"))
-}
-
-/// Resuelve la ruta del AppImage en ejecución.
-///
-/// El runtime de AppImage define `APPIMAGE`. Algunos lanzadores solo dejan
-/// `ARGV0`; como último recurso se revisa el ejecutable actual.
-fn detect_appimage() -> Option<PathBuf> {
-    if let Some(raw) = std::env::var_os("APPIMAGE").filter(|value| !value.is_empty()) {
-        return Some(PathBuf::from(raw));
-    }
-
-    if let Some(raw) = std::env::var_os("ARGV0").filter(|value| !value.is_empty()) {
-        let path = PathBuf::from(raw);
-        if is_appimage_path(&path) {
-            return Some(path);
-        }
-    }
-
-    let executable = std::env::current_exe().ok()?;
-    is_appimage_path(&executable).then_some(executable)
-}
-
-fn runtime() -> Runtime {
-    runtime_from(
-        detect_appimage().is_some(),
-        std::env::var_os("SNAP").is_some(),
-    )
-}
-
-fn appimage_path() -> Result<PathBuf, String> {
-    if std::env::var_os("SNAP").is_some() {
+/// Ruta del AppImage solo cuando el entorno es realmente AppImage.
+fn appimage_path(runtime: Runtime) -> Result<Option<PathBuf>, String> {
+    if runtime == Runtime::Snap {
         return Err(UpdateError::ManagedBySnap.to_string());
     }
-    detect_appimage().ok_or_else(|| UpdateError::NotAppImage.to_string())
+    if runtime != Runtime::AppImage {
+        return Ok(None);
+    }
+    detect_appimage()
+        .map(Some)
+        .ok_or_else(|| UpdateError::NotAppImage.to_string())
 }
 
 /// Lee un ajuste booleano; si no existe, usa `false` (opt-in).
@@ -195,8 +152,12 @@ fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
     let auto_check = state.with_store_opt(|store| {
         store.map_or(Ok(false), |store| read_bool(store, AUTO_CHECK_KEY))
     })?;
-    let snap = std::env::var_os("SNAP").is_some();
-    let appimage = if snap { None } else { detect_appimage() };
+    let runtime = detect_runtime();
+    let appimage = if runtime == Runtime::AppImage {
+        detect_appimage()
+    } else {
+        None
+    };
     let can_rollback = appimage
         .as_deref()
         .is_some_and(|path| appimage_backup_path(path).is_file());
@@ -206,8 +167,10 @@ fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
         current_version: current_version(),
         update_host: UPDATE_HOST.to_string(),
         auto_check,
-        running_as_appimage: appimage.is_some(),
-        managed_by_snap: snap,
+        runtime: runtime.as_str().to_string(),
+        running_as_appimage: runtime == Runtime::AppImage,
+        managed_by_snap: runtime == Runtime::Snap,
+        can_install: runtime.can_install(),
         can_rollback,
     })
 }
@@ -233,8 +196,12 @@ pub fn check_updates(state: State<'_, AppState>) -> Result<Option<UpdateInfo>, S
 }
 
 fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
-    if runtime() == Runtime::Snap {
+    let runtime = detect_runtime();
+    if runtime == Runtime::Snap {
         return Err(UpdateError::ManagedBySnap.to_string());
+    }
+    if !runtime.can_install() {
+        return Err(UpdateError::UnsupportedRuntime.to_string());
     }
     if !public_key_configured() {
         return Err(UpdateError::PublicKeyNotConfigured.to_string());
@@ -242,7 +209,8 @@ fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
 
     let version = current_version();
     let fetcher = ReqwestFetcher::new(&version).map_err(|error| error.to_string())?;
-    let result = check_for_update_with_size(&fetcher, &version);
+    let platforms = platform_keys(runtime);
+    let result = check_for_update_for_platforms(&fetcher, &version, &platforms);
     let bytes_received = result
         .as_ref()
         .map_or(0, |check| check.manifest_bytes as i64);
@@ -291,7 +259,8 @@ fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
 pub fn auto_check_on_startup(app: &tauri::AppHandle) {
     use tauri::Manager as _;
 
-    if runtime() == Runtime::Snap {
+    let runtime = detect_runtime();
+    if !runtime.can_install() {
         return;
     }
 
@@ -307,26 +276,38 @@ pub fn auto_check_on_startup(app: &tauri::AppHandle) {
 /// Descarga, verifica e instala. Vuelve a consultar el manifiesto para no
 /// aceptar URL ni firma desde la webview.
 #[tauri::command]
-pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, String> {
+pub fn install_update(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<InstallOutcome, String> {
     if !public_key_configured() {
         return Err(UpdateError::PublicKeyNotConfigured.to_string());
     }
-    let target = appimage_path()?;
+    let runtime = detect_runtime();
+    if runtime == Runtime::Snap {
+        return Err(UpdateError::ManagedBySnap.to_string());
+    }
+    if !runtime.can_install() {
+        return Err(UpdateError::UnsupportedRuntime.to_string());
+    }
+    let target = appimage_path(runtime)?;
     let version = current_version();
     let fetcher = ReqwestFetcher::new(&version).map_err(|error| error.to_string())?;
+    let platforms = platform_keys(runtime);
 
-    let check = check_for_update_with_size(&fetcher, &version).map_err(|error| {
-        log_event(
-            &state,
-            "update_check",
-            UPDATE_HOST,
-            0,
-            0,
-            "error",
-            Some(&error.to_string()),
-        );
-        error.to_string()
-    })?;
+    let check =
+        check_for_update_for_platforms(&fetcher, &version, &platforms).map_err(|error| {
+            log_event(
+                &state,
+                "update_check",
+                UPDATE_HOST,
+                0,
+                0,
+                "error",
+                Some(&error.to_string()),
+            );
+            error.to_string()
+        })?;
 
     let candidate = check
         .candidate
@@ -372,18 +353,20 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
         Some(&format!("artefacto {} verificado", candidate.version)),
     );
 
-    install_appimage(&artifact, &target).map_err(|error| {
-        log_event(
-            &state,
-            "update_install",
-            UPDATE_HOST,
-            0,
-            0,
-            "error",
-            Some(&error.to_string()),
-        );
-        error.to_string()
-    })?;
+    install_update_artifact(&artifact, runtime, &candidate.platform, target.as_deref()).map_err(
+        |error| {
+            log_event(
+                &state,
+                "update_install",
+                UPDATE_HOST,
+                0,
+                0,
+                "error",
+                Some(&error.to_string()),
+            );
+            error.to_string()
+        },
+    )?;
 
     log_event(
         &state,
@@ -398,15 +381,29 @@ pub fn install_update(state: State<'_, AppState>) -> Result<InstallOutcome, Stri
         )),
     );
 
+    if matches!(runtime, Runtime::Windows | Runtime::MacOs) {
+        schedule_restart(app);
+    }
+
     Ok(InstallOutcome {
         version: candidate.version,
         restart_required: true,
     })
 }
 
+/// En Windows y macOS el instalador necesita que la app libere sus archivos.
+fn schedule_restart(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1_500));
+        app.exit(0);
+    });
+}
+
 #[tauri::command]
 pub fn rollback_update(state: State<'_, AppState>) -> Result<(), String> {
-    let target = appimage_path()?;
+    let runtime = detect_runtime();
+    let target =
+        appimage_path(runtime)?.ok_or_else(|| UpdateError::UnsupportedRuntime.to_string())?;
     rollback_appimage(&target).map_err(|error| error.to_string())?;
     log_event(
         &state,
@@ -454,21 +451,55 @@ mod tests {
     }
 
     #[test]
-    fn snap_takes_precedence_and_disables_appimage_updates() {
-        assert_eq!(runtime_from(false, false), Runtime::Development);
-        assert_eq!(runtime_from(true, false), Runtime::AppImage);
-        assert_eq!(runtime_from(false, true), Runtime::Snap);
-        assert_eq!(runtime_from(true, true), Runtime::Snap);
+    fn only_packaged_runtimes_can_install() {
+        assert!(Runtime::AppImage.can_install());
+        assert!(Runtime::Deb.can_install());
+        assert!(Runtime::Rpm.can_install());
+        assert!(Runtime::Windows.can_install());
+        assert!(Runtime::MacOs.can_install());
+        assert!(!Runtime::Snap.can_install());
+        assert!(!Runtime::Development.can_install());
     }
 
     #[test]
-    fn appimage_paths_are_detected_case_insensitively() {
-        assert!(is_appimage_path(std::path::Path::new(
-            "/home/alonso/Study Planner.AppImage"
-        )));
-        assert!(is_appimage_path(std::path::Path::new("app.appimage")));
-        assert!(!is_appimage_path(std::path::Path::new(
-            "/usr/bin/study-planner"
-        )));
+    fn platform_keys_are_specific_to_the_runtime() {
+        let arch = study_planner_updater::arch_name();
+        assert_eq!(
+            platform_keys(Runtime::AppImage),
+            vec![format!("linux-{arch}")]
+        );
+        assert_eq!(
+            platform_keys(Runtime::Deb),
+            vec![format!("linux-{arch}-deb")]
+        );
+        assert_eq!(
+            platform_keys(Runtime::Rpm),
+            vec![format!("linux-{arch}-rpm")]
+        );
+        assert_eq!(
+            platform_keys(Runtime::MacOs),
+            vec![format!("darwin-{arch}")]
+        );
+        assert!(platform_keys(Runtime::Snap).is_empty());
+        assert!(platform_keys(Runtime::Development).is_empty());
+    }
+
+    #[test]
+    fn status_keeps_the_camel_case_appimage_key() {
+        let status = UpdaterStatus {
+            public_key_configured: true,
+            current_version: "0.1.3".to_string(),
+            update_host: UPDATE_HOST.to_string(),
+            auto_check: false,
+            runtime: "appimage".to_string(),
+            running_as_appimage: true,
+            managed_by_snap: false,
+            can_install: true,
+            can_rollback: false,
+        };
+        let value = serde_json::to_value(status).expect("serializar estado");
+        assert_eq!(value["runningAsAppImage"], true);
+        assert_eq!(value["runtime"], "appimage");
+        assert!(value.get("runningAsAppimage").is_none());
     }
 }

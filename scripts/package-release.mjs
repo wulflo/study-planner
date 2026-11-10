@@ -44,6 +44,13 @@ const repo = process.env.GITHUB_REPOSITORY ?? "wulflo/study-planner";
 const outDir = process.env.RELEASE_OUT_DIR ?? "dist-release";
 const bundleDir = "target/release/bundle/appimage";
 
+function archName(arch) {
+  return arch === "x64" ? "x86_64" : arch === "arm64" ? "aarch64" : arch;
+}
+
+const arch = archName(process.arch);
+const platform = `linux-${arch}`;
+
 const candidates = (await readdir(bundleDir)).filter((name) =>
   name.endsWith(".AppImage"),
 );
@@ -75,7 +82,7 @@ if (!signature) {
 }
 
 await mkdir(outDir, { recursive: true });
-const assetName = `study-planner_${version}_x86_64.AppImage`;
+const assetName = `study-planner_${version}_${arch}.AppImage`;
 const assetPath = path.join(outDir, assetName);
 await copyFile(artifact, assetPath);
 await copyFile(signaturePath, `${assetPath}.sig`);
@@ -84,14 +91,16 @@ const bytes = await readFile(assetPath);
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 const url = `https://github.com/${repo}/releases/download/${tag}/${assetName}`;
 
+const notes =
+  process.env.RELEASE_NOTES ??
+  `Study Planner ${version}. Actualización firmada para Linux, Windows y macOS.`;
+
 const manifest = {
   version,
   pub_date: new Date().toISOString(),
-  notes:
-    process.env.RELEASE_NOTES ??
-    `Study Planner ${version}. Actualización firmada para Linux x86_64.`,
+  notes,
   platforms: {
-    "linux-x86_64": {
+    [platform]: {
       url,
       signature,
       sha256,
@@ -99,10 +108,11 @@ const manifest = {
   },
 };
 
-await writeFile(
-  path.join(outDir, "latest.json"),
-  `${JSON.stringify(manifest, null, 2)}\n`,
-);
+const manifestJson = `${JSON.stringify(manifest, null, 2)}\n`;
+await writeFile(path.join(outDir, "manifest-appimage.json"), manifestJson);
+// Se mantiene para uso local; el job de release lo regenera fusionando todas
+// las plataformas antes de publicar.
+await writeFile(path.join(outDir, "latest.json"), manifestJson);
 
 console.log(`AppImage: ${assetPath}`);
 console.log(`Firma:   ${assetPath}.sig`);

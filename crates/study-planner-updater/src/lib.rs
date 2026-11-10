@@ -19,6 +19,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+#[cfg(any(target_os = "linux", windows, target_os = "macos"))]
+use std::process::Command;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use minisign_verify::{PublicKey, Signature};
 use semver::Version;
@@ -67,6 +70,187 @@ pub fn public_key_configured() -> bool {
     !value.is_empty() && !value.starts_with('#')
 }
 
+/// Entorno desde el que corre la app, relevante para actualizarla.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Runtime {
+    /// AppImage: el propio binario se reemplaza de forma atómica.
+    AppImage,
+    /// Snap: snapd gestiona las actualizaciones.
+    Snap,
+    /// Paquete `.deb` instalado por el sistema.
+    Deb,
+    /// Paquete `.rpm` instalado por el sistema.
+    Rpm,
+    /// Instalación de Windows (NSIS o MSI).
+    Windows,
+    /// Aplicación de macOS instalada como `.app`.
+    #[serde(rename = "macos")]
+    MacOs,
+    /// `tauri dev` u otro entorno sin paquete publicado.
+    Development,
+}
+
+impl Runtime {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Runtime::AppImage => "appimage",
+            Runtime::Snap => "snap",
+            Runtime::Deb => "deb",
+            Runtime::Rpm => "rpm",
+            Runtime::Windows => "windows",
+            Runtime::MacOs => "macos",
+            Runtime::Development => "development",
+        }
+    }
+
+    /// Solo estos entornos pueden descargar e instalar desde el manifiesto.
+    pub fn can_install(self) -> bool {
+        matches!(
+            self,
+            Runtime::AppImage | Runtime::Deb | Runtime::Rpm | Runtime::Windows | Runtime::MacOs
+        )
+    }
+}
+
+/// Detecta el entorno de ejecución sin aceptar configuración externa.
+pub fn detect_runtime() -> Runtime {
+    if std::env::var_os("SNAP").is_some() {
+        return Runtime::Snap;
+    }
+    if detect_appimage().is_some() {
+        return Runtime::AppImage;
+    }
+
+    #[cfg(windows)]
+    {
+        return Runtime::Windows;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return Runtime::MacOs;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        return detect_linux_package();
+    }
+
+    #[allow(unreachable_code)]
+    Runtime::Development
+}
+
+fn is_appimage_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("appimage"))
+}
+
+/// Resuelve la ruta del AppImage en ejecución.
+///
+/// El runtime de AppImage define `APPIMAGE`. Algunos lanzadores solo dejan
+/// `ARGV0`; como último recurso se revisa el ejecutable actual.
+pub fn detect_appimage() -> Option<PathBuf> {
+    if let Some(raw) = std::env::var_os("APPIMAGE").filter(|value| !value.is_empty()) {
+        return Some(PathBuf::from(raw));
+    }
+
+    if let Some(raw) = std::env::var_os("ARGV0").filter(|value| !value.is_empty()) {
+        let path = PathBuf::from(raw);
+        if is_appimage_path(&path) {
+            return Some(path);
+        }
+    }
+
+    let executable = std::env::current_exe().ok()?;
+    is_appimage_path(&executable).then_some(executable)
+}
+
+#[cfg(target_os = "linux")]
+fn detect_linux_package() -> Runtime {
+    let Ok(executable) = std::env::current_exe() else {
+        return Runtime::Development;
+    };
+    let executable = executable.to_string_lossy();
+
+    if command_succeeds("dpkg-query", &["-S", &executable]) {
+        return Runtime::Deb;
+    }
+    if command_succeeds("rpm", &["-qf", &executable]) {
+        return Runtime::Rpm;
+    }
+
+    Runtime::Development
+}
+
+#[cfg(target_os = "linux")]
+fn command_succeeds(program: &str, args: &[&str]) -> bool {
+    Command::new(program)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+#[cfg(target_os = "linux")]
+fn command_exists(program: &str) -> bool {
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path).any(|directory| directory.join(program).is_file())
+}
+
+/// Nombre de arquitectura usado en las claves del manifiesto.
+pub fn arch_name() -> &'static str {
+    match std::env::consts::ARCH {
+        "x86_64" => "x86_64",
+        "aarch64" => "aarch64",
+        "x86" => "i686",
+        other => other,
+    }
+}
+
+/// Claves del manifiesto que acepta este entorno, en orden de preferencia.
+pub fn platform_keys(runtime: Runtime) -> Vec<String> {
+    let arch = arch_name();
+    match runtime {
+        Runtime::AppImage => vec![format!("linux-{arch}")],
+        Runtime::Deb => vec![format!("linux-{arch}-deb")],
+        Runtime::Rpm => vec![format!("linux-{arch}-rpm")],
+        Runtime::Windows => windows_platform_keys(arch),
+        Runtime::MacOs => vec![format!("darwin-{arch}")],
+        Runtime::Snap | Runtime::Development => Vec::new(),
+    }
+}
+
+fn windows_platform_keys(arch: &str) -> Vec<String> {
+    // NSIS instala por usuario en %LOCALAPPDATA%; MSI lo hace por máquina en
+    // %ProgramFiles%. Si no se puede distinguir, se prefiere NSIS.
+    let prefer_msi = cfg!(windows) && executable_under_program_files();
+    if prefer_msi {
+        vec![format!("windows-{arch}-msi"), format!("windows-{arch}")]
+    } else {
+        vec![format!("windows-{arch}"), format!("windows-{arch}-msi")]
+    }
+}
+
+fn executable_under_program_files() -> bool {
+    let Ok(executable) = std::env::current_exe() else {
+        return false;
+    };
+    let executable = executable.to_string_lossy().to_lowercase();
+    ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
+        .iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .map(|value| value.to_lowercase())
+        .any(|root| {
+            !root.is_empty()
+                && executable.starts_with(&format!("{}\\", root.trim_end_matches('\\')))
+        })
+}
+
 /// Error del updater.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum UpdateError {
@@ -108,6 +292,8 @@ pub enum UpdateError {
     PublicKeyNotConfigured,
     #[error("las actualizaciones solo se instalan desde un AppImage")]
     NotAppImage,
+    #[error("esta instalación no admite actualizaciones automáticas")]
+    UnsupportedRuntime,
     #[error("esta instalación se actualiza desde Snap; el updater de AppImage está deshabilitado")]
     ManagedBySnap,
 }
@@ -137,6 +323,7 @@ pub struct UpdateCandidate {
     pub version: String,
     pub pub_date: Option<String>,
     pub notes: String,
+    pub platform: String,
     pub url: String,
     pub signature: String,
     pub sha256: String,
@@ -191,19 +378,37 @@ pub fn evaluate_manifest(
     bytes: &[u8],
     current_version: &str,
 ) -> Result<Option<UpdateCandidate>, UpdateError> {
+    evaluate_manifest_for_platforms(bytes, current_version, &[PLATFORM.to_string()])
+}
+
+/// Igual que [`evaluate_manifest`], pero elige la primera plataforma disponible.
+///
+/// El orden de `platforms` define la preferencia (por ejemplo MSI antes que
+/// NSIS en Windows). Si ninguna clave existe, se informa como no soportada.
+pub fn evaluate_manifest_for_platforms(
+    bytes: &[u8],
+    current_version: &str,
+    platforms: &[String],
+) -> Result<Option<UpdateCandidate>, UpdateError> {
     let manifest = parse_manifest(bytes)?;
     if !is_newer(current_version, &manifest.version)? {
         return Ok(None);
     }
-    let artifact = manifest
-        .platforms
-        .get(PLATFORM)
-        .ok_or_else(|| UpdateError::UnsupportedPlatform(PLATFORM.to_string()))?;
+    let (platform, artifact) = platforms
+        .iter()
+        .find_map(|platform| {
+            manifest
+                .platforms
+                .get(platform)
+                .map(|artifact| (platform, artifact))
+        })
+        .ok_or_else(|| UpdateError::UnsupportedPlatform(platforms.join(", ")))?;
 
     Ok(Some(UpdateCandidate {
         version: manifest.version.trim().to_string(),
         pub_date: manifest.pub_date,
         notes: manifest.notes.chars().take(2_000).collect(),
+        platform: platform.clone(),
         url: artifact.url.clone(),
         signature: artifact.signature.clone(),
         sha256: artifact.sha256.to_ascii_lowercase(),
@@ -399,10 +604,19 @@ pub fn check_for_update_with_size(
     fetcher: &dyn HttpFetcher,
     current_version: &str,
 ) -> Result<UpdateCheck, UpdateError> {
+    check_for_update_for_platforms(fetcher, current_version, &[PLATFORM.to_string()])
+}
+
+/// Consulta el manifiesto fijo y elige la primera plataforma disponible.
+pub fn check_for_update_for_platforms(
+    fetcher: &dyn HttpFetcher,
+    current_version: &str,
+    platforms: &[String],
+) -> Result<UpdateCheck, UpdateError> {
     let bytes = fetcher.fetch(UPDATE_URL, MANIFEST_MAX_BYTES)?;
     let manifest_bytes = bytes.len();
     Ok(UpdateCheck {
-        candidate: evaluate_manifest(&bytes, current_version)?,
+        candidate: evaluate_manifest_for_platforms(&bytes, current_version, platforms)?,
         manifest_bytes,
     })
 }
@@ -502,6 +716,245 @@ pub fn rollback_appimage(target: &Path) -> Result<PathBuf, UpdateError> {
 /// Ruta del backup que deja [`install_appimage`] junto al AppImage.
 pub fn appimage_backup_path(target: &Path) -> PathBuf {
     backup_path(target)
+}
+
+/// Instala un artefacto verificado según el entorno detectado.
+///
+/// El AppImage necesita la ruta del binario actual. Los paquetes `.deb`/`.rpm`
+/// se instalan con `pkexec`; Windows ejecuta el instalador y macOS reemplaza
+/// el bundle `.app` después de que la app se cierre.
+pub fn install_update_artifact(
+    artifact: &[u8],
+    runtime: Runtime,
+    platform: &str,
+    appimage_target: Option<&Path>,
+) -> Result<(), UpdateError> {
+    match runtime {
+        Runtime::AppImage => {
+            let target = appimage_target.ok_or_else(|| {
+                UpdateError::Install("no se conoce la ruta del AppImage actual".to_string())
+            })?;
+            install_appimage(artifact, target)?;
+            Ok(())
+        }
+        Runtime::Deb => install_deb(artifact),
+        Runtime::Rpm => install_rpm(artifact),
+        Runtime::Windows => install_windows(artifact, platform.ends_with("-msi")),
+        Runtime::MacOs => install_macos(artifact),
+        Runtime::Snap => Err(UpdateError::ManagedBySnap),
+        Runtime::Development => Err(UpdateError::UnsupportedRuntime),
+    }
+}
+
+/// Escribe el artefacto verificado en un archivo temporal privado.
+pub fn write_temp_artifact(artifact: &[u8], extension: &str) -> Result<PathBuf, UpdateError> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    if artifact.is_empty() {
+        return Err(UpdateError::Install(
+            "el artefacto descargado está vacío".to_string(),
+        ));
+    }
+
+    let directory = std::env::temp_dir().join("study-planner-updates");
+    fs::create_dir_all(&directory).map_err(install_error)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = fs::metadata(&directory)
+            .map_err(install_error)?
+            .permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&directory, permissions).map_err(install_error)?;
+    }
+
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_millis());
+    let sequence = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let path = directory.join(format!(
+        "study-planner-{}-{millis}-{sequence}.{extension}",
+        std::process::id()
+    ));
+
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        options.mode(0o600);
+    }
+    let mut file = options.open(&path).map_err(install_error)?;
+    file.write_all(artifact).map_err(install_error)?;
+    file.sync_all().map_err(install_error)?;
+    Ok(path)
+}
+
+#[cfg(target_os = "linux")]
+fn install_deb(artifact: &[u8]) -> Result<(), UpdateError> {
+    let path = write_temp_artifact(artifact, "deb")?;
+    let result = run_pkexec("dpkg", &["-i"], &path);
+    let _ = fs::remove_file(&path);
+    result
+}
+
+#[cfg(not(target_os = "linux"))]
+fn install_deb(_artifact: &[u8]) -> Result<(), UpdateError> {
+    Err(UpdateError::UnsupportedRuntime)
+}
+
+#[cfg(target_os = "linux")]
+fn install_rpm(artifact: &[u8]) -> Result<(), UpdateError> {
+    let path = write_temp_artifact(artifact, "rpm")?;
+    let result = if command_exists("dnf") {
+        run_pkexec("dnf", &["install", "-y", "--nogpgcheck"], &path)
+    } else if command_exists("zypper") {
+        run_pkexec(
+            "zypper",
+            &["--non-interactive", "install", "--allow-unsigned-rpm"],
+            &path,
+        )
+    } else {
+        run_pkexec("rpm", &["-U", "--replacepkgs"], &path)
+    };
+    let _ = fs::remove_file(&path);
+    result
+}
+
+#[cfg(not(target_os = "linux"))]
+fn install_rpm(_artifact: &[u8]) -> Result<(), UpdateError> {
+    Err(UpdateError::UnsupportedRuntime)
+}
+
+#[cfg(target_os = "linux")]
+fn run_pkexec(program: &str, args: &[&str], artifact: &Path) -> Result<(), UpdateError> {
+    let status = Command::new("pkexec")
+        .arg(program)
+        .args(args)
+        .arg(artifact)
+        .status()
+        .map_err(|error| UpdateError::Install(format!("no se pudo ejecutar pkexec: {error}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(UpdateError::Install(format!(
+            "el instalador {program} terminó con {status}"
+        )))
+    }
+}
+
+#[cfg(windows)]
+fn install_windows(artifact: &[u8], msi: bool) -> Result<(), UpdateError> {
+    // `Start-Process -Verb RunAs` eleva el instalador cuando el paquete se
+    // instaló por máquina; si el usuario cancela el UAC, PowerShell falla y no
+    // cerramos la app.
+    let (extension, command) = if msi {
+        (
+            "msi",
+            "Start-Process -FilePath msiexec -ArgumentList @('/i', $env:SP_UPDATE_ARTIFACT, '/qn', '/norestart') -Verb RunAs",
+        )
+    } else {
+        (
+            "exe",
+            "Start-Process -FilePath $env:SP_UPDATE_ARTIFACT -ArgumentList '/S' -Verb RunAs",
+        )
+    };
+    let path = write_temp_artifact(artifact, extension)?;
+    let status = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", command])
+        .env("SP_UPDATE_ARTIFACT", &path)
+        .status()
+        .map_err(|error| {
+            UpdateError::Install(format!("no se pudo iniciar el instalador: {error}"))
+        })?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(UpdateError::Install(
+            "el instalador de Windows no pudo iniciarse (¿se canceló el UAC?)".to_string(),
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn install_windows(_artifact: &[u8], _msi: bool) -> Result<(), UpdateError> {
+    Err(UpdateError::UnsupportedRuntime)
+}
+
+#[cfg(target_os = "macos")]
+fn install_macos(artifact: &[u8]) -> Result<(), UpdateError> {
+    let dmg = write_temp_artifact(artifact, "dmg")?;
+    let bundle = current_app_bundle().ok_or_else(|| {
+        UpdateError::Install("no se pudo localizar la aplicación .app en ejecución".to_string())
+    })?;
+    let script = write_macos_update_script(&dmg)?;
+    Command::new("/bin/sh")
+        .arg(&script)
+        .arg(&dmg)
+        .arg(&bundle)
+        .arg(std::process::id().to_string())
+        .spawn()
+        .map_err(|error| {
+            UpdateError::Install(format!("no se pudo iniciar el actualizador: {error}"))
+        })?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn install_macos(_artifact: &[u8]) -> Result<(), UpdateError> {
+    Err(UpdateError::UnsupportedRuntime)
+}
+
+#[cfg(target_os = "macos")]
+fn current_app_bundle() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    executable
+        .ancestors()
+        .find(|path| path.extension().is_some_and(|extension| extension == "app"))
+        .map(Path::to_path_buf)
+}
+
+#[cfg(target_os = "macos")]
+fn write_macos_update_script(dmg: &Path) -> Result<PathBuf, UpdateError> {
+    let script_path = dmg.with_extension("sh");
+    let script = r#"#!/bin/sh
+set -eu
+DMG="$1"
+BUNDLE="$2"
+PARENT_PID="$3"
+MOUNT="$(mktemp -d "${TMPDIR:-/tmp}/study-planner-dmg.XXXXXX")"
+cleanup() {
+  hdiutil detach "$MOUNT" -quiet 2>/dev/null || true
+  rmdir "$MOUNT" 2>/dev/null || true
+}
+trap cleanup EXIT
+count=0
+while kill -0 "$PARENT_PID" 2>/dev/null; do
+  count=$((count + 1))
+  [ "$count" -gt 300 ] && break
+  sleep 0.2
+done
+hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" -quiet
+APP="$(find "$MOUNT" -maxdepth 2 -name '*.app' -print -quit)"
+[ -n "$APP" ] || { echo "no se encontró la app en el DMG" >&2; exit 1; }
+STAGE="$(dirname "$BUNDLE")/.study-planner-update-$$.app"
+ditto "$APP" "$STAGE"
+rm -rf "$BUNDLE.old"
+mv "$BUNDLE" "$BUNDLE.old"
+mv "$STAGE" "$BUNDLE"
+rm -rf "$BUNDLE.old"
+rm -f "$DMG"
+open "$BUNDLE"
+"#;
+    let mut file = fs::File::create(&script_path).map_err(install_error)?;
+    file.write_all(script.as_bytes()).map_err(install_error)?;
+    file.sync_all().map_err(install_error)?;
+    set_executable(&script_path)?;
+    Ok(script_path)
 }
 
 fn backup_path(target: &Path) -> PathBuf {
@@ -641,6 +1094,37 @@ mod tests {
             evaluate_manifest(payload.as_bytes(), "0.1.0"),
             Err(UpdateError::UnsupportedPlatform(PLATFORM.to_string()))
         );
+    }
+
+    #[test]
+    fn chooses_the_first_available_platform() {
+        let payload = format!(
+            r#"{{
+                "version": "0.2.0",
+                "platforms": {{
+                    "linux-x86_64": {{
+                        "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/app.AppImage",
+                        "signature": "{TEST_SIGNATURE}",
+                        "sha256": "{TEST_SHA256}"
+                    }},
+                    "linux-x86_64-deb": {{
+                        "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/app.deb",
+                        "signature": "{TEST_SIGNATURE}",
+                        "sha256": "{TEST_SHA256}"
+                    }}
+                }}
+            }}"#
+        );
+        let candidate = evaluate_manifest_for_platforms(
+            payload.as_bytes(),
+            "0.1.0",
+            &["linux-x86_64-deb".to_string(), "linux-x86_64".to_string()],
+        )
+        .expect("manifiesto válido")
+        .expect("actualización disponible");
+
+        assert_eq!(candidate.platform, "linux-x86_64-deb");
+        assert!(candidate.url.ends_with("app.deb"));
     }
 
     #[test]

@@ -1133,13 +1133,24 @@ export interface StudyStats {
   dueReviews: number;
 }
 
+export type UpdaterRuntime =
+  | "appimage"
+  | "snap"
+  | "deb"
+  | "rpm"
+  | "windows"
+  | "macos"
+  | "development";
+
 export interface UpdaterStatus {
   publicKeyConfigured: boolean;
   currentVersion: string;
   updateHost: string;
   autoCheck: boolean;
+  runtime: UpdaterRuntime;
   runningAsAppImage: boolean;
   managedBySnap: boolean;
+  canInstall: boolean;
   canRollback: boolean;
 }
 

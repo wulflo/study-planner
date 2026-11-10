@@ -14,34 +14,37 @@ El updater es la **única** excepción a la regla de «Study Planner no usa red�
 3. **Firma obligatoria.** Un manifiesto o artefacto sin firma válida se rechaza. No hay modo «skip signature».
 4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Study Planner. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
-6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial. Bajo snap, el updater de AppImage se desactiva y actualiza snapd.
+6. **Multiplataforma.** El updater detecta AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`). Bajo snap queda deshabilitado y actualiza snapd. Tauri updater no soporta Android/iOS.
 7. **Toda la red se registra** en `network_event` (tipo, host, bytes, resultado y detalle técnico acotado), sin contenido de datos.
 8. **Sin bóveda también funciona.** El estado del updater y la comprobación manual no requieren una bóveda abierta; el registro de red se hace best-effort cuando hay una. El auto-check sigue siendo opt-in y necesita bóveda para persistir la preferencia.
-9. **Detección de AppImage robusta.** Se resuelve la ruta con `APPIMAGE`, luego `ARGV0` si termina en `.AppImage` y, como último recurso, el ejecutable actual. Así el botón de instalación no queda bloqueado por un lanzador que no propaga `APPIMAGE`.
+9. **Detección de runtime robusta.** AppImage se resuelve con `APPIMAGE`, luego `ARGV0` si termina en `.AppImage` y, como último recurso, el ejecutable actual. En Linux, `.deb`/`.rpm` se detectan con `dpkg-query -S` / `rpm -qf`; Windows y macOS se detectan por plataforma.
 
 ## Diseño implementado
 
 ```text
 vista «Ajustes»
-  → comando Rust `get_updater_status`  (clave configurada, versión, AppImage, rollback)
+  → comando Rust `get_updater_status`  (clave configurada, versión, runtime, rollback)
   → comando Rust `set_updater_auto_check`  (opt-in persistido en `setting`)
   → comando Rust `check_updates`
-       study-planner-updater::check_for_update_with_size()
+       study-planner-updater::check_for_update_for_platforms()
        GET <URL fija> (HTTPS, timeout, host permitido, tamaño máximo)
-       parsear manifiesto
+       parsear manifiesto y elegir la clave del runtime
        comparar versión (semver)
        devolver UpdateInfo a la UI (versión, fecha, notas)
        registrar network_event
   → usuario confirma
   → comando Rust `install_update`  (sin argumentos)
        volver a consultar el manifiesto fijo
-       descargar AppImage con verificación de host y tamaño
+       descargar el artefacto con verificación de host y tamaño
        verificar SHA-256, firma minisign y `version:<versión>` firmada
-       reemplazar el AppImage actual de forma atómica
-       conservar el anterior como `.old`
+       instalar según runtime:
+         AppImage: reemplazo atómico y backup `.old`
+         .deb/.rpm: `pkexec` + gestor de paquetes
+         Windows: NSIS `/S` o MSI `msiexec /qn` con elevación
+         macOS: montar `.dmg`, reemplazar `.app` y reabrir
        registrar network_event
-       pedir reinicio
-  → comando Rust `rollback_update`  (restaura `.old` y conserva el fallido como `.failed`)
+       pedir reinicio (Windows/macOS cierran la app para liberar archivos)
+  → comando Rust `rollback_update`  (solo AppImage: restaura `.old` y conserva el fallido como `.failed`)
   → comando Rust `list_network_events`  (auditoría de solo metadatos)
 ```
 
@@ -52,7 +55,11 @@ La UI solo ve `UpdateInfo` (versión, fecha, notas) y un estado. No ve URLs inte
 El AppImage se compila y firma en GitHub Actions (`.github/workflows/release.yml`).
 `scripts/package-release.mjs` firma con `tauri signer sign --app-version <versión>`
 —para que el trusted comment incluya `version:<versión>`—, renombra el artefacto,
-calcula su SHA-256 y genera `latest.json` en `dist-release/`.
+calcula su SHA-256 y escribe `manifest-appimage.json`.
+`scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y `.dmg` y
+escribe un manifiesto parcial por plataforma. El job de release ejecuta
+`scripts/merge-manifests.mjs` para fusionarlos en `latest.json` en
+`dist-release/`.
 
 Antes de publicar, el workflow exige que `updater.pub` no sea el placeholder y
 verifica la firma contra esa clave con:
@@ -85,6 +92,7 @@ Formato compatible con la convención de Tauri, pero verificado por nuestro cód
 
 Reglas:
 
+- El manifiesto puede incluir varias claves de plataforma; el updater elige la primera disponible según el runtime detectado: `linux-<arch>` (AppImage), `linux-<arch>-deb`, `linux-<arch>-rpm`, `windows-<arch>` (NSIS), `windows-<arch>-msi` y `darwin-<arch>`.
 - `version` debe ser semver mayor que la actual; no se instalan downgrades salvo modo explícito de recuperación.
 - `url` debe ser HTTPS y pertenecer a `github.com`, `objects.githubusercontent.com` o `release-assets.githubusercontent.com`.
 - `pub_date` y `notes` son informativos.

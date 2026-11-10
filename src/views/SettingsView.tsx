@@ -17,6 +17,7 @@ import {
   setNotificationsSound,
   setUpdaterAutoCheck,
   type UpdateInfo,
+  type UpdaterRuntime,
   type UpdaterStatus,
   type VaultStatus,
 } from "../lib/ipc";
@@ -36,6 +37,16 @@ const kindLabels: Record<string, string> = {
   update_download: "Descarga",
   update_install: "Instalación",
   update_rollback: "Rollback",
+};
+
+const runtimeLabels: Record<UpdaterRuntime, string> = {
+  appimage: "AppImage",
+  snap: "Snap",
+  deb: "paquete .deb",
+  rpm: "paquete .rpm",
+  windows: "Windows",
+  macos: "macOS",
+  development: "desarrollo",
 };
 
 const notificationKindLabels: Record<string, string> = {
@@ -308,23 +319,20 @@ export function SettingsView({
 
   const busy = saving || checking || installing || notifying;
   const snapManaged = status?.managedBySnap === true;
+  const canInstall = status?.canInstall === true;
   const updaterBlockedReason = !status
     ? "Cargando el estado del updater…"
     : snapManaged
       ? "Esta instalación se actualiza desde la Snap Store."
       : !status.publicKeyConfigured
         ? "Esta compilación no tiene una clave pública de producción."
-        : !status.runningAsAppImage
-          ? "Esta compilación no corre desde un AppImage publicado."
+        : !canInstall
+          ? status.runtime === "development"
+            ? "Esta compilación no se ejecuta desde un paquete publicado."
+            : "Esta instalación no admite actualizaciones automáticas."
           : null;
   const canCheckUpdates = !busy && updaterBlockedReason === null;
-  const runtimeLabel = status
-    ? status.runningAsAppImage
-      ? "AppImage"
-      : snapManaged
-        ? "Snap"
-        : "desarrollo"
-    : "desconocido";
+  const runtimeLabel = status ? runtimeLabels[status.runtime] : "desconocido";
 
   return (
     <>
@@ -465,8 +473,23 @@ export function SettingsView({
           {snapManaged ? (
             <p className="notice">
               Esta instalación es un snap. Las actualizaciones las gestiona
-              snapd desde la Snap Store; el updater de AppImage queda
+              snapd desde la Snap Store; el updater automático queda
               deshabilitado para no reemplazar archivos fuera del confinamiento.
+            </p>
+          ) : null}
+
+          {status?.runtime === "deb" || status?.runtime === "rpm" ? (
+            <p className="quiet">
+              La instalación pedirá tu contraseña de administrador y se aplicará
+              con el gestor de paquetes del sistema. Después habrá que reiniciar
+              Study Planner.
+            </p>
+          ) : null}
+
+          {status?.runtime === "windows" || status?.runtime === "macos" ? (
+            <p className="quiet">
+              La app se cerrará para completar la instalación. En macOS se
+              reabrirá sola; en Windows puede que tengas que abrirla de nuevo.
             </p>
           ) : null}
 
@@ -502,7 +525,7 @@ export function SettingsView({
               <button
                 type="button"
                 className="button tonal"
-                disabled={busy || snapManaged || !status?.runningAsAppImage}
+                disabled={busy || !canInstall}
                 onClick={() => void handleInstall()}
               >
                 {installing ? "Instalando…" : `Instalar ${candidate.version}`}

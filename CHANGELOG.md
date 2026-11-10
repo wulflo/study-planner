@@ -2,6 +2,24 @@
 
 Todos los cambios relevantes de Study Planner se registran acá. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado pretende seguir [SemVer](https://semver.org/lang/es/).
 
+## [0.1.3] — 2026-11-09 — Updater multiplataforma y detección de runtime
+
+### Corregido
+
+- El estado del updater ahora informa correctamente cuando la app corre desde un AppImage. El backend serializaba `runningAsAppimage` (con «i» minúscula) mientras la interfaz leía `runningAsAppImage`, así que el botón de instalar quedaba deshabilitado y la vista mostraba «runtime desarrollo».
+- La detección del AppImage usa `APPIMAGE`, `ARGV0` y el ejecutable actual, y Snap tiene prioridad para no intentar reemplazar archivos gestionados por snapd.
+
+### Agregado
+
+- Campo `runtime` en el estado del updater: `appimage`, `snap`, `deb`, `rpm`, `windows`, `macos` o `development`.
+- Detección de paquetes Linux mediante `dpkg-query -S` y `rpm -qf` sobre el ejecutable actual.
+- Actualización de `.deb` con `pkexec dpkg -i` y de `.rpm` con `pkexec dnf/zypper/rpm`, siempre después de verificar la firma minisign.
+- Actualización de Windows ejecutando el instalador NSIS con `/S` o MSI con `msiexec /qn`, y cierre de la app para liberar los archivos.
+- Actualización de macOS montando el `.dmg`, reemplazando el bundle `.app` y reabriéndolo.
+- Manifiesto multi-plataforma: `linux-<arch>`, `linux-<arch>-deb`, `linux-<arch>-rpm`, `windows-<arch>`, `windows-<arch>-msi` y `darwin-<arch>`.
+- `scripts/merge-manifests.mjs` fusiona los manifiestos parciales de cada job de release en `latest.json`.
+- La vista «Ajustes» muestra el runtime detectado y explica si se pedirá contraseña de administrador o si la app se reiniciará.
+
 ## [0.1.2] — 2026-11-08 — Corrección de la versión en la barra superior
 
 ### Corregido

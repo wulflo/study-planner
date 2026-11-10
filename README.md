@@ -4,7 +4,7 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 
 **Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
 
-> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.2` con AppImage, `.deb`, `.rpm`, Windows y macOS, updater firmado y notificaciones locales. Snap `study-planner` 0.1.0 en `stable` (revisión 1); la próxima revisión usa 0.1.2. La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
+> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.3` con AppImage, `.deb`, `.rpm`, Windows y macOS, updater firmado multiplataforma y notificaciones locales. Snap `study-planner` 0.1.0 en `stable` (revisión 1); la próxima revisión usa 0.1.3. La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
 
 ## Principios
 

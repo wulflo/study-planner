@@ -1,8 +1,8 @@
 # Study Planner — Checklist persistente
 
-> **Última actualización:** 2026-11-08
+> **Última actualización:** 2026-11-09
 > **Fase actual:** 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento)
-> **Versión:** 0.1.2 · `schema_version = 1` · `export_format_version = 1`
+> **Versión:** 0.1.3 · `schema_version = 1` · `export_format_version = 1`
 
 Este archivo es la fuente de verdad para retomar el proyecto después de días o semanas sin internet. Si algo no coincide con el código, gana el código y hay que corregir este documento en el mismo commit.
 
@@ -25,27 +25,27 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Campo | Valor |
 |---|---|
 | Fase | 5 — Updater, notificaciones y empaquetado (cerrada; mantenimiento) |
-| Versión de app | 0.1.2 |
+| Versión de app | 0.1.3 |
 | Esquema SQLite | v1 |
 | Formato de exportación | v1 implementado y verificado con round-trip byte a byte |
 | Frontend | React 19 + TypeScript + Vite 8 |
 | Backend | Rust + Tauri 2.12 + `rusqlite` 0.41 (bundled, backup) |
 | Red en la webview | Prohibida por CSP y permisos |
-| Updater | Clave pública de producción configurada; releases firmadas publicadas (`v0.1.0`, `v0.1.1`, `v0.1.2`) |
+| Updater | Clave pública de producción configurada; detección de AppImage, `.deb`, `.rpm`, Windows y macOS; Snap gestionado por snapd; releases firmadas publicadas (`v0.1.0`, `v0.1.1`, `v0.1.2`) |
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview; sonido opcional y modo segundo plano con bandeja |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
 | Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
-| Release | AppImage, `.deb`, `.rpm`, Windows y macOS firmados y publicados; `v0.1.2` es la última |
+| Release | AppImage, `.deb`, `.rpm`, Windows y macOS firmados y publicados; `v0.1.3` incorpora el updater multiplataforma |
 
 ### Verificación vigente
 
 ```text
-npm run check       ✅  34 tests de UI
+npm run check       ✅  39 tests de UI
 cargo test -p study-planner-core -p study-planner-store -p study-planner-transfer -p study-planner-updater
-                    ✅  117 tests (42 core, 46 store, 16 transfer, 13 updater)
-cargo test -p study-planner                                 ✅  14 tests de bóveda y host
+                    ✅  118 tests (42 core, 46 store, 16 transfer, 14 updater)
+cargo test -p study-planner                                 ✅  17 tests de bóveda y host
 cargo clippy (core/store/transfer/updater) -- -D warnings    ✅
 cargo clippy -p study-planner --all-targets -- -D warnings   ✅
 cargo check -p study-planner                                 ✅
@@ -496,7 +496,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 ### 2026-11-10 — Paquetes de escritorio (extensión de release)
 
 - [x] **Matriz de release:** `release.yml` compila Linux (`AppImage`, `.deb`, `.rpm`), Windows (`.exe` NSIS, `.msi`) y macOS (`.dmg`), firma cada artefacto con `TAURI_SIGNING_PRIVATE_KEY` y publica una release *latest*.
-- [x] **Port mínimo multiplataforma:** `zbus` quedó como dependencia solo de Linux; las notificaciones devuelven un error explícito fuera de Linux y el planificador no arranca. El updater sigue siendo solo AppImage/Snap.
+- [x] **Port mínimo multiplataforma:** `zbus` quedó como dependencia solo de Linux; las notificaciones devuelven un error explícito fuera de Linux y el planificador no arranca. El updater cubre AppImage, `.deb`, `.rpm`, Windows y macOS; Snap queda gestionado por snapd.
 - [x] **Firma y sumas:** `scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y `.dmg`, copia cada `.sig` y genera `SHA256SUMS` por plataforma.
 - [x] **Secrets:** `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub desde los archivos de custodia, sin imprimirlos.
 - [ ] **Validar en CI:** ejecutar el workflow en las tres plataformas y corregir lo que falle.

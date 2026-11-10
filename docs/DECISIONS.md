@@ -100,19 +100,19 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 ---
 
-## ADR-007 — Updater aislado, Linux AppImage
+## ADR-007 — Updater aislado, multiplataforma
 
-**Estado:** aceptada; implementada en Fase 5. Queda pendiente la clave pública de producción y la firma de una release real.
+**Estado:** aceptada; implementada en Fase 5 y ampliada a `.deb`/`.rpm`/Windows/macOS en 0.1.3.
 
 **Contexto:** se necesita actualizar sin abrir la app a la red y sin confiar en un manifiesto sin firma.
 
-**Decisión:** crate `study-planner-updater` separado, sin bindings JS, URL HTTPS fija en compilación, firma obligatoria, opt-in, sin datos de usuario, solo Linux AppImage. Tauri updater no soporta Android/iOS.
+**Decisión:** crate `study-planner-updater` separado, sin bindings JS, URL HTTPS fija en compilación, firma obligatoria, opt-in, sin datos de usuario. El updater detecta AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI) y macOS (`.dmg`); Snap queda gestionado por snapd. Tauri updater no soporta Android/iOS.
 
 **Consecuencias:**
 
 - La clave privada y su passphrase son material crítico (ver `docs/KEYS.md`).
 - Si Android fuera objetivo principal, habría que cambiar de stack (Kotlin + Compose + APK firmado).
-- Windows/macOS no se actualizan en la primera versión.
+- En Linux, `.deb`/`.rpm` requieren `pkexec` y un agente polkit; Windows/MSI puede pedir UAC y macOS puede pedir confirmación de Gatekeeper.
 
 ---
 

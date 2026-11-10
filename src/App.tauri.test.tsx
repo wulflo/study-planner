@@ -549,8 +549,10 @@ const updaterStatus = {
   currentVersion: "0.1.0",
   updateHost: "github.com",
   autoCheck: false,
+  runtime: "appimage",
   runningAsAppImage: true,
   managedBySnap: false,
+  canInstall: true,
   canRollback: false,
 };
 
@@ -1522,8 +1524,10 @@ describe("App con IPC de Tauri", () => {
   it("deshabilita el updater cuando la app corre como snap", async () => {
     api.getUpdaterStatus.mockResolvedValue({
       ...updaterStatus,
+      runtime: "snap",
       runningAsAppImage: false,
       managedBySnap: true,
+      canInstall: false,
     });
     const user = userEvent.setup();
     render(<App />);
