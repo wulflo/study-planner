@@ -145,6 +145,27 @@ else
   fi
 fi
 
+# --- Snap --------------------------------------------------------------------
+if [[ -f snap/snapcraft.yaml ]]; then
+  if grep -qE '^confinement:[[:space:]]*strict[[:space:]]*$' snap/snapcraft.yaml; then
+    ok "snap con confinement: strict"
+  else
+    fail "snap/snapcraft.yaml no usa confinement: strict"
+  fi
+
+  if grep -qE '^[[:space:]]+-[[:space:]]+network(-status)?[[:space:]]*$' snap/snapcraft.yaml; then
+    fail "el snap declara plugs de red; la app debe seguir sin red"
+  else
+    ok "snap sin plugs de red"
+  fi
+
+  if grep -qE '^[[:space:]]+-[[:space:]]+removable-media[[:space:]]*$' snap/snapcraft.yaml; then
+    ok "snap con removable-media para bóvedas externas"
+  else
+    fail "el snap no declara removable-media"
+  fi
+fi
+
 # --- URLs remotas en la UI ---------------------------------------------------
 if command -v rg >/dev/null 2>&1; then
   urls="$(rg -n --no-heading -e 'https?://' src index.html public src-tauri/tauri.conf.json 2>/dev/null || true)"

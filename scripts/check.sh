@@ -29,6 +29,9 @@ else
   echo "==> Rust: check del host Tauri omitido (SKIP_TAURI_CHECK=1)"
 fi
 
+echo "==> Snap: versión sincronizada"
+bash scripts/check-snap-version.sh
+
 echo "==> Auditoría de red, permisos y secretos"
 bash scripts/audit-network.sh
 
