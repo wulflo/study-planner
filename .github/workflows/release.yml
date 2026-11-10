@@ -18,10 +18,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  appimage:
-    name: AppImage firmado
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux (AppImage, deb, rpm)
+            os: ubuntu-24.04
+            bundles: appimage,deb,rpm
+            artifact: linux
+          - name: Windows (NSIS, MSI)
+            os: windows-latest
+            bundles: nsis,msi
+            artifact: windows
+          - name: macOS (DMG)
+            os: macos-14
+            bundles: dmg
+            artifact: macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -41,7 +57,8 @@ jobs:
       - name: Caché de Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Dependencias de sistema para Tauri
+      - name: Dependencias de sistema (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -54,6 +71,7 @@ jobs:
             libssl-dev \
             libwebkit2gtk-4.1-dev \
             libxdo-dev \
+            rpm \
             wget
 
       - name: Dependencias npm
@@ -66,11 +84,13 @@ jobs:
             echo "::error::$file es un placeholder; configurá la clave pública antes de publicar."
             exit 1
           fi
+        shell: bash
 
-      - name: Build del AppImage
-        run: npm run tauri build -- --bundles appimage
+      - name: Build de los paquetes
+        run: npm run tauri build -- --bundles ${{ matrix.bundles }}
 
-      - name: Firmar y generar latest.json
+      - name: Firmar AppImage y generar latest.json (Linux)
+        if: runner.os == 'Linux'
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -78,7 +98,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/package-release.mjs
 
-      - name: Verificar la firma contra la clave embebida
+      - name: Firmar deb, rpm, exe, msi y dmg
+        env:
+          RELEASE_OUT_DIR: dist-release
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/package-artifacts.mjs
+
+      - name: Verificar la firma del AppImage contra la clave embebida
+        if: runner.os == 'Linux'
         run: |
           version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
           cargo run --quiet -p study-planner-updater --example verify_release -- \
@@ -86,23 +114,50 @@ jobs:
             "dist-release/study-planner_${version}_x86_64.AppImage.sig" \
             "$version"
 
-      - name: Publicar la release
+      - name: Subir artefactos de la plataforma
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact }}
+          path: dist-release
+          if-no-files-found: error
+
+  release:
+    name: Publicar release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar artefactos
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist-release
+
+      - name: Publicar en GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
+          shopt -s nullglob
+          files=(dist-release/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::no hay artefactos para publicar"
+            exit 1
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" \
-              dist-release/latest.json \
-              dist-release/*.AppImage \
-              dist-release/*.AppImage.sig \
-              --clobber
+            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
           else
-            gh release create "$RELEASE_TAG" \
-              dist-release/latest.json \
-              dist-release/*.AppImage \
-              dist-release/*.AppImage.sig \
+            gh release create "$RELEASE_TAG" "${files[@]}" \
               --title "Study Planner $RELEASE_TAG" \
               --generate-notes \
               --latest
           fi
+
+# Notas:
+# - Linux: AppImage (firmado y con latest.json), .deb y .rpm.
+# - Windows: NSIS (.exe) y MSI, firmados con la clave de Tauri (firma de integridad,
+#   no Authenticode).
+# - macOS: .dmg firmado con la clave de Tauri (integridad, no notarización Apple).
+# - El updater y las notificaciones D-Bus siguen siendo solo Linux.
