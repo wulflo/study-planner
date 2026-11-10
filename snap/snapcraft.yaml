@@ -54,6 +54,8 @@ parts:
       - libwebkit2gtk-4.1-0
     override-build: |
       set -eu
+      export PATH="$HOME/.cargo/bin:$PATH"
+      rustup default stable
       npm ci
       npm run tauri build -- --bundles deb
       dpkg -x src-tauri/target/release/bundle/deb/*.deb "$CRAFT_PART_INSTALL"/
