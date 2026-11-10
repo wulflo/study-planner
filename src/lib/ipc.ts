@@ -1139,6 +1139,7 @@ export interface UpdaterStatus {
   updateHost: string;
   autoCheck: boolean;
   runningAsAppImage: boolean;
+  managedBySnap: boolean;
   canRollback: boolean;
 }
 

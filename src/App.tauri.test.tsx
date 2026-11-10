@@ -547,6 +547,7 @@ const updaterStatus = {
   updateHost: "github.com",
   autoCheck: false,
   runningAsAppImage: true,
+  managedBySnap: false,
   canRollback: false,
 };
 
@@ -1482,6 +1483,30 @@ describe("App con IPC de Tauri", () => {
     expect(
       await screen.findByText(/no tiene una clave pública de producción/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Buscar actualizaciones" }),
+    ).toBeDisabled();
+  });
+
+  it("deshabilita el updater cuando la app corre como snap", async () => {
+    api.getUpdaterStatus.mockResolvedValue({
+      ...updaterStatus,
+      runningAsAppImage: false,
+      managedBySnap: true,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajustes" }));
+
+    expect(
+      await screen.findByText(/esta instalación es un snap/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        name: /buscar actualizaciones al iniciar/i,
+      }),
+    ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Buscar actualizaciones" }),
     ).toBeDisabled();

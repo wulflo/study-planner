@@ -28,6 +28,7 @@ pub struct UpdaterStatus {
     pub update_host: String,
     pub auto_check: bool,
     pub running_as_appimage: bool,
+    pub managed_by_snap: bool,
     pub can_rollback: bool,
 }
 
@@ -52,10 +53,42 @@ fn current_version() -> String {
     study_planner_core::app_info().version.to_string()
 }
 
+/// Entorno de ejecución relevante para actualizar la app.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Runtime {
+    /// La app corre desde un AppImage y puede reemplazarse a sí misma.
+    AppImage,
+    /// La app corre desde un snap; snapd gestiona las actualizaciones.
+    Snap,
+    /// `tauri dev` u otro entorno sin AppImage ni snap.
+    Development,
+}
+
+fn runtime_from(appimage: bool, snap: bool) -> Runtime {
+    if snap {
+        Runtime::Snap
+    } else if appimage {
+        Runtime::AppImage
+    } else {
+        Runtime::Development
+    }
+}
+
+fn runtime() -> Runtime {
+    runtime_from(
+        std::env::var_os("APPIMAGE").is_some(),
+        std::env::var_os("SNAP").is_some(),
+    )
+}
+
 fn appimage_path() -> Result<PathBuf, String> {
-    std::env::var_os("APPIMAGE")
-        .map(PathBuf::from)
-        .ok_or_else(|| UpdateError::NotAppImage.to_string())
+    match runtime() {
+        Runtime::Snap => Err(UpdateError::ManagedBySnap.to_string()),
+        Runtime::AppImage => Ok(PathBuf::from(
+            std::env::var_os("APPIMAGE").expect("APPIMAGE comprobado por runtime()"),
+        )),
+        Runtime::Development => Err(UpdateError::NotAppImage.to_string()),
+    }
 }
 
 /// Lee un ajuste booleano; si no existe, usa `false` (opt-in).
@@ -111,7 +144,12 @@ fn info_of(candidate: &UpdateCandidate) -> UpdateInfo {
 
 fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
     let auto_check = state.with_store(|store| read_bool(store, AUTO_CHECK_KEY))?;
-    let appimage = std::env::var_os("APPIMAGE").map(PathBuf::from);
+    let runtime = runtime();
+    let appimage = if runtime == Runtime::AppImage {
+        std::env::var_os("APPIMAGE").map(PathBuf::from)
+    } else {
+        None
+    };
     let can_rollback = appimage
         .as_deref()
         .is_some_and(|path| appimage_backup_path(path).is_file());
@@ -121,7 +159,8 @@ fn build_status(state: &AppState) -> Result<UpdaterStatus, String> {
         current_version: current_version(),
         update_host: UPDATE_HOST.to_string(),
         auto_check,
-        running_as_appimage: appimage.is_some(),
+        running_as_appimage: runtime == Runtime::AppImage,
+        managed_by_snap: runtime == Runtime::Snap,
         can_rollback,
     })
 }
@@ -147,6 +186,9 @@ pub fn check_updates(state: State<'_, AppState>) -> Result<Option<UpdateInfo>, S
 }
 
 fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
+    if runtime() == Runtime::Snap {
+        return Err(UpdateError::ManagedBySnap.to_string());
+    }
     if !public_key_configured() {
         return Err(UpdateError::PublicKeyNotConfigured.to_string());
     }
@@ -204,6 +246,10 @@ fn run_check(state: &AppState) -> Result<Option<UpdateInfo>, String> {
 /// queda en `network_event`; la UI lo muestra en «Ajustes».
 pub fn auto_check_on_startup(app: &tauri::AppHandle) {
     use tauri::Manager as _;
+
+    if runtime() == Runtime::Snap {
+        return;
+    }
 
     let state = app.state::<AppState>();
     let enabled = state
@@ -386,5 +432,13 @@ mod tests {
         let long = "x".repeat(800);
         assert_eq!(truncate_detail(&long).len(), 500);
         assert_eq!(truncate_detail("corto"), "corto");
+    }
+
+    #[test]
+    fn snap_takes_precedence_and_disables_appimage_updates() {
+        assert_eq!(runtime_from(false, false), Runtime::Development);
+        assert_eq!(runtime_from(true, false), Runtime::AppImage);
+        assert_eq!(runtime_from(false, true), Runtime::Snap);
+        assert_eq!(runtime_from(true, true), Runtime::Snap);
     }
 }

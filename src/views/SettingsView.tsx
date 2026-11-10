@@ -238,6 +238,7 @@ export function SettingsView({
   }
 
   const busy = saving || checking || installing || notifying;
+  const snapManaged = status?.managedBySnap === true;
 
   return (
     <>
@@ -311,11 +312,20 @@ export function SettingsView({
                 </p>
               ) : null}
 
+              {snapManaged ? (
+                <p className="notice">
+                  Esta instalación es un snap. Las actualizaciones las gestiona
+                  snapd desde la Snap Store; el updater de AppImage queda
+                  deshabilitado para no reemplazar archivos fuera del
+                  confinamiento.
+                </p>
+              ) : null}
+
               <label className="setting-toggle">
                 <input
                   type="checkbox"
                   checked={status?.autoCheck ?? false}
-                  disabled={busy || !status}
+                  disabled={busy || !status || snapManaged}
                   onChange={(event) =>
                     void handleToggleAutoCheck(event.target.checked)
                   }
@@ -335,6 +345,7 @@ export function SettingsView({
                   className="button filled"
                   disabled={
                     busy ||
+                    snapManaged ||
                     !status?.publicKeyConfigured ||
                     !status.runningAsAppImage
                   }
@@ -346,7 +357,7 @@ export function SettingsView({
                   <button
                     type="button"
                     className="button tonal"
-                    disabled={busy || !status?.runningAsAppImage}
+                    disabled={busy || snapManaged || !status?.runningAsAppImage}
                     onClick={() => void handleInstall()}
                   >
                     {installing
@@ -358,7 +369,7 @@ export function SettingsView({
                   <button
                     type="button"
                     className="button"
-                    disabled={busy}
+                    disabled={busy || snapManaged}
                     onClick={() => void handleRollback()}
                   >
                     Restaurar versión anterior
@@ -366,7 +377,7 @@ export function SettingsView({
                 ) : null}
               </div>
 
-              {!status?.runningAsAppImage ? (
+              {!status?.runningAsAppImage && !snapManaged ? (
                 <p className="quiet">
                   Las actualizaciones solo se instalan desde un AppImage
                   publicado. En desarrollo la comprobación queda deshabilitada.

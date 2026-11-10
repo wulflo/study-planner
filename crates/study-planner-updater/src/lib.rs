@@ -108,6 +108,8 @@ pub enum UpdateError {
     PublicKeyNotConfigured,
     #[error("las actualizaciones solo se instalan desde un AppImage")]
     NotAppImage,
+    #[error("esta instalación se actualiza desde Snap; el updater de AppImage está deshabilitado")]
+    ManagedBySnap,
 }
 
 /// Artefacto de una plataforma dentro del manifiesto.
