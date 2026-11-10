@@ -24,12 +24,12 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 | Persistencia | SQLite con `rusqlite` (bundled), WAL, migraciones versionadas |
 | Exportación | Rust (`study-planner-transfer`), formato canónico propio |
 | Updater | Rust aislado (`study-planner-updater`), opt-in y con firma minisign |
-| Empaquetado | AppImage (updater propio) y snap `strict` (actualiza snapd) |
+| Empaquetado | AppImage, deb, rpm, exe/msi, dmg y snap `strict` |
 | Tests | Vitest + Testing Library; `cargo test` |
 
 ## Requisitos
 
-- Linux x86_64 (probado en CachyOS/Arch).
+- Linux x86_64 (probado en CachyOS/Arch). Windows x64 y macOS arm64 son builds experimentales: sin notificaciones locales ni updater, y sin firma de código del sistema.
 - Node.js 22+ y npm.
 - Rust estable 1.90+ con `cargo`.
 - WebKitGTK 4.1, GTK 3, libsoup 3 y dependencias de Tauri.
@@ -64,6 +64,7 @@ npm run check:all      # lo anterior + fmt + clippy + tests Rust
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — esquema y convenciones.
 - [`docs/EXPORT_FORMAT.md`](docs/EXPORT_FORMAT.md) — contrato del `.txt`.
 - [`docs/UPDATER.md`](docs/UPDATER.md) — diseño del updater aislado.
+- [`docs/RELEASE.md`](docs/RELEASE.md) — workflow multiplataforma, firma y secrets.
 - [`docs/SNAP.md`](docs/SNAP.md) — snap estricto, build y publicación.
 - [`docs/KEYS.md`](docs/KEYS.md) — custodia de la clave de firma.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisiones y descartes.

@@ -15,6 +15,9 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Planificador de recordatorios cada 60 s y entrega por D-Bus (`org.freedesktop.Notifications`) desde Rust; vista «Ajustes» con activación, anticipaciones visibles, revisión manual, notificación de prueba y últimos avisos entregados.
 - Ajustes portables `get_setting` / `set_setting` en el store y persistencia de `updater.auto_check`.
 - Empaquetado AppImage verificado localmente y pipeline de release en GitHub Actions: build, firma con `--app-version`, generación de `latest.json`, verificación contra la clave pública embebida y publicación de la release latest.
+- Release multiplataforma en `.github/workflows/release.yml`: matriz Linux (`AppImage`, `.deb`, `.rpm`), Windows (`.exe` NSIS, `.msi`) y macOS (`.dmg`), con firma minisign de cada artefacto y `SHA256SUMS` por plataforma.
+- `scripts/package-artifacts.mjs` para firmar y preparar `.deb`, `.rpm`, `.exe`, `.msi` y `.dmg`; `scripts/package-release.mjs` sigue generando el AppImage y `latest.json`.
+- `zbus` pasó a dependencia solo de Linux; las notificaciones D-Bus se mantienen en Linux y devuelven un error claro en otras plataformas. Windows/macOS son builds experimentales, sin notificaciones ni updater.
 - Herramienta `verify_release` para validar artefacto, firma y versión sin red.
 - CI actualizado a los crates reales (`study-planner-*`), con updater, host y auditoría de red.
 - Clave pública minisign de producción configurada en `crates/study-planner-updater/updater.pub`; la clave privada y la passphrase se custodian fuera del repositorio.

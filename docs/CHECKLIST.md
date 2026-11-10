@@ -484,7 +484,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 > verde y un commit local pequeño.
 
 - [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (29 tests de UI y 108 de Rust) antes de tocar nada.
-- [x] **Paso 1 — Detección de Snap en el updater:** variante `UpdateError::ManagedBySnap`, `Runtime` (`AppImage`/`Snap`/`Development`) con precedencia de `SNAP` sobre `APPIMAGE`, guardas en estado, auto-check, búsqueda e instalación. Test `snap_takes_precedence_and_disables_appimage_updates`. 16 tests del host.
+- [x] **Paso 1 — Detección de Snap en el updater:** variante `UpdateError::ManagedBySnap`, `Runtime` (`AppImage`/`Snap`/`Development`) con precedencia de `SNAP` sobre `APPIMAGE`, guardas en estado, auto-check, búsqueda e instalación. Test `snap_takes_precedence_and_disables_appimage_updates`. 15 tests del host.
 - [x] **Paso 2 — UI de Snap:** `managedBySnap` en el contrato IPC, aviso en «Ajustes» y controles de updater deshabilitados. Test de UI para el modo snap. 35 tests de UI.
 - [x] **Paso 3 — Empaquetado:** `snap/snapcraft.yaml` con `core24`, `strict`, extensión `gnome`, plugs `home` y `removable-media`, sin plugs de red; `.snapcraftignore`, ícono de tienda y `layout` de WebKitGTK 4.1.
 - [x] **Paso 4 — CI de build:** `.github/workflows/snap.yml` compila y sube el `.snap` como artefacto; no publica. `scripts/check-snap-version.sh` sincroniza la versión con la app y `scripts/check.sh` / `scripts/audit-network.sh` validan el confinamiento y la ausencia de red.
@@ -492,7 +492,18 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Registro y credenciales:** nombre `study-planner` registrado a la cuenta `wulflo` y `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub con un token limitado a `study-planner`/`edge`, ACLs de paquete y expiración 2027-11-08.
 - [ ] **Publicación:** agregar `action-publish` al workflow y probar el snap en Ubuntu 24.04 limpio. No se hace hasta que el usuario lo pida.
 
-**Estado Fase 6:** 35 tests de UI, 16 tests del host y el resto de la suite en verde. Snap estricto sin red, updater deshabilitado bajo snap, workflow de solo build, nombre registrado y credenciales cargadas. La publicación queda pendiente de la prueba en limpio y de una decisión explícita del usuario.
+**Estado Fase 6:** 35 tests de UI, 15 tests del host y el resto de la suite en verde. Snap estricto sin red, updater deshabilitado bajo snap, workflow de solo build, nombre registrado y credenciales cargadas. La publicación queda pendiente de la prueba en limpio y de una decisión explícita del usuario.
+
+### 2026-11-10 — Paquetes de escritorio (extensión de release)
+
+- [x] **Matriz de release:** `release.yml` compila Linux (`AppImage`, `.deb`, `.rpm`), Windows (`.exe` NSIS, `.msi`) y macOS (`.dmg`), firma cada artefacto con `TAURI_SIGNING_PRIVATE_KEY` y publica una release *latest*.
+- [x] **Port mínimo multiplataforma:** `zbus` quedó como dependencia solo de Linux; las notificaciones devuelven un error explícito fuera de Linux y el planificador no arranca. El updater sigue siendo solo AppImage/Snap.
+- [x] **Firma y sumas:** `scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y `.dmg`, copia cada `.sig` y genera `SHA256SUMS` por plataforma.
+- [x] **Secrets:** `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub desde los archivos de la bóveda, sin imprimirlos.
+- [ ] **Validar en CI:** ejecutar el workflow en las tres plataformas y corregir lo que falle.
+- [ ] **Firma de código opcional:** Authenticode en Windows y Developer ID + notarización en macOS. La firma Tauri actual es solo de integridad.
+
+**Estado:** Linux es la plataforma completa; Windows/macOS son builds experimentales sin notificaciones locales ni updater. La firma Tauri no reemplaza la firma de código del sistema operativo.
 
 ---
 
@@ -500,6 +511,6 @@ Resumen; detalle en `docs/OFFLINE.md`.
 
 1. Guardar la passphrase en Bitwarden y papel, y confirmar para borrar el archivo temporal.
 2. Copiar `study-planner.key` y `.pub` a la copia offline (el backup `.gpg` de Drive ya está subido).
-3. Configurar `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con `gh secret set`.
+3. Ejecutar el workflow de release en Linux, Windows y macOS; corregir lo que falle.
 4. Publicar una release firmada (`v0.2.0` o superior) y probar el updater real.
 5. Probar el `.snap` en Ubuntu 24.04 limpio y, si se pide, publicar en `edge`.

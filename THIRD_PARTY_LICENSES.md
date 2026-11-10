@@ -115,6 +115,7 @@ En Linux, Tauri usa WebKitGTK, GTK 3, GLib, libsoup y otras bibliotecas del sist
   - permitir que el usuario reemplace las bibliotecas del sistema (enlace dinámico);
   - ofrecer el código fuente de las versiones LGPL utilizadas, o la vía para obtenerlo.
 - La compilación estándar de Tauri ya usa enlace dinámico en Linux. No usar enlace estático de WebKitGTK/GTK sin revisar la LGPL.
+- En Windows, Tauri usa WebView2 (componente de Microsoft, no se bundlea en el instalador); en macOS usa WKWebView del sistema. No se distribuyen desde el repositorio.
 
 ### Snap
 

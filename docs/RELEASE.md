@@ -1,14 +1,17 @@
 # Empaquetado y releases
 
-> **Estado:** pipeline implementado y clave pública de producción configurada
-> (2026-11-09). Falta custodiar la passphrase/copias y configurar los secrets para
-> publicar la primera release firmada.
+> **Estado:** pipeline multiplataforma implementado (2026-11-10). Clave pública de
+> producción configurada y secrets `TAURI_SIGNING_PRIVATE_KEY` /
+> `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` cargados en GitHub. Falta custodiar la
+> passphrase/copias offline y publicar la primera release firmada real.
+> Windows/macOS son builds experimentales; ver límites más abajo.
 
 ## Decisión
 
-El AppImage de release se compila **en GitHub Actions**, no en el equipo local.
+Los paquetes de release se compilan **en GitHub Actions**, no en el equipo local.
 La compilación local sirve solo para validar el empaquetado antes de un cambio
-grande; el artefacto que se publica sale del workflow `.github/workflows/release.yml`.
+grande; los artefactos que se publican salen de
+`.github/workflows/release.yml` (escritorio) y `.github/workflows/snap.yml` (snap).
 
 ## Workflow de release
 
@@ -19,22 +22,50 @@ git tag -a v0.2.0 -m "Study Planner 0.2.0"
 git push origin v0.2.0
 ```
 
+El workflow `.github/workflows/release.yml` compila en una matriz de tres
+plataformas. Es independiente de `.github/workflows/snap.yml`, que solo construye
+el snap.
+
+| Plataforma | Runner | Paquetes |
+|---|---|---|
+| Linux x86_64 | `ubuntu-24.04` | `.AppImage`, `.deb`, `.rpm` |
+| Windows x64 | `windows-latest` | `.exe` (NSIS) y `.msi` |
+| macOS arm64 | `macos-14` | `.dmg` |
+
 Pasos del workflow:
 
-1. Instala Node, Rust, dependencias del sistema y `npm ci`.
+1. Instala Node, Rust, dependencias del sistema (solo Linux) y `npm ci`.
 2. Exige que `crates/study-planner-updater/updater.pub` no sea el placeholder.
-   Sin clave pública real no se publica una release que el updater no podrá usar.
-3. Compila `npm run tauri build -- --bundles appimage`.
-4. Ejecuta `node scripts/package-release.mjs`, que:
-   - firma el AppImage con `tauri signer sign --app-version <versión>`
-     (el trusted comment incluye `version:<versión>`);
-   - copia el artefacto como `study-planner_<versión>_x86_64.AppImage`;
-   - calcula SHA-256;
-   - genera `dist-release/latest.json` con la URL HTTPS del asset.
-5. Verifica la firma contra la clave pública embebida con
+3. Compila `npm run tauri build -- --bundles <matriz>`:
+   - Linux: `appimage,deb,rpm`.
+   - Windows: `nsis,msi`.
+   - macOS: `dmg`.
+4. En Linux, `node scripts/package-release.mjs` firma el AppImage con
+   `tauri signer sign --app-version <versión>`, lo copia como
+   `study-planner_<versión>_x86_64.AppImage` y genera
+   `dist-release/latest.json`.
+5. `node scripts/package-artifacts.mjs` firma `.deb`, `.rpm`, `.exe`, `.msi` y
+   `.dmg`, copia cada artefacto con su `.sig` y escribe un `SHA256SUMS` por
+   plataforma.
+6. En Linux, verifica la firma del AppImage contra la clave pública embebida con
    `cargo run -p study-planner-updater --example verify_release`.
-6. Crea o actualiza la release de GitHub con el AppImage, su `.sig` y
-   `latest.json`, y la marca como *latest*.
+7. El job `release` descarga los artefactos de las tres plataformas y crea o
+   actualiza la release de GitHub, marcada como *latest*.
+
+La firma de Tauri es una firma minisign de integridad. **No** es Authenticode en
+Windows ni notarización de Apple en macOS: esos pasos, si se agregan, usan
+certificados distintos.
+
+### Límites por plataforma
+
+- **Linux:** es la plataforma completa. El updater de AppImage y las
+  notificaciones D-Bus funcionan.
+- **Windows/macOS:** builds experimentales. La app compila sin `zbus`, pero las
+  notificaciones locales devuelven un error claro y el updater queda inactivo
+  (no hay AppImage). No hay firma de código ni notarización.
+- La actualización automática solo existe en Linux/AppImage y Snap. Los paquetes
+  `.deb`/`.rpm` se actualizan con el gestor del sistema; `.exe`/`.msi` y `.dmg`
+  con el instalador correspondiente.
 
 ### Secrets requeridos
 
@@ -110,17 +141,42 @@ Si no se quiere usar la clave en CI:
 La firma offline es la opción recomendada mientras la clave no tenga un
 procedimiento de custodia en CI.
 
-## Paquete `.deb`
+## Paquetes `.deb` y `.rpm`
 
-El objetivo inicial es AppImage. El workflow pide solo `--bundles appimage` para
-no publicar paquetes que el updater no puede reemplazar. Un `.deb` opcional se
-puede generar con:
+El workflow de Linux compila `--bundles appimage,deb,rpm`. Los tres se firman
+con la clave de Tauri y se adjuntan a la release.
+
+- `.deb`: se instala con `apt`/`dpkg`; no lo reemplaza el updater de la app.
+- `.rpm`: se instala con `dnf`/`rpm`; tampoco lo reemplaza el updater.
+- El AppImage sigue siendo el único artefacto Linux que el updater puede
+  reemplazar de forma atómica.
+
+Para generarlos localmente:
 
 ```bash
-npm run tauri build -- --bundles deb
+npm run tauri build -- --bundles deb,rpm
 ```
 
-No se publica como parte del updater.
+`rpm` debe estar instalado en el sistema (`sudo apt install rpm` en Ubuntu).
+
+## Windows y macOS
+
+Los jobs de Windows y macOS compilan los mismos crates, pero con dos límites
+explícitos:
+
+- **Notificaciones:** `zbus` y D-Bus son solo Linux. En otras plataformas la
+  entrega devuelve `Las notificaciones locales solo están disponibles en Linux.`
+- **Updater:** el instalador de actualizaciones reemplaza un AppImage. En
+  Windows/macOS queda inactivo.
+
+La firma que produce el workflow es minisign (`TAURI_SIGNING_PRIVATE_KEY`), útil
+para verificar integridad. No reemplaza la firma de código del sistema operativo:
+
+- Windows: Authenticode requiere un certificado de code signing.
+- macOS: Gatekeeper requiere Developer ID + notarización de Apple.
+
+Hasta no agregar esas firmas, Windows/macOS son builds experimentales y pueden
+mostrar advertencias al instalar.
 
 ## Rotación y recuperación
 
