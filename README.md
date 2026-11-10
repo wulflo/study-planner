@@ -4,7 +4,7 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 
 **Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
 
-> **Estado:** Fase 0 cerrada; Fase 1 cerrada en su alcance de aceptación. La app permite elegir una bóveda validada, gestionar tareas persistentes, mantener backups verificados y snapshots diarias, exportar e importar la bóveda completa con round-trip byte a byte y restaurar el backup principal con confirmación. El resto del dominio llega en las fases siguientes.
+> **Estado:** Fases 0 a 4 cerradas. Fase 5 implementada en código (updater aislado, notificaciones, AppImage y release firmada pendiente de secrets); Fase 6 implementada en código (snap estricto y workflow de solo build, publicación pendiente de credenciales). La app permite elegir una bóveda validada, gestionar horarios, materias, exámenes, notas, tareas, repaso espaciado y estadísticas, con backups verificados, snapshots diarias y exportación/importación con round-trip byte a byte.
 
 ## Principios
 
@@ -23,7 +23,8 @@ Organización académica personal, **estrictamente local**. Horarios, materias, 
 | Host | Tauri 2.12 (Rust) |
 | Persistencia | SQLite con `rusqlite` (bundled), WAL, migraciones versionadas |
 | Exportación | Rust (`study-planner-transfer`), formato canónico propio |
-| Updater | Rust aislado (`study-planner-updater`), pendiente Fase 5 |
+| Updater | Rust aislado (`study-planner-updater`), opt-in y con firma minisign |
+| Empaquetado | AppImage (updater propio) y snap `strict` (actualiza snapd) |
 | Tests | Vitest + Testing Library; `cargo test` |
 
 ## Requisitos
@@ -63,6 +64,7 @@ npm run check:all      # lo anterior + fmt + clippy + tests Rust
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — esquema y convenciones.
 - [`docs/EXPORT_FORMAT.md`](docs/EXPORT_FORMAT.md) — contrato del `.txt`.
 - [`docs/UPDATER.md`](docs/UPDATER.md) — diseño del updater aislado.
+- [`docs/SNAP.md`](docs/SNAP.md) — snap estricto, build y publicación.
 - [`docs/KEYS.md`](docs/KEYS.md) — custodia de la clave de firma.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisiones y descartes.
 - [`docs/OFFLINE.md`](docs/OFFLINE.md) — trabajo sin internet.
@@ -93,6 +95,7 @@ La bóveda vive fuera del repositorio:
 ## Seguridad
 
 - No hay claves, contraseñas ni bases de datos en el repositorio.
+- El snap usa confinamiento `strict`, solo `home`/`removable-media` y ningún plug de red; ver `docs/SNAP.md`.
 - No se aceptan contribuciones que agreguen red, cuentas, telemetría o permisos amplios al frontend.
 - La clave privada del updater y su passphrase se custodian fuera del repo; ver `docs/KEYS.md`.
 - Si encontrás un problema de seguridad, usá el [reporte privado de GitHub](https://github.com/wulflo/study-planner/security/advisories/new). No abras un issue público. Ver [`SECURITY.md`](SECURITY.md).

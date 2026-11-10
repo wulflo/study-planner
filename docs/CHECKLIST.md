@@ -478,6 +478,22 @@ Resumen; detalle en `docs/OFFLINE.md`.
 
 > **Pendiente del usuario:** confirmar que la passphrase quedó guardada en Bitwarden y papel para borrar `/tmp/opencode/study-planner-keygen/passphrase.txt`. Después hay que configurar los secrets del release workflow y publicar la primera release firmada.
 
+### 2026-11-09 — Fase 6 en curso (bitácora por pasos)
+
+> Misma regla que las fases anteriores: cada paso termina con `./scripts/check.sh` en
+> verde y un commit local pequeño.
+
+- [x] **Paso 0 — Línea base:** `./scripts/check.sh` verde (29 tests de UI y 108 de Rust) antes de tocar nada.
+- [x] **Paso 1 — Detección de Snap en el updater:** variante `UpdateError::ManagedBySnap`, `Runtime` (`AppImage`/`Snap`/`Development`) con precedencia de `SNAP` sobre `APPIMAGE`, guardas en estado, auto-check, búsqueda e instalación. Test `snap_takes_precedence_and_disables_appimage_updates`. 16 tests del host.
+- [x] **Paso 2 — UI de Snap:** `managedBySnap` en el contrato IPC, aviso en «Ajustes» y controles de updater deshabilitados. Test de UI para el modo snap. 35 tests de UI.
+- [x] **Paso 3 — Empaquetado:** `snap/snapcraft.yaml` con `core24`, `strict`, extensión `gnome`, plugs `home` y `removable-media`, sin plugs de red; `.snapcraftignore`, ícono de tienda y `layout` de WebKitGTK 4.1.
+- [x] **Paso 4 — CI de build:** `.github/workflows/snap.yml` compila y sube el `.snap` como artefacto; no publica. `scripts/check-snap-version.sh` sincroniza la versión con la app y `scripts/check.sh` / `scripts/audit-network.sh` validan el confinamiento y la ausencia de red.
+- [x] **Paso 5 — Documentación:** `docs/SNAP.md`, sección snap en `docs/UPDATER.md`, README, changelog y licencias.
+- [ ] **Registro y credenciales:** el usuario registra `study-planner`, exporta el token restringido a `edge` y guarda `SNAPCRAFT_STORE_CREDENTIALS` en GitHub.
+- [ ] **Publicación:** agregar `action-publish` al workflow y probar el snap en Ubuntu 24.04 limpio. No se hace hasta que el usuario lo pida.
+
+**Estado Fase 6:** 35 tests de UI, 16 tests del host y el resto de la suite en verde. Snap estricto sin red, updater deshabilitado bajo snap y workflow de solo build. La publicación queda bloqueada por las credenciales y por decisión explícita del usuario.
+
 ---
 
 ## Próximos 5 pasos
@@ -486,4 +502,4 @@ Resumen; detalle en `docs/OFFLINE.md`.
 2. Copiar `study-planner.key` y `.pub` a la copia offline (el backup `.gpg` de Drive ya está subido).
 3. Configurar `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con `gh secret set`.
 4. Publicar una release firmada (`v0.2.0` o superior) y probar el updater real.
-5. Ejecutar el simulacro real de recuperación/rotación y cerrar la Fase 5.
+5. Registrar el snap, cargar `SNAPCRAFT_STORE_CREDENTIALS` y probar el `.snap` en Ubuntu 24.04 limpio antes de publicar en `edge`.

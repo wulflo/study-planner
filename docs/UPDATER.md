@@ -14,7 +14,7 @@ El updater es la **única** excepción a la regla de «Study Planner no usa red�
 3. **Firma obligatoria.** Un manifiesto o artefacto sin firma válida se rechaza. No hay modo «skip signature».
 4. **Sin datos de usuario.** La petición solo lleva el manifiesto y un `User-Agent` con la versión de Study Planner. Nunca `vault_id`, rutas, materias, notas ni identificadores de máquina.
 5. **Opt-in.** La comprobación automática está desactivada por defecto (`updater.auto_check = false`). El usuario puede activarla o buscar manualmente.
-6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial.
+6. **Linux AppImage únicamente.** Tauri updater no soporta Android/iOS; Windows/macOS no son objetivo inicial. Bajo snap, el updater de AppImage se desactiva y actualiza snapd.
 7. **Toda la red se registra** en `network_event` (tipo, host, bytes, resultado y detalle técnico acotado), sin contenido de datos.
 
 ## Diseño implementado
@@ -145,6 +145,23 @@ Nunca se ejecuta un instalador descargado sin verificar. Nunca se borra el binar
 - Si el nuevo no arranca, el usuario puede restaurar el anterior desde «Ajustes» o manualmente.
 - El updater no intenta «auto-repararse» descargando otra cosa.
 
+## Ejecución como snap
+
+Cuando Study Planner corre como snap, la variable `SNAP` está definida y el
+updater de AppImage queda deshabilitado:
+
+- `get_updater_status` devuelve `managedBySnap: true` y `runningAsAppImage: false`.
+- `set_updater_auto_check`, `check_updates`, `install_update` y
+  `rollback_update` rechazan la operación con `UpdateError::ManagedBySnap`.
+- La comprobación automática al iniciar no se ejecuta.
+- La vista «Ajustes» muestra el aviso «Esta instalación es un snap» y deshabilita
+  los controles.
+
+La razón es de seguridad y de modelo de distribución: dentro del confinamiento
+estricto la app no puede reemplazar su propio binario, y snapd ya gestiona la
+actualización desde la Snap Store. Si `APPIMAGE` y `SNAP` coexistieran, gana
+`SNAP`. Ver [`docs/SNAP.md`](SNAP.md).
+
 ## Tests de Fase 5
 
 - [x] Manifiesto válido y firmado: detecta versión nueva.
@@ -156,6 +173,7 @@ Nunca se ejecuta un instalador descargado sin verificar. Nunca se borra el binar
 - [x] `network_event` registra el intento sin datos de usuario.
 - [x] El binario actual queda intacto ante cualquier fallo.
 - [x] Instalación atómica y rollback con tests de sistema de archivos.
+- [x] Detección de Snap: tiene prioridad sobre AppImage y bloquea el updater.
 - [ ] Simulación con una release real firmada (requiere clave de producción y publicación).
 
 ## Amenazas y mitigaciones

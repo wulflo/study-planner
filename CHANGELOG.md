@@ -62,9 +62,14 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 - Barra de título propia con controles integrados de minimizar, maximizar/restaurar y cerrar, con estado sincronizado al redimensionar la ventana.
 - Arrastre de la ventana desde la barra de título y bordes invisibles de redimensionado para la ventana sin decoración nativa.
 - Permisos mínimos de ventana en `capabilities/default.json`: `minimize`, `toggle-maximize`, `close`, `start-dragging` y `start-resize-dragging`.
+- Empaquetado Snap `study-planner` sobre `core24` con confinamiento `strict`, extensión `gnome` y plugs `home`/`removable-media`; sin plugs de red.
+- Workflow `.github/workflows/snap.yml` que compila el `.snap` en GitHub Actions y lo sube como artefacto, sin publicar.
+- `scripts/check-snap-version.sh` para exigir que la versión del snap coincida con la de la app; `scripts/check.sh` y `scripts/audit-network.sh` validan confinamiento, plugs y ausencia de red.
+- Guía `docs/SNAP.md` con build, credenciales restringidas a `edge`, instalación local, conexión de `removable-media` y pasos de publicación.
 
 ### Cambiado
 
+- Bajo snap (`SNAP` definido), el updater de AppImage se deshabilita: estado `managedBySnap`, guardas en los comandos, sin auto-check y controles deshabilitados en «Ajustes». Las actualizaciones las gestiona snapd.
 - La app se renombró de `Omega` a `Study Planner`; los crates pasan a `study-planner-*`, el paquete a `study-planner` y el identificador a `app.studyplanner.desktop`.
 - Al elegir la bóveda se crean automáticamente `<bóveda>/omega` y `<bóveda>/longlife/<dispositivo>`; la snapshot del día se crea al abrir la bóveda y se poda a 7 días.
 - La sección «Bóveda» dejó de ser un placeholder: muestra el diagnóstico real, los respaldos y permite cambiar de carpeta. La sección «Tareas» pasó a ser funcional.
@@ -84,6 +89,7 @@ Todos los cambios relevantes de Study Planner se registran acá. El formato sigu
 ### Seguridad
 
 - La raíz de la bóveda se valida antes de escribir; se rechazan archivos, rutas inexistentes, la raíz del sistema y cualquier carpeta dentro del repositorio.
+- El snap `study-planner` es `strict` y no declara plugs de red; el updater de AppImage se rechaza en runtime cuando corre como snap.
 - Las carpetas de la bóveda se crean con permisos `0700` y los archivos con `0600` en Unix.
 - Un backup no se considera válido solo por existir: se reabre y se verifican integridad, claves foráneas y checksum.
 - La decisión MPL-2.0 quedó registrada en ADR-017: excepción acotada a dependencias transitivas de Tauri, sin modificar, conservando avisos.

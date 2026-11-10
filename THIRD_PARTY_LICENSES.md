@@ -116,6 +116,15 @@ En Linux, Tauri usa WebKitGTK, GTK 3, GLib, libsoup y otras bibliotecas del sist
   - ofrecer el código fuente de las versiones LGPL utilizadas, o la vía para obtenerlo.
 - La compilación estándar de Tauri ya usa enlace dinámico en Linux. No usar enlace estático de WebKitGTK/GTK sin revisar la LGPL.
 
+### Snap
+
+El snap `study-planner` usa `core24` y la extensión `gnome`, que aportan
+WebKitGTK/GTK y otras bibliotecas de plataforma dentro del entorno del snap. Se
+siguen enlazando dinámicamente y no se modifican. Snapcraft es una **herramienta
+de build GPL-3.0** de Canonical; no se distribuye dentro del snap ni forma parte
+del binario de Study Planner. Al publicar el snap se aplican las mismas
+obligaciones de avisos y disponibilidad de fuente para las bibliotecas LGPL.
+
 ## Excepción aceptada: MPL-2.0 transitiva
 
 Se detectaron paquetes **MPL-2.0** en el grafo de Tauri. MPL-2.0 es copyleft a nivel de archivo: permite usar los archivos sin modificar en un programa mayor, pero exige conservar avisos y, si se modifica el archivo MPL, publicar esa modificación bajo MPL. La excepción fue revisada y aceptada en **ADR-017** (2026-11-08).
@@ -151,6 +160,7 @@ Las dependencias de desarrollo (Vitest, Testing Library, Biome, TypeScript, Vite
 4. No relicenciar código de terceros.
 5. Si se modifica un archivo MPL, publicar ese archivo bajo MPL-2.0.
 6. Si se distribuye el AppImage, incluir la oferta de código fuente de las bibliotecas LGPL o la referencia a los paquetes del sistema.
+7. Si se distribuye el snap, mantener el enlace dinámico de WebKitGTK/GTK y cumplir la LGPL de las bibliotecas aportadas por la extensión `gnome`.
 
 ## Pendientes
 
