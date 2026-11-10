@@ -57,9 +57,11 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
 }
 
 // Firma con la CLI de Tauri: embebe `version:<versión>` en el trusted comment.
+// Se invoca el JS de la CLI directamente para que funcione igual en Windows.
+const tauriCli = path.join("node_modules", "@tauri-apps", "cli", "tauri.js");
 const sign = spawnSync(
-  "npm",
-  ["run", "tauri", "signer", "sign", "--", "--app-version", version, artifact],
+  process.execPath,
+  [tauriCli, "signer", "sign", "--app-version", version, artifact],
   { stdio: "inherit", env: process.env },
 );
 if (sign.status !== 0) {

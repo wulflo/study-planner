@@ -4,8 +4,10 @@
 //! webview. El cálculo vive en `study-planner-store` y la entrega usa D-Bus
 //! (`org.freedesktop.Notifications`) directamente desde el host.
 
-use std::collections::HashMap;
 use std::time::Duration;
+
+#[cfg(target_os = "linux")]
+use std::collections::HashMap;
 
 use serde::Serialize;
 use study_planner_store::{NotificationRecord, Reminder};
@@ -154,6 +156,17 @@ fn scan_reminders(state: &State<'_, AppState>) -> Result<ScanOutcome, String> {
 
 /// Planificador en segundo plano. Corre mientras la app está abierta.
 pub fn start_scheduler(app: tauri::AppHandle) {
+    #[cfg(target_os = "linux")]
+    start_linux_scheduler(app);
+    #[cfg(not(target_os = "linux"))]
+    {
+        // La entrega usa D-Bus; en otras plataformas todavía no hay backend.
+        let _ = app;
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn start_linux_scheduler(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         loop {
             let state = app.state::<AppState>();
@@ -168,6 +181,7 @@ pub fn start_scheduler(app: tauri::AppHandle) {
     });
 }
 
+#[cfg(target_os = "linux")]
 fn send_notification(title: &str, body: &str) -> Result<(), String> {
     let connection = zbus::blocking::Connection::session()
         .map_err(|error| format!("No se pudo abrir la sesión D-Bus: {error}"))?;
@@ -191,6 +205,11 @@ fn send_notification(title: &str, body: &str) -> Result<(), String> {
         )
         .map_err(|error| format!("El escritorio rechazó la notificación: {error}"))?;
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn send_notification(_title: &str, _body: &str) -> Result<(), String> {
+    Err("Las notificaciones locales solo están disponibles en Linux.".to_string())
 }
 
 #[cfg(test)]
