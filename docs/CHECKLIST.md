@@ -489,10 +489,10 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - [x] **Paso 3 — Empaquetado:** `snap/snapcraft.yaml` con `core24`, `strict`, extensión `gnome`, plugs `home` y `removable-media`, sin plugs de red; `.snapcraftignore`, ícono de tienda y `layout` de WebKitGTK 4.1.
 - [x] **Paso 4 — CI de build:** `.github/workflows/snap.yml` compila y sube el `.snap` como artefacto; no publica. `scripts/check-snap-version.sh` sincroniza la versión con la app y `scripts/check.sh` / `scripts/audit-network.sh` validan el confinamiento y la ausencia de red.
 - [x] **Paso 5 — Documentación:** `docs/SNAP.md`, sección snap en `docs/UPDATER.md`, README, changelog y licencias.
-- [ ] **Registro y credenciales:** el usuario registra `study-planner`, exporta el token restringido a `edge` y guarda `SNAPCRAFT_STORE_CREDENTIALS` en GitHub.
+- [x] **Registro y credenciales:** nombre `study-planner` registrado a la cuenta `wulflo` y `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub con un token limitado a `study-planner`/`edge`, ACLs de paquete y expiración 2027-11-08.
 - [ ] **Publicación:** agregar `action-publish` al workflow y probar el snap en Ubuntu 24.04 limpio. No se hace hasta que el usuario lo pida.
 
-**Estado Fase 6:** 35 tests de UI, 16 tests del host y el resto de la suite en verde. Snap estricto sin red, updater deshabilitado bajo snap y workflow de solo build. La publicación queda bloqueada por las credenciales y por decisión explícita del usuario.
+**Estado Fase 6:** 35 tests de UI, 16 tests del host y el resto de la suite en verde. Snap estricto sin red, updater deshabilitado bajo snap, workflow de solo build, nombre registrado y credenciales cargadas. La publicación queda pendiente de la prueba en limpio y de una decisión explícita del usuario.
 
 ---
 
@@ -502,4 +502,4 @@ Resumen; detalle en `docs/OFFLINE.md`.
 2. Copiar `study-planner.key` y `.pub` a la copia offline (el backup `.gpg` de Drive ya está subido).
 3. Configurar `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con `gh secret set`.
 4. Publicar una release firmada (`v0.2.0` o superior) y probar el updater real.
-5. Registrar el snap, cargar `SNAPCRAFT_STORE_CREDENTIALS` y probar el `.snap` en Ubuntu 24.04 limpio antes de publicar en `edge`.
+5. Probar el `.snap` en Ubuntu 24.04 limpio y, si se pide, publicar en `edge`.

@@ -1,10 +1,11 @@
 # Empaquetado Snap
 
 > **Estado:** empaquetado y workflow de build implementados (2026-11-09).
+> El nombre `study-planner` está registrado a la cuenta `wulflo` y el secreto
+> `SNAPCRAFT_STORE_CREDENTIALS` está cargado (token restringido a `edge`).
 > La publicación a la Snap Store todavía **no** está habilitada: el workflow solo
-> compila el `.snap` y lo deja como artefacto.
-> **Pendiente:** registrar el nombre, exportar credenciales y guardar
-> `SNAPCRAFT_STORE_CREDENTIALS` en GitHub para poder publicar cuando se pida.
+> compila el `.snap` y lo deja como artefacto. Falta probarlo en Ubuntu 24.04
+> limpio y agregar el paso de publicación cuando se pida.
 
 ## Decisión
 
@@ -86,6 +87,11 @@ una decisión explícita y se agrega después.
 
 ## Credenciales de Snapcraft
 
+> **Estado actual:** nombre `study-planner` registrado a la cuenta `wulflo` y
+> `SNAPCRAFT_STORE_CREDENTIALS` cargado en GitHub. El token está limitado a
+> `study-planner`, al canal `edge`, a los ACLs de paquete y expira el 2027-11-08.
+> Los comandos de abajo quedan como referencia para rotar el token.
+
 La publicación futura usa un token restringido. El registro del nombre y el login
 con contraseña + 2FA los hace el usuario; el token se exporta a un archivo
 temporal y se guarda como secreto de GitHub sin imprimirlo.
@@ -102,6 +108,12 @@ podman run --rm -it --userns=keep-id -e HOME=/work \
 ```
 
 Si el nombre ya está registrado a la cuenta, el registro falla y se sigue igual.
+
+> **Keyring:** las imágenes de Snapcraft 8.x usan el keyring del sistema y fallan
+> en contenedores sin sesión de escritorio (`No keyring found`). Para registrar el
+> nombre alcanza con `snapcore/snapcraft:stable` (4.4.4), que guarda la sesión en
+> `~/.snapcraft`. El token restringido se sigue exportando con Snapcraft 8.x,
+> porque `export-login` usa modo efímero y no necesita keyring.
 
 ```bash
 podman run --rm -it --userns=keep-id -e HOME=/work \
