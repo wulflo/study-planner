@@ -1,109 +1,131 @@
 # Study Planner
 
-Organización académica personal, **estrictamente local**. Horarios, materias, exámenes, notas, tareas, apuntes y repaso espaciado en una sola bóveda SQLite, sin cuentas, sin nube y sin telemetría.
+**Personal academic organization — strictly local.**
 
-**Repositorio:** [github.com/wulflo/study-planner](https://github.com/wulflo/study-planner) (público, solo código; nunca datos de la bóveda).
+Schedules, subjects, exams, grades, tasks, notes, and spaced repetition in a single SQLite vault. No accounts, no cloud, no telemetry.
 
-> **Estado:** Fases 0 a 5 cerradas y publicadas: `v0.1.5` con AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS, updater firmado multiplataforma, notificaciones locales y empaquetado MSIX para Microsoft Store. Snap `study-planner` 0.1.0 en `stable` (revisión 1); la próxima revisión usa 0.1.5. La app incluye temas claro/oscuro/sistema, colores de acento, modo segundo plano con bandeja y recordatorios con sonido opcional. La ficha pública del snap puede tardar mientras Canonical revisa el primer envío.
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![Status: v0.1.5](https://img.shields.io/badge/status-v0.1.5-brightgreen.svg)](CHANGELOG.md)
+[![Tauri 2.12](https://img.shields.io/badge/Tauri-2.12-24C8D8?logo=tauri&logoColor=white)](https://tauri.app)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Platforms: Linux | Windows | macOS](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)](#requirements)
 
-## Principios
+**Repository:** [github.com/wulflo/StudyPlanner](https://github.com/wulflo/StudyPlanner) · **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) · **Security:** [SECURITY.md](SECURITY.md)
 
-- **Local primero:** elegís una carpeta raíz (la bóveda) y la app crea `<bóveda>/omega` para los datos vivos y el backup principal verificado, y `<bóveda>/longlife` para las snapshots diarias. La ruta se valida y nunca cambia en silencio.
-- **Continuidad verificada:** cada backup se comprueba con SHA-256, `integrity_check` y `foreign_key_check`; se conserva el backup previo a cada migración, las últimas 7 snapshots por dispositivo y un backup `pre-restore-*.db` antes de cada restauración.
-- **Sin red en la interfaz:** la webview no tiene permisos de archivos, SQL, shell, diálogos ni HTTP. La única excepción es el updater aislado en Rust, opt-in, con URL fija y firma obligatoria.
-- **Exportación total:** un único `.txt` canónico que permite reconstruir la bóveda. `exportar → importar → exportar` da bytes idénticos en la misma versión; la importación solo se acepta en una bóveda vacía.
-- **Sin cifrado de bóveda:** decisión explícita del usuario. La confidencialidad depende del disco cifrado del sistema y de la custodia física.
-- **Continuidad:** cada fase deja tests, changelog y `docs/CHECKLIST.md` para retomar sin internet. La MPL-2.0 transitiva de Tauri está aceptada como excepción acotada (ADR-017); ver `THIRD_PARTY_LICENSES.md`.
+---
 
-## Stack
+## Project status
 
-| Capa | Tecnología |
-|---|---|
+> **Phases 0 through 5 are complete and released.** `v0.1.5` ships as AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX), and macOS, with a signed cross-platform updater, local notifications, and MSIX packaging for the Microsoft Store. Snap `study-planner` 0.1.0 is available on `stable` (revision 1); the next revision will use 0.1.5.
+>
+> The app includes light, dark, and system themes, accent colors, a background tray mode, and reminders with optional sound. The public Snap listing may take a while while Canonical reviews the first submission.
+
+## Design principles
+
+- **Local first.** You choose a root folder (the vault), and the app creates `<vault>/omega` for live data and the verified primary backup, plus `<vault>/longlife` for daily snapshots. The path is validated and never changes silently.
+- **Verified continuity.** Every backup is checked with SHA-256, `integrity_check`, and `foreign_key_check`. The app preserves the backup from before each migration, the last 7 snapshots per device, and a `pre-restore-*.db` backup before every restore.
+- **No network in the UI.** The webview has no file, SQL, shell, dialog, or HTTP permissions. The only exception is the isolated Rust updater: opt-in, with a fixed URL and mandatory signature verification.
+- **Full export.** A single canonical `.txt` file can rebuild the vault. `export → import → export` produces identical bytes on the same version, and imports are only accepted into an empty vault.
+- **No vault encryption.** This is an explicit user decision. Confidentiality depends on the operating system's full-disk encryption and physical custody of the device.
+- **Continuity.** Every phase leaves behind tests, a changelog, and `docs/CHECKLIST.md` so work can resume without internet access. Tauri's transitive MPL-2.0 dependency is accepted as a scoped exception (ADR-017); see `THIRD_PARTY_LICENSES.md`.
+
+## Tech stack
+
+| Layer | Technology |
+| :--- | :--- |
 | UI | React 19, TypeScript, Vite 8, Zustand, date-fns, Material Color Utilities |
 | Host | Tauri 2.12 (Rust) |
-| Persistencia | SQLite con `rusqlite` (bundled), WAL, migraciones versionadas |
-| Exportación | Rust (`study-planner-transfer`), formato canónico propio |
-| Updater | Rust aislado (`study-planner-updater`), opt-in y con firma minisign |
-| Empaquetado | AppImage, deb, rpm, exe/msi/msix, dmg y snap `strict` |
+| Persistence | SQLite via `rusqlite` (bundled), WAL, versioned migrations |
+| Export | Rust (`study-planner-transfer`), custom canonical format |
+| Updater | Isolated Rust crate (`study-planner-updater`), opt-in, minisign signatures |
+| Packaging | AppImage, deb, rpm, exe/msi/msix, dmg, and a `strict` snap |
 | Tests | Vitest + Testing Library; `cargo test` |
 
-## Requisitos
+## Requirements
 
-- Linux x86_64 (probado en CachyOS/Arch). Windows x64 y macOS arm64 se compilan y actualizan, pero no tienen notificaciones locales ni firma de código del sistema.
-- Node.js 22+ y npm.
-- Rust estable 1.90+ con `cargo`.
-- WebKitGTK 4.1, GTK 3, libsoup 3 y dependencias de Tauri.
-- En Linux, `libayatana-appindicator3` para el icono de bandeja del modo segundo plano. Si falta, la app sigue funcionando pero cerrar la ventana termina el proceso.
-- `rg` (ripgrep) para `scripts/audit-network.sh`; si falta, el script usa `grep`.
+- **Linux x86_64** (tested on CachyOS/Arch). Windows x64 and macOS arm64 build and update, but do not have local notifications or OS-level code signing.
+- **Node.js 22+** and npm.
+- **Stable Rust 1.90+** with `cargo`.
+- **WebKitGTK 4.1**, GTK 3, libsoup 3, and the rest of Tauri's Linux dependencies.
+- On Linux, **`libayatana-appindicator3`** for the background-mode tray icon. Without it, the app still runs, but closing the window ends the process.
+- **`rg` (ripgrep)** for `scripts/audit-network.sh`; the script falls back to `grep` when ripgrep is not installed.
 
-## Arranque
+## Getting started
 
 ```bash
+git clone https://github.com/wulflo/StudyPlanner.git
+cd StudyPlanner
 npm install
 npm run tauri dev
 ```
 
-Solo frontend (sin IPC de Tauri):
+To run only the frontend, without the Tauri IPC layer:
 
 ```bash
 npm run dev
 ```
 
-## Verificación
+## Verification
 
-```bash
-npm run check          # typecheck + lint + tests + build
-npm run check:all      # lo anterior + fmt + clippy + tests Rust
-./scripts/check.sh     # atajo de check:all + cargo check -p study-planner
-./scripts/audit-network.sh
-```
+| Command | What it runs |
+| :--- | :--- |
+| `npm run check` | Type checking, linting, frontend tests, and a production build |
+| `npm run check:all` | All of the above, plus Rust formatting, Clippy, and Rust tests |
+| `./scripts/check.sh` | `check:all` plus the Tauri host check, Snap version check, and audits |
+| `./scripts/audit-network.sh` | Static audit of network access, permissions, and secrets |
 
-## Documentación
+## Documentation
 
-- [`docs/CHECKLIST.md`](docs/CHECKLIST.md) — estado, fases, reglas y próximos pasos.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — capas, seguridad y flujos.
-- [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — esquema y convenciones.
-- [`docs/EXPORT_FORMAT.md`](docs/EXPORT_FORMAT.md) — contrato del `.txt`.
-- [`docs/UPDATER.md`](docs/UPDATER.md) — diseño del updater aislado.
-- [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md) — recordatorios locales, sonido y segundo plano.
-- [`docs/RELEASE.md`](docs/RELEASE.md) — workflow multiplataforma, firma y secrets.
-- [`docs/SNAP.md`](docs/SNAP.md) — snap estricto, build y publicación.
-- [`docs/KEYS.md`](docs/KEYS.md) — custodia de la clave de firma.
-- [`PRIVACY.md`](PRIVACY.md) — política de privacidad para Microsoft Store.
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisiones y descartes.
-- [`docs/OFFLINE.md`](docs/OFFLINE.md) — trabajo sin internet.
-- [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) — licencias y excepciones.
-- [`CHANGELOG.md`](CHANGELOG.md) — cambios por versión.
+| Document | Contents |
+| :--- | :--- |
+| [`docs/CHECKLIST.md`](docs/CHECKLIST.md) | Status, phases, rules, and next steps |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, security boundaries, and flows |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Schema and conventions |
+| [`docs/EXPORT_FORMAT.md`](docs/EXPORT_FORMAT.md) | The `.txt` export contract |
+| [`docs/UPDATER.md`](docs/UPDATER.md) | Design of the isolated updater |
+| [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md) | Local reminders, sound, and background mode |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | Cross-platform workflow, signing, and secrets |
+| [`docs/SNAP.md`](docs/SNAP.md) | Strict snap, build, and publication |
+| [`docs/KEYS.md`](docs/KEYS.md) | Signing-key custody |
+| [`PRIVACY.md`](PRIVACY.md) | Privacy policy for the Microsoft Store |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decisions and rejected alternatives |
+| [`docs/OFFLINE.md`](docs/OFFLINE.md) | Working without internet access |
+| [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | Licenses and exceptions |
+| [`CHANGELOG.md`](CHANGELOG.md) | Changes by version |
 
-## Estructura
-
-```text
-src/                 UI React
-src-tauri/           host Tauri, comandos, CSP y permisos
-crates/study-planner-core/    dominio puro, constantes, IDs
-crates/study-planner-store/   SQLite, migraciones, backups
-crates/study-planner-transfer/ exportación/importación
-crates/study-planner-updater/  red aislada (Fase 5)
-docs/                documentación persistente
-scripts/             verificación y auditoría
-fixtures/export/     fixtures de round-trip
-```
-
-La bóveda vive fuera del repositorio:
+## Project structure
 
 ```text
-<bóveda>/omega/                          datos vivos, backup principal, adjuntos y log local
-<bóveda>/longlife/<dispositivo>/<fecha>/ snapshots diarias (7 por dispositivo)
+src/                           React UI
+src-tauri/                     Tauri host, commands, CSP, and permissions
+crates/study-planner-core/     pure domain, constants, IDs
+crates/study-planner-store/    SQLite, migrations, backups
+crates/study-planner-transfer/ export/import
+crates/study-planner-updater/  isolated network access (Phase 5)
+docs/                          persistent documentation
+scripts/                       verification and auditing
+fixtures/export/               round-trip fixtures
 ```
 
-## Seguridad
+The vault lives outside the repository:
 
-- No hay claves, contraseñas ni bases de datos en el repositorio.
-- El snap usa confinamiento `strict`, solo `home`/`removable-media` y ningún plug de red; ver `docs/SNAP.md`.
-- No se aceptan contribuciones que agreguen red, cuentas, telemetría o permisos amplios al frontend.
-- La clave privada del updater y su passphrase se custodian fuera del repo; ver `docs/KEYS.md`.
-- Si encontrás un problema de seguridad, usá el [reporte privado de GitHub](https://github.com/wulflo/study-planner/security/advisories/new). No abras un issue público. Ver [`SECURITY.md`](SECURITY.md).
+```text
+<vault>/omega/                          live data, primary backup, attachments, and local log
+<vault>/longlife/<device>/<date>/       daily snapshots (7 per device)
+```
 
-## Licencia
+## Security
 
-MIT OR Apache-2.0. Las dependencias de plataforma (WebKitGTK/GTK) son LGPL y se enlazan dinámicamente; ver `THIRD_PARTY_LICENSES.md`.
+- No keys, passwords, or databases are stored in the repository.
+- The snap uses `strict` confinement, only `home`/`removable-media`, and no network plugs; see `docs/SNAP.md`.
+- Contributions that add network access, accounts, telemetry, or broad frontend permissions are not accepted.
+- The updater's private key and passphrase are kept outside the repository; see `docs/KEYS.md`.
+- If you find a security issue, use GitHub's [private advisory](https://github.com/wulflo/StudyPlanner/security/advisories/new). Do not open a public issue. See [`SECURITY.md`](SECURITY.md).
+
+## Contributing
+
+Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for development setup, coding guidelines, test requirements, and the pull-request process.
+
+## License
+
+Released under **MIT OR Apache-2.0**. Platform dependencies (WebKitGTK/GTK) are LGPL and dynamically linked; see [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
