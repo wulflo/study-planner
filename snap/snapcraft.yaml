@@ -12,10 +12,10 @@ description: |
 license: MIT
 grade: stable
 confinement: strict
-website: https://github.com/wulflo/study-planner
-source-code: https://github.com/wulflo/study-planner
-contact: https://github.com/wulflo/study-planner/issues
-issues: https://github.com/wulflo/study-planner/issues
+website: https://github.com/wulflo/StudyPlanner
+source-code: https://github.com/wulflo/StudyPlanner
+contact: https://github.com/wulflo/StudyPlanner/issues
+issues: https://github.com/wulflo/StudyPlanner/issues
 
 layout:
   /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1:

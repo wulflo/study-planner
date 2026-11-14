@@ -7,7 +7,7 @@
 use std::process::{Child, Command};
 
 /// Repositorio público del proyecto.
-const REPOSITORY_URL: &str = "https://github.com/wulflo/study-planner";
+const REPOSITORY_URL: &str = "https://github.com/wulflo/StudyPlanner";
 
 /// Abre el repositorio en el navegador predeterminado del escritorio.
 #[tauri::command]

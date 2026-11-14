@@ -117,7 +117,7 @@ Constante inmutable, fijada al compilar:
 
 ```rust
 pub const UPDATE_URL: &str =
-    "https://github.com/wulflo/study-planner/releases/latest/download/latest.json";
+    "https://github.com/wulflo/StudyPlanner/releases/latest/download/latest.json";
 pub const ALLOWED_HOSTS: [&str; 3] = [
     "github.com",
     "objects.githubusercontent.com",

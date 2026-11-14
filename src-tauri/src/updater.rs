@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn host_is_extracted_from_allowed_urls() {
         assert_eq!(
-            host_of("https://github.com/wulflo/study-planner/releases/app.AppImage"),
+            host_of("https://github.com/wulflo/StudyPlanner/releases/app.AppImage"),
             "github.com"
         );
         assert_eq!(

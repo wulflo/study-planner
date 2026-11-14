@@ -6,7 +6,7 @@ Study Planner es una aplicación local que maneja datos académicos y, en el fut
 
 Usá el reporte privado de GitHub:
 
-**https://github.com/wulflo/study-planner/security/advisories/new**
+**https://github.com/wulflo/StudyPlanner/security/advisories/new**
 
 También podés contactar al mantenedor por los medios indicados en su perfil de GitHub. Incluí:
 

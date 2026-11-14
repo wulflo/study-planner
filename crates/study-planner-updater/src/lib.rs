@@ -31,7 +31,7 @@ use thiserror::Error;
 
 /// Endpoint fijo del manifiesto. Nunca se lee de settings ni de argumentos.
 pub const UPDATE_URL: &str =
-    "https://github.com/wulflo/study-planner/releases/latest/download/latest.json";
+    "https://github.com/wulflo/StudyPlanner/releases/latest/download/latest.json";
 
 /// Plataforma soportada por el updater.
 pub const PLATFORM: &str = "linux-x86_64";
@@ -1045,7 +1045,7 @@ mod tests {
                 "notes": "Cambios de la versión",
                 "platforms": {{
                     "linux-x86_64": {{
-                        "url": "https://github.com/wulflo/study-planner/releases/download/v{version}/Study_Planner.AppImage",
+                        "url": "https://github.com/wulflo/StudyPlanner/releases/download/v{version}/Study_Planner.AppImage",
                         "signature": "{TEST_SIGNATURE}",
                         "sha256": "{TEST_SHA256}"
                     }}
@@ -1083,14 +1083,14 @@ mod tests {
     #[test]
     fn rejects_insecure_or_foreign_urls() {
         for url in [
-            "http://github.com/wulflo/study-planner/releases/download/v0.2.0/app.AppImage",
+            "http://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/app.AppImage",
             "https://evil.example/app.AppImage",
             "https://github.com.evil.example/app.AppImage",
             "https://user@github.com/app.AppImage",
             "https://github.com/app.AppImage#fragment",
         ] {
             let payload = manifest("0.2.0").replace(
-                "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner.AppImage",
+                "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner.AppImage",
                 url,
             );
             assert!(
@@ -1125,12 +1125,12 @@ mod tests {
                 "version": "0.2.0",
                 "platforms": {{
                     "linux-x86_64": {{
-                        "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/app.AppImage",
+                        "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/app.AppImage",
                         "signature": "{TEST_SIGNATURE}",
                         "sha256": "{TEST_SHA256}"
                     }},
                     "linux-x86_64-deb": {{
-                        "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/app.deb",
+                        "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/app.deb",
                         "signature": "{TEST_SIGNATURE}",
                         "sha256": "{TEST_SHA256}"
                     }}

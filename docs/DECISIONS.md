@@ -215,7 +215,7 @@ Registro breve de decisiones que afectan la arquitectura. Una decisión nueva se
 
 **Estado:** aceptada (2026-11-08). Reemplaza ADR-013.
 
-**Contexto:** el usuario creó el repositorio público `https://github.com/wulflo/study-planner` y pidió configurarlo.
+**Contexto:** el usuario creó el repositorio público `https://github.com/wulflo/StudyPlanner` y pidió configurarlo.
 
 **Decisión:** `main` se publica en GitHub como repositorio público. El código y la documentación son públicos; la bóveda, los backups, las claves y los secretos **nunca** se publican. El CI se ejecuta en GitHub Actions sin secretos. La URL del updater queda tentativamente en ese repositorio, pero se fija recién en Fase 5.
 

@@ -35,7 +35,7 @@ Este archivo es la fuente de verdad para retomar el proyecto después de días o
 | Notificaciones | Locales, calculadas en el store y entregadas por D-Bus desde Rust; sin plugin ni permisos de webview; sonido opcional y modo segundo plano con bandeja |
 | Bóveda real | Selección local, lock, backups verificados, snapshots, exportación/importación canónica, restauración con backup previo y log local |
 | Secretos | Ninguno generado, ninguno en el repo |
-| Git | Repositorio local + remoto GitHub [`wulflo/study-planner`](https://github.com/wulflo/study-planner) (público); `main` con commit inicial `87f2be8` |
+| Git | Repositorio local + remoto GitHub [`wulflo/StudyPlanner`](https://github.com/wulflo/StudyPlanner) (público); `main` con commit inicial `87f2be8` |
 | CI | GitHub Actions con los crates actuales (core, store, transfer, updater y host), auditoría de red y `release.yml` para tags `v*` |
 | Release | AppImage, `.deb`, `.rpm`, Windows (NSIS/MSI/MSIX) y macOS; `v0.1.5` corrige la identidad de Microsoft Store (`wulflo`) y endurece los workflows |
 
@@ -257,10 +257,10 @@ Objetivo: abrir/crear una bóveda real, respaldarla y mover todos los datos con 
 ## Pendientes de decisión del usuario
 
 - [x] ¿Se acepta la dependencia transitiva **MPL-2.0** de Tauri o se busca una alternativa? Aceptada en **ADR-017** (2026-11-08), sin modificar los paquetes.
-- [ ] Confirmar URL HTTPS fija del updater. Tentativa: `https://github.com/wulflo/study-planner/releases/latest/download/latest.json`.
+- [ ] Confirmar URL HTTPS fija del updater. Tentativa: `https://github.com/wulflo/StudyPlanner/releases/latest/download/latest.json`.
 - [ ] ¿Firma de releases en CI o firma offline? Recomendado: offline.
 - [ ] Custodia final de la clave y su passphrase (volumen cifrado, copia offline y almacenamiento remoto cifrado).
-- [x] Repositorio publicado en GitHub: [`wulflo/study-planner`](https://github.com/wulflo/study-planner), público, sin datos ni secretos.
+- [x] Repositorio publicado en GitHub: [`wulflo/StudyPlanner`](https://github.com/wulflo/StudyPlanner), público, sin datos ni secretos.
 - [x] Estructura de bóveda `<raíz>/omega` + `<raíz>/longlife` confirmada en **ADR-016**.
 - [ ] Evaluar la alerta de Dependabot de `glib` 0.18.5 (unsoundness en iteradores de `VariantStrIter`, severidad media): viene de `gtk 0.18` en la pila de Tauri y la corrección exige `glib 0.20`, es decir, una actualización mayor de Tauri/gtk-rs. No se usa directamente en el código de Study Planner. Las actualizaciones automáticas de `glib < 0.20.0` se ignoran en `.github/dependabot.yml` para que el workflow de Dependabot no falle; la alerta sigue abierta para reevaluar al actualizar Tauri/gtk-rs.
 
@@ -349,7 +349,7 @@ Resumen; detalle en `docs/OFFLINE.md`.
 - Se configuraron CSP, permisos mínimos, UI shell y tests.
 - Se documentó la arquitectura, el modelo de datos, el formato de exportación, el updater, las claves y el modo offline.
 - Se endureció `.gitignore`, se agregaron scripts de verificación/auditoría y CI sin secretos.
-- Se publicó el repositorio público [`wulflo/study-planner`](https://github.com/wulflo/study-planner) y se subió `main`.
+- Se publicó el repositorio público [`wulflo/StudyPlanner`](https://github.com/wulflo/StudyPlanner) y se subió `main`.
 - Se configuraron descripción, temas, issues, auto-merge, borrado de rama al mergear, alertas de vulnerabilidades y protección de `main` con CI requerido.
 - Se integró una barra de título propia con minimizar, maximizar/restaurar y cerrar, más arrastre y bordes de redimensionado.
 - Se renombró el proyecto de `Omega` a `Study Planner`: crates `study-planner-*`, identifier `app.studyplanner.desktop`, magic `STUDY-PLANNER-EXPORT`.

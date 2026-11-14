@@ -342,7 +342,7 @@ export function SettingsView({
             disabled={!runningInTauri}
             title={
               runningInTauri
-                ? "Abrir github.com/wulflo/study-planner"
+                ? "Abrir github.com/wulflo/StudyPlanner"
                 : "Disponible en la app de escritorio"
             }
             onClick={() => void handleOpenRepository()}

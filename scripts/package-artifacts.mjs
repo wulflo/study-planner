@@ -9,7 +9,7 @@
 //   TAURI_SIGNING_PRIVATE_KEY           contenido de la clave privada
 //   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  passphrase
 // Opcionales:
-//   GITHUB_REPOSITORY   por defecto wulflo/study-planner
+//   GITHUB_REPOSITORY   por defecto wulflo/StudyPlanner
 //   RELEASE_TAG         por defecto v<versión>
 //   RELEASE_OUT_DIR     por defecto dist-release
 //   RELEASE_NOTES       notas visibles en la app
@@ -86,7 +86,7 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
   fail("falta TAURI_SIGNING_PRIVATE_KEY; no se firma sin clave");
 }
 
-const repo = process.env.GITHUB_REPOSITORY ?? "wulflo/study-planner";
+const repo = process.env.GITHUB_REPOSITORY ?? "wulflo/StudyPlanner";
 const outDir = process.env.RELEASE_OUT_DIR ?? "dist-release";
 const bundleRoot = path.join("target", "release", "bundle");
 const prefix = platformPrefix();

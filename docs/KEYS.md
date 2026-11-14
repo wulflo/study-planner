@@ -159,7 +159,7 @@ recuperación.
 
 ## GitHub Actions
 
-> El repositorio es público: [`wulflo/study-planner`](https://github.com/wulflo/study-planner). Estos pasos son para cuando exista la clave.
+> El repositorio es público: [`wulflo/StudyPlanner`](https://github.com/wulflo/StudyPlanner). Estos pasos son para cuando exista la clave.
 
 El workflow `.github/workflows/release.yml` compila el AppImage y lo firma con la
 CLI de Tauri usando `--app-version` para que el trusted comment incluya

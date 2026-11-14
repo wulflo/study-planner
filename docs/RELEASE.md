@@ -129,7 +129,7 @@ certificado ni contraseña de firma.
 La app consulta siempre:
 
 ```text
-https://github.com/wulflo/study-planner/releases/latest/download/latest.json
+https://github.com/wulflo/StudyPlanner/releases/latest/download/latest.json
 ```
 
 Antes de etiquetar una release, `./scripts/check.sh` debe estar verde: incluye
@@ -145,32 +145,32 @@ permitida del updater):
   "notes": "Study Planner 0.2.0.",
   "platforms": {
     "linux-x86_64": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/study-planner_0.2.0_x86_64.AppImage",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/study-planner_0.2.0_x86_64.AppImage",
       "signature": "<base64 de la firma minisign>",
       "sha256": "<64 hex>"
     },
     "linux-x86_64-deb": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_amd64.deb",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner_0.2.0_amd64.deb",
       "signature": "<base64>",
       "sha256": "<64 hex>"
     },
     "linux-x86_64-rpm": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner-0.2.0-1.x86_64.rpm",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner-0.2.0-1.x86_64.rpm",
       "signature": "<base64>",
       "sha256": "<64 hex>"
     },
     "windows-x86_64": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_x64-setup.exe",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner_0.2.0_x64-setup.exe",
       "signature": "<base64>",
       "sha256": "<64 hex>"
     },
     "windows-x86_64-msi": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_x64_en-US.msi",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner_0.2.0_x64_en-US.msi",
       "signature": "<base64>",
       "sha256": "<64 hex>"
     },
     "darwin-aarch64": {
-      "url": "https://github.com/wulflo/study-planner/releases/download/v0.2.0/Study_Planner_0.2.0_aarch64.dmg",
+      "url": "https://github.com/wulflo/StudyPlanner/releases/download/v0.2.0/Study_Planner_0.2.0_aarch64.dmg",
       "signature": "<base64>",
       "sha256": "<64 hex>"
     }
@@ -292,7 +292,7 @@ que better-tracker y SinNotas:
    workflow (`store-msix`).
 5. Falla si no existe `PRIVACY.md`: Microsoft Store exige una política de
    privacidad pública, enlazada desde la ficha del producto. La URL pública es
-   `https://github.com/wulflo/study-planner/blob/main/PRIVACY.md`.
+   `https://github.com/wulflo/StudyPlanner/blob/main/PRIVACY.md`.
 
 El manifiesto usa por defecto la identidad reservada en el Partner Center:
 `Identity Name` `wulflo.StudyPlannerMax`, `Publisher`
